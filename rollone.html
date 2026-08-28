@@ -7612,25 +7612,61 @@ function exportCharacterPdf(c){
     <p style="white-space:pre-wrap">${esc(c.notes||"—")}</p>
     <div class="muted" style="margin-top:30px">Generato da RollOne il ${new Date().toLocaleDateString("it-IT")}.</div>
   </body></html>`;
-  // Scarica SEMPRE una copia reale del file (funziona anche nella finestra "app" del launcher
-  // desktop, dove i popup di window.open()/window.print() possono essere bloccati o comportarsi in
-  // modo incoerente senza alcun errore visibile — prima questo era l'UNICO metodo, e se il popup
-  // falliva silenziosamente l'utente non otteneva alcuna copia della scheda, senza nemmeno un avviso).
-  try{
-    const blob=new Blob([html],{type:"text/html"});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");
-    a.href=url; a.download=(c.name||"Personaggio").replace(/[^\w\- ]/g,"_")+" - Scheda RollOne.html";
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url),4000);
-    toast("Scheda scaricata come file HTML: apri il file e stampa/salva come PDF dal browser.");
-  }catch(e){ toast("Impossibile scaricare il file: "+e.message); }
-  // In aggiunta, se il browser lo consente, prova anche ad aprire la finestra di stampa diretta
-  // (comodità in più quando non è bloccata, ma il download sopra garantisce comunque una copia).
-  try{
-    const w=window.open("","_blank");
-    if(w){ w.document.write(html); w.document.close(); w.onload=()=>{ setTimeout(()=>{ w.focus(); w.print(); },300); }; }
-  }catch(e){ /* nessun problema: il download come file HTML sopra ha già dato una copia della scheda */ }
+  const fileName=(c.name||"Personaggio").replace(/[^\w\- ]/g,"_")+" - Scheda RollOne.html";
+  // BUG CORRETTO (2026-08-28): il vecchio metodo apriva window.open("","_blank") e ci scriveva dentro
+  // con document.write(). Su Capacitor (Android) e in generale in una WebView "a finestra singola"
+  // senza gestione di window.open, questo NON apre una nuova scheda: sostituisce il documento della
+  // WebView corrente, cioè cancella l'intera app in memoria per rimpiazzarla con la sola scheda
+  // stampata — da qui "si blocca e non torna indietro" (non c'è più l'app dietro a cui tornare, e
+  // niente barra di navigazione per uscire). Nel frattempo il salvataggio vero e proprio (sotto)
+  // veniva eseguito ma passava inosservato perché lo schermo era già stato dirottato. Ora si usa
+  // SEMPRE e SOLO un iframe nascosto per la stampa: resta nella pagina, non naviga mai via, quindi
+  // non può più bloccare né l'app né impedire il ritorno indietro, su nessuna delle 3 piattaforme.
+  function printViaHiddenIframe(){
+    try{
+      const ifr=document.createElement("iframe");
+      ifr.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+      document.body.appendChild(ifr);
+      const doc=ifr.contentWindow.document;
+      doc.open(); doc.write(html); doc.close();
+      ifr.onload=()=>{
+        try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){}
+        setTimeout(()=>{ try{ document.body.removeChild(ifr); }catch(e){} },1000);
+      };
+    }catch(e){ /* nessun problema: il download del file sotto garantisce comunque una copia */ }
+  }
+  // Salvataggio nativo su file quando l'app gira "impacchettata" tramite Capacitor (Android): se il
+  // plugin Filesystem è disponibile lo usiamo per scrivere davvero un file e aprire il foglio di
+  // condivisione/salvataggio nativo, perché in una WebView Android l'attributo <a download> sui blob
+  // spesso non fa comparire alcun salvataggio reale (limite noto delle WebView, non un errore di
+  // questa app). Se il plugin non è installato in questa build, si scende al metodo blob standard,
+  // che su desktop (Electron/browser) funziona regolarmente.
+  (async ()=>{
+    try{
+      const Filesystem=window.Capacitor?.Plugins?.Filesystem;
+      const Share=window.Capacitor?.Plugins?.Share;
+      if(window.Capacitor && Filesystem){
+        const b64=btoa(unescape(encodeURIComponent(html)));
+        const res=await Filesystem.writeFile({path:fileName,data:b64,directory:"CACHE"});
+        if(Share && res?.uri){
+          await Share.share({title:fileName,url:res.uri,dialogTitle:"Salva o condividi la scheda"});
+        }
+        toast("Scheda pronta: scegli dove salvarla o condividerla.");
+        printViaHiddenIframe();
+        return;
+      }
+    }catch(e){ /* se il salvataggio nativo fallisce, si prosegue comunque con il download standard sotto */ }
+    try{
+      const blob=new Blob([html],{type:"text/html"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url; a.download=fileName;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      toast("Scheda scaricata come file HTML: apri il file e stampa/salva come PDF dal browser.");
+    }catch(e){ toast("Impossibile scaricare il file: "+e.message); }
+    printViaHiddenIframe();
+  })();
 }
 function editBasics(c){
   const body=el("div",{});
