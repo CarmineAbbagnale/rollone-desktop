@@ -8085,7 +8085,7 @@ function exportCharacterPdf(c){
   const fileName=(c.name||"Personaggio").replace(/[^\w\- ]/g,"_")+" - Scheda RollOne.pdf";
   savePdfChoosingLocation(doc, fileName);
 }
-/* Salva un documento jsPDF lasciando scegliere all'utente dove metterlo, con tre livelli di
+/* Salva un documento jsPDF lasciando scegliere all'utente dove metterlo, con più livelli di
    fallback in ordine di preferenza (vedi commento su exportCharacterPdf per i dettagli). */
 async function savePdfChoosingLocation(doc, fileName){
   try{
@@ -8103,6 +8103,25 @@ async function savePdfChoosingLocation(doc, fileName){
   }catch(e){
     if (e && e.name === "AbortError") return; // l'utente ha chiuso la finestra "Salva con nome": nessun errore da mostrare
     // altrimenti si prosegue con i metodi sottostanti (es. API non supportata in questo contesto)
+  }
+  // Android: Web Share API standard con file allegato. A differenza del plugin Filesystem/Share
+  // di Capacitor (aggiunto a questa build ma non ancora presente sull'app già installata sul
+  // telefono finché non viene rifatta la build), questa è un'API del browser incorporata nella
+  // WebView di sistema: funziona GIÀ, senza dover ricompilare l'app, perché arriva con questo
+  // stesso aggiornamento dei contenuti. Apre il foglio di condivisione nativo di Android, da cui
+  // l'utente sceglie dove salvare (Drive, Files, ecc.) — proprio quello che mancava.
+  try{
+    if (navigator.share && navigator.canShare) {
+      const file = new File([doc.output("blob")], fileName, { type: "application/pdf" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: fileName });
+        toast("Scegli dove salvare il PDF.");
+        return;
+      }
+    }
+  }catch(e){
+    if (e && e.name === "AbortError") return; // l'utente ha chiuso il foglio di condivisione: nessun errore da mostrare
+    // altrimenti si prosegue con i metodi sottostanti
   }
   try{
     const Filesystem = window.Capacitor?.Plugins?.Filesystem;
@@ -16618,12 +16637,29 @@ function removeDarkGift(character, giftName) {
         return;
       }
       var html = new TextDecoder("utf-8").decode(buf);
-      await idbSet("latest", { version: manifest.version, html: html });
-      progress.remove();
-      // Non si applica subito: si scarica e verifica ora, ma lo scambio dei
-      // contenuti avviene solo al prossimo avvio di RollOne (applyCachedUpdateIfAny
-      // qui sopra), mai mentre l'utente sta ancora usando l'app in questo momento.
-      await showDismissable("Aggiornamento scaricato", "I nuovi contenuti sono stati scaricati e verificati. Verranno applicati automaticamente al prossimo avvio di RollOne.", "Ok");
+      await idbSet("latest", { version: manifest.version, html: html }); // resta come rete di sicurezza, vedi sotto
+      // BUG CORRETTO (2026-08-28): prima si diceva solo "verrà applicato al prossimo avvio", ma su
+      // Android "avvio" per l'utente comune vuol dire toccare di nuovo l'icona — se l'app resta
+      // semplicemente in background (senza essere chiusa a forza dal task switcher) il processo e
+      // la pagina non ripartono mai davvero, quindi l'aggiornamento sembrava "non funzionare"
+      // finché non si chiudeva l'app a mano. Dato che qui l'utente ha appena scelto esplicitamente
+      // "Aggiorna ora", ora si applica SUBITO con lo stesso scambio sicuro via iframe già usato
+      // all'avvio (mai una navigazione diretta della pagina): nessuna chiusura manuale richiesta.
+      // Se per qualche motivo lo scambio immediato fallisse, resta comunque in cache (idbSet sopra)
+      // e si applicherà al prossimo avvio vero e proprio, come rete di sicurezza.
+      progress.setProgress(100, "Applicazione dell'aggiornamento…");
+      await new Promise(function(resolve){
+        applyViaIframe(html, function(ok){
+          progress.remove();
+          if (ok) {
+            setAppliedVersion(manifest.version);
+          } else {
+            showDismissable("Aggiornamento scaricato", "I nuovi contenuti sono stati scaricati e verificati, ma non è stato possibile applicarli subito. Verranno applicati automaticamente al prossimo avvio di RollOne.", "Ok").then(resolve);
+            return;
+          }
+          resolve();
+        });
+      });
     } catch(e){
       console.log("Controllo aggiornamento contenuti fallito:", e && e.message);
     }
