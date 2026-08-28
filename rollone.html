@@ -1172,7 +1172,7 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
     <div class="side-foot">
       <div id="sbProfile"></div>
       <button class="iconbtn" id="menuBtn">&#9881; Impostazioni</button>
-      <div style="font-size:10px;opacity:.55;margin-top:6px;line-height:1.4">Build 1.0.0<br>Rilascio 26/08/2026</div>
+      <div id="sbBuildInfo" style="font-size:10px;opacity:.55;margin-top:6px;line-height:1.4">Build 1.0.0<br>Rilascio 26/08/2026</div>
     </div>
   </aside>
   <div class="main-col">
@@ -3941,7 +3941,32 @@ function mpAuthModal(sb){
    avvio in assoluto su un dispositivo (impossibile completare un login senza connessione), o
    un dispositivo che ha già effettuato un login in passato (fidato, anche se ora è offline o
    sloggato). In entrambi i casi resta comunque garantito il pieno funzionamento offline. */
+/* La libreria Supabase (window.supabase) viene caricata con <script defer>: per specifica HTML
+   uno script "defer" viene eseguito SOLO dopo che l'intero documento è stato analizzato, mentre
+   questo script (un normale <script> inline, senza defer, più avanti nel documento) viene
+   eseguito SUBITO durante l'analisi — quindi PRIMA che la libreria sia arrivata e sia stata
+   eseguita. Chiamare mpClient() nell'istante stesso in cui parte authGate() la trova quindi
+   quasi sempre non ancora disponibile, indipendentemente dalla connessione: il gate mostrava
+   "connessione non disponibile" e offriva solo "continua offline" anche con internet perfettamente
+   funzionante, per poi "magicamente" funzionare una volta dentro l'app (quando la libreria aveva
+   ormai fatto in tempo a caricarsi). Bug identico su tutte le piattaforme, dato che è lo stesso
+   file HTML ovunque. La correzione: aspettare per davvero che window.supabase compaia (con un
+   timeout ragionevole per una connessione lenta) prima di concludere che non è disponibile. */
+function waitForSupabaseLib(timeoutMs){
+  return new Promise(resolve=>{
+    if(typeof window.supabase!=="undefined" && window.supabase.createClient){ resolve(true); return; }
+    const start=Date.now();
+    const iv=setInterval(()=>{
+      if(typeof window.supabase!=="undefined" && window.supabase.createClient){
+        clearInterval(iv); resolve(true);
+      }else if(Date.now()-start>timeoutMs){
+        clearInterval(iv); resolve(false);
+      }
+    },100);
+  });
+}
 async function authGate(){
+  await waitForSupabaseLib(6000);
   const sb=mpClient();
   if(sb){
     try{
@@ -6290,6 +6315,15 @@ function renderAuthGate(){
   if(!root){ root=el("div",{id:"authGateRoot"}); document.body.append(root); }
   root.innerHTML="";
   const sb=mpClient();
+  // Rete di sicurezza aggiuntiva rispetto al waitForSupabaseLib() già fatto da authGate(): se per
+  // qualunque motivo questa schermata viene disegnata mentre la libreria non è ancora pronta (sb
+  // nullo), non restare bloccati a mostrare "connessione non disponibile" più a lungo del
+  // necessario — appena la libreria compare, ridisegna da sola il gate con i pulsanti giusti.
+  if(!sb && !AUTH_GATE_PASSED){
+    waitForSupabaseLib(6000).then(ready=>{
+      if(ready && !AUTH_GATE_PASSED && document.getElementById("authGateRoot")) renderAuthGate();
+    });
+  }
   let mode="login"; // "login" | "signup"
   const nameIn=el("input",{placeholder:"Es. Aldric",maxlength:"40"});
   const nameFld=fld("Il tuo nome (visibile agli altri giocatori)",nameIn);
@@ -6443,28 +6477,66 @@ function render(){
   const app=$("#app"); app.innerHTML="";
   const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
   const _cr=document.getElementById("crumb"); if(_cr)_cr.textContent=VIEW_NAMES[STATE.view]||"";
-  renderSidebarProfile();
+  // Anche qui: se il personaggio attivo ha dati che mandano in errore derived() (es. una classe
+  // forgiata/homebrew salvata in modo incompleto), non deve poter bloccare TUTTO render() prima
+  // ancora di arrivare al try/catch della vista qui sotto — altrimenti l'app resterebbe muta ad
+  // ogni singolo render(), qualunque vista si provi ad aprire, sidebar compresa.
+  try{ renderSidebarProfile(); }catch(sidebarErr){ console.error("Errore nel profilo sidebar:", sidebarErr); }
 
   $$("#tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===STATE.view));
   let node;
-  switch(STATE.view){
-    case "home": node=viewHome(); break;
-    case "sheet": node=viewSheet(); break;
-    case "companion": node=viewCompanion(); break;
-    case "wizard": node=viewWizard(); break;
-    case "bestiary": node=viewBestiary(); break;
-    case "forge": node=viewForge(); break;
-    case "explore": node=viewExplore(); break;
-    case "dmscreen": node=viewDMScreen(); break;
-    case "tavolo": node=aiFeatureGate("tavoloEnabled","Tavolo",viewTavolo); break;
-    case "compendium": node=viewCompendium(); break;
-    case "classes": node=viewClasses(); break;
-    case "settings": node=viewSettings(); break;
-    case "treasure": node=viewTreasure(); break;
-    case "epic": node=viewEpic(); break;
-    default: node=viewHome();
+  // Rete di sicurezza contro il blocco totale della navigazione (bug segnalato: l'app resta
+  // "incastrata" su una schermata e non risponde più a nessun tocco). Prima, se una vista
+  // (es. la scheda di un personaggio con una classe forgiata/homebrew mal formata) lanciava
+  // un'eccezione qui dentro, #app era già stato svuotato (vedi app.innerHTML="" sopra) ma
+  // MAI ripopolato: il giocatore restava con uno schermo vuoto o, secondo il dispositivo/
+  // WebView, con l'ultima schermata dipinta ancora visibile ma priva di qualunque gestore di
+  // click funzionante, perché il resto di render() non veniva mai eseguito. Ora un errore in
+  // QUALSIASI vista viene intercettato e sostituito con una schermata di recupero che offre
+  // sempre un modo di uscirne, invece di lasciare l'app completamente muta.
+  try{
+    switch(STATE.view){
+      case "home": node=viewHome(); break;
+      case "sheet": node=viewSheet(); break;
+      case "companion": node=viewCompanion(); break;
+      case "wizard": node=viewWizard(); break;
+      case "bestiary": node=viewBestiary(); break;
+      case "forge": node=viewForge(); break;
+      case "explore": node=viewExplore(); break;
+      case "dmscreen": node=viewDMScreen(); break;
+      case "tavolo": node=aiFeatureGate("tavoloEnabled","Tavolo",viewTavolo); break;
+      case "compendium": node=viewCompendium(); break;
+      case "classes": node=viewClasses(); break;
+      case "settings": node=viewSettings(); break;
+      case "treasure": node=viewTreasure(); break;
+      case "epic": node=viewEpic(); break;
+      default: node=viewHome();
+    }
+  }catch(renderErr){
+    console.error("Errore nel disegnare la vista '"+STATE.view+"':", renderErr);
+    node=renderViewCrashRecovery(STATE.view, renderErr);
   }
   app.append(el("div",{class:"view"},node));
+}
+/* Schermata di recupero mostrata quando una vista specifica non riesce a disegnarsi (invece di
+   lasciare l'app bloccata/muta, vedi commento sopra in render()). "Torna alla Home" non passa da
+   go() (che richiamerebbe render() sulla STESSA vista rotta se STATE.view non cambiasse prima):
+   qui invece azzeriamo esplicitamente STATE.view a "home" PRIMA di richiamare render(), così anche
+   se la vista rotta persistesse per qualche motivo, si torna comunque a una schermata funzionante. */
+function renderViewCrashRecovery(viewName, err){
+  const box=el("div",{class:"card",style:"max-width:560px;margin:40px auto;text-align:center"});
+  box.append(el("div",{style:"font-size:40px;margin-bottom:10px"},"⚠️"));
+  box.append(el("h3",{style:"color:var(--gold2)"},"Questa schermata non si è aperta correttamente"));
+  box.append(el("p",{class:"muted"},"C'è stato un problema imprevisto disegnando «"+(VIEW_LABEL_FALLBACK(viewName))+"». I tuoi dati locali non sono stati toccati: puoi tornare alla Home e riprovare."));
+  box.append(el("p",{class:"muted",style:"font-size:11px;font-family:monospace;opacity:.7;word-break:break-word"},String((err&&err.message)||err||"")));
+  box.append(el("div",{style:"display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap"},
+    el("button",{class:"btn",onclick:()=>{STATE.view="home";persist();render();}},"🏠 Torna alla Home"),
+    el("button",{class:"btn ghost",onclick:()=>{try{location.reload();}catch(e){}}},"⟳ Ricarica l'app")));
+  return box;
+}
+function VIEW_LABEL_FALLBACK(v){
+  const names={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
+  return names[v]||v||"questa vista";
 }
 function renderSidebarProfile(){
   const box=document.getElementById("sbProfile"); if(!box) return;
@@ -12810,6 +12882,21 @@ $("#menuBtn").addEventListener("click",()=>go("settings"));
 loadState();
 applyTheme();
 applyTextScale();
+// La riga "Build 1.0.0 / Rilascio 26/08/2026" nella sidebar era un testo fisso, scritto una
+// volta nell'HTML e mai più aggiornato: dopo un aggiornamento dei contenuti (vedi il meccanismo
+// più sotto, chiave rollone-applied-version) continuava a mostrare la build originale, dando
+// l'impressione (falsa) che l'aggiornamento non fosse mai stato applicato — cosa che ha reso
+// difficile anche capire da uno screenshot se un aggiornamento fosse davvero arrivato o no.
+// Ora mostra la versione dei contenuti REALMENTE in esecuzione quando è nota (dispositivi
+// mobile, dove il meccanismo di aggiornamento scrive questa chiave); altrove, dove non abbiamo
+// un modo affidabile di saperlo da qui, non mostriamo più una data/versione inventata.
+(function(){
+  try{
+    const v=localStorage.getItem("rollone-applied-version");
+    const box=document.getElementById("sbBuildInfo");
+    if(box) box.textContent = v ? ("Contenuti v"+v) : "RollOne";
+  }catch(e){}
+})();
 // Login obbligatorio: authGate() prova PRIMA a ripristinare in silenzio una sessione già
 // salvata (persistSession:true), così su un dispositivo già collegato l'app entra dritta
 // nell'app senza mai mostrare il gate. Solo se non trova nulla, render() mostrerà
