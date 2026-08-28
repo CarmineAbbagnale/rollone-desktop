@@ -973,24 +973,56 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
 }
 @media(max-width:640px){
   html,body{overflow-x:hidden;max-width:100%}
-  main{padding:16px 12px 92px}
+  main{padding:16px 12px 84px}
   header.topbar{padding:10px 14px;gap:10px}
   .crumb{font-size:15px}
-  /* NAV: barra superiore compatta con scorrimento orizzontale, etichette visibili */
-  .sidebar{flex-wrap:nowrap;align-items:stretch}
+  /* NAV MOBILE (ridisegnata, 2026-08-28): prima #tabs restava dentro la riga orizzontale della
+     sidebar insieme a .side-foot (profilo del personaggio attivo + pulsante Impostazioni +
+     versione contenuti): quel blocco è largo e su più righe, e schiacciava le schede di
+     navigazione in una striscia strettissima, quasi illeggibile, di cui si vedeva un solo tab
+     tagliato a metà — bug segnalato esplicitamente da un giocatore, che di fatto non riusciva
+     più a raggiungere nessun'altra parte dell'app. Ora #tabs diventa una vera barra di
+     navigazione fissa in fondo allo schermo (lo spazio era già riservato dal padding-bottom di
+     main qui sopra), il pattern standard delle app mobile: sempre a piena larghezza, sempre
+     raggiungibile col pollice, mai schiacciata da nient'altro. .side-foot (profilo/Impostazioni/
+     versione) resta invece nella striscia superiore assieme al logo, ora libera di occupare
+     tutto lo spazio che le serve senza più rubarlo alle schede di navigazione. */
+  /* .sidebar resta position:sticky (eredita dalla regola base per desktop) ma SENZA z-index
+     esplicito: essendo comunque un contesto di stacking a sé (per via di sticky), il browser lo
+     confronta con <main> al livello del genitore .app-shell in base all'ordine nel documento, e
+     .sidebar viene PRIMA di <main> nell'HTML — quindi, senza un z-index esplicito qui, l'intero
+     ramo .sidebar (compreso #tabs con il suo z-index:400 qui sotto, valido solo ALL'INTERNO del
+     contesto di .sidebar) finiva comunque dietro al contenuto di <main>, non appena quest'ultimo
+     conteneva un elemento con un proprio transform/opacity (es. l'animazione di comparsa delle
+     .card): esattamente il motivo per cui la barra di navigazione poteva restare nascosta sotto
+     al contenuto della scheda, con i tocchi intercettati da lì invece che dai pulsanti di
+     navigazione. Il fix: promuovere l'intero .sidebar in un contesto di stacking che vince
+     sempre su <main>, indipendentemente dall'ordine nel documento. */
+  .sidebar{flex-wrap:nowrap;align-items:stretch;z-index:401}
   .sb-brand{padding:8px 8px 8px 10px;border-bottom:none}
   .sb-brand h1,.sb-brand small{display:none}
   .sb-brand .sigil{width:40px;height:40px}
-  #tabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;gap:4px;padding:8px;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
-  #tabs::-webkit-scrollbar{height:5px}
-  #tabs::-webkit-scrollbar-thumb{background:rgba(169,123,40,.4);border-radius:3px}
-  .nav-item{flex:0 0 auto;scroll-snap-align:start;padding:8px 12px;font-size:12px;gap:7px;min-height:40px}
-  .nav-item .label{display:inline}
-  .nav-item .ico{width:18px;height:18px}
-  .nav-item .ico svg{width:17px;height:17px}
+  #tabs{position:fixed;left:0;right:0;bottom:0;z-index:400;width:100%;flex:0 0 auto;
+    flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    justify-content:flex-start;align-items:stretch;gap:2px;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+    background:var(--panel-bg,var(--card,#181009));border-top:1px solid var(--line);
+    box-shadow:0 -6px 16px rgba(0,0,0,.35);-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  [data-theme="dark"] #tabs{background:var(--r-wood-dark,#181009)}
+  #tabs::-webkit-scrollbar{display:none}
+  .nav-item{flex:0 0 auto;flex-direction:column;justify-content:center;scroll-snap-align:start;
+    min-width:62px;padding:6px 8px;font-size:10px;gap:3px;min-height:52px;letter-spacing:0}
+  .nav-item .label{display:inline;white-space:nowrap}
+  .nav-item .ico{width:20px;height:20px}
+  .nav-item .ico svg{width:19px;height:19px}
   .side-foot{padding:6px 8px;border-top:none}
   .side-foot .iconbtn{font-size:0;padding:9px;line-height:0}
   .side-foot .iconbtn::before{content:"\2699";font-size:19px;line-height:1;color:var(--amber-d)}
+  /* Il banner "dati aggiornati da un altro dispositivo" (#remoteSyncBar) e i toast usavano
+     bottom:0/26px pensati per uno schermo senza barra di navigazione fissa: sollevati sopra la
+     nuova barra così non ci finiscono nascosti sotto (bottom impostato inline, serve !important). */
+  #remoteSyncBar{bottom:calc(64px + env(safe-area-inset-bottom)) !important}
+  .toast{bottom:calc(74px + env(safe-area-inset-bottom))}
   /* GRIGLIE -> colonna singola o compatte */
   .twocol,.threecol{grid-template-columns:1fr}
   .abil-grid,.abil-assign,.statblock .abil6{grid-template-columns:repeat(3,1fr)}
@@ -12903,17 +12935,29 @@ applyTextScale();
 // renderAuthGate() (con la valvola "continua offline" spiegata lì) invece della schermata
 // iniziale. Il render() iniziale avviene DOPO che authGate() si è risolto, per evitare un
 // lampeggio "schermata iniziale poi gate" al primo paint.
-authGate().then(render);
-// Se il dispositivo era offline al primissimo avvio (nessun login mai completato) ed è stato
-// scelto "continua offline", ritenta un accesso silenzioso appena torna la connessione: se una
-// sessione risulta valida (es. login completato da un altro dispositivo con lo stesso account,
-// poi sincronizzato) passa da "offline-pending" ad autenticato senza interrompere la sessione
-// di gioco in corso.
-window.addEventListener("online", ()=>{
-  if(AUTH_GATE_PASSED==="offline-pending"){
-    authGate().then(()=>{ if(AUTH_GATE_PASSED===true) render(); });
-  }
-});
+//
+// bootApp() raccoglie questo avvio in una funzione a sé (invece di lanciarlo qui e basta)
+// perché su mobile (Capacitor) deve partire SOLO dopo che un eventuale aggiornamento dei
+// contenuti già scaricato è stato applicato (vedi il modulo "Aggiornamento leggero dei
+// contenuti" più sotto in questo file): altrimenti l'utente vedrebbe per un istante la
+// schermata con la versione vecchia, che poi sparisce di colpo sostituita da quella nuova.
+// Su desktop/web (dove questo meccanismo di aggiornamento in-app non esiste: Electron usa
+// il proprio processo main.js, il web non ha alcun aggiornamento automatico) l'avvio resta
+// immediato, come prima.
+function bootApp(){
+  authGate().then(render);
+  // Se il dispositivo era offline al primissimo avvio (nessun login mai completato) ed è stato
+  // scelto "continua offline", ritenta un accesso silenzioso appena torna la connessione: se una
+  // sessione risulta valida (es. login completato da un altro dispositivo con lo stesso account,
+  // poi sincronizzato) passa da "offline-pending" ad autenticato senza interrompere la sessione
+  // di gioco in corso.
+  window.addEventListener("online", ()=>{
+    if(AUTH_GATE_PASSED==="offline-pending"){
+      authGate().then(()=>{ if(AUTH_GATE_PASSED===true) render(); });
+    }
+  });
+}
+if(!window.Capacitor) bootApp();
 </script>
 <script>
 /* =========================================================================
@@ -16028,12 +16072,22 @@ function removeDarkGift(character, giftName) {
     iframe.srcdoc = html;
   }
   async function applyCachedUpdateIfAny(){
+    // Restituisce true SOLO se uno scambio dei contenuti è davvero avvenuto (iframe caricato
+    // con successo): in quel caso il documento visibile diventa quello nuovo dentro l'iframe,
+    // che avvierà da sé la propria sequenza di avvio (authGate/render), quindi il chiamante
+    // non deve avviare ANCHE l'app in questo documento ormai coperto e non più visibile.
     try {
       var cached = await idbGet("latest");
       if (cached && cached.version && cmpVersions(cached.version, getAppliedVersion()) > 0){
-        applyViaIframe(cached.html, function(ok){ if (ok) setAppliedVersion(cached.version); });
+        return await new Promise(function(resolve){
+          applyViaIframe(cached.html, function(ok){
+            if (ok) setAppliedVersion(cached.version);
+            resolve(!!ok);
+          });
+        });
       }
     } catch(e){ /* nessuna cache o IndexedDB non disponibile: si resta sulla versione integrata */ }
+    return false;
   }
   async function checkForUpdate(){
     try {
@@ -16072,8 +16126,19 @@ function removeDarkGift(character, giftName) {
       console.log("Controllo aggiornamento contenuti fallito:", e && e.message);
     }
   }
-  applyCachedUpdateIfAny().then(function(){
+  // L'app entra vera e propria (bootApp: login gate / app) SOLO dopo che un eventuale
+  // aggiornamento già scaricato è stato applicato (o si è verificato che non ce n'era
+  // uno pendente). Così, su mobile, l'utente non vede mai la schermata della versione
+  // vecchia per poi ritrovarsela sostituita di colpo sotto gli occhi: quando l'app appare,
+  // è già quella aggiornata. applyCachedUpdateIfAny() si risolve sempre (nel peggiore dei
+  // casi dopo il timeout di sicurezza di 8s dello scambio via iframe), quindi bootApp()
+  // parte comunque anche se lo scambio fallisce o non c'è nulla da applicare.
+  applyCachedUpdateIfAny().then(function(swapped){
     setTimeout(checkForUpdate, 4000);
+    // Se c'è stato uno scambio, il documento nuovo dentro l'iframe avvia già da sé
+    // authGate()/render(): non bisogna avviarli anche qui, nel documento vecchio ormai
+    // coperto e invisibile (eviterebbe solo lavoro e chiamate di rete sprecate).
+    if(!swapped) bootApp();
   });
 })();
 </script>
