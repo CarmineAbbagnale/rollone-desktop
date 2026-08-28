@@ -4569,7 +4569,17 @@ async function mpCheckInvites(silent){
       STATE.campaigns.push(local);
     });
     save();
-    if(rows&&rows.length) toast("Sei stato invitato a "+rows.length+" campagna"+(rows.length>1?"e":"")+"! La trovi in Campagna AI / Tavolo.");
+    // "Invitato" è corretto solo per le campagne di cui NON sei il proprietario: quelle
+    // create da te stesso su un altro dispositivo (owner_id===MP_USER_ID) vengono
+    // semplicemente ri-sincronizzate qui, non sono un invito da parte di qualcun altro.
+    // Prima questa distinzione mancava: al primo login/registrazione su un dispositivo
+    // nuovo (STATE.campaigns locale vuoto) QUALSIASI campagna già legata al proprio
+    // account, comprese quelle proprie, veniva annunciata come "sei stato invitato a N
+    // campagne" — messaggio sbagliato e fuorviante, corretto qui.
+    const realInvites=(rows||[]).filter(row=>row.owner_id!==MP_USER_ID);
+    const ownRecovered=(rows||[]).filter(row=>row.owner_id===MP_USER_ID);
+    if(realInvites.length) toast("Sei stato invitato a "+realInvites.length+" campagna"+(realInvites.length>1?"e":"")+"! La trovi in Campagna AI / Tavolo.");
+    else if(ownRecovered.length) toast("Recuperat"+(ownRecovered.length>1?"e "+ownRecovered.length+" tue campagne":"a una tua campagna")+" dal cloud.");
     render();
   }catch(e){ if(!silent) toast("Errore controllo inviti: "+(e.message||e)); }
 }
