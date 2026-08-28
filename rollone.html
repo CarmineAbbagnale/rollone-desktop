@@ -15519,11 +15519,23 @@ function removeDarkGift(character, giftName) {
       overlay.querySelector("#ru-later").onclick = function(){ overlay.remove(); resolve(false); };
     });
   }
+  function swapToHtml(html){
+    // Non usare document.write: sostituisce il DOM ma non azzera lo scope
+    // JavaScript della pagina, quindi le "const" della pagina nuova andrebbero
+    // in collisione con quelle già dichiarate dalla pagina corrente ("Identifier
+    // already declared") e l'aggiornamento si romperebbe silenziosamente. Una
+    // navigazione vera su un Blob URL apre invece un contesto JS pulito,
+    // mantenendo l'accesso a IndexedDB/localStorage perché il Blob eredita
+    // l'origine della pagina che lo ha creato.
+    var blob = new Blob([html], { type: "text/html" });
+    var blobUrl = URL.createObjectURL(blob);
+    window.location.href = blobUrl;
+  }
   async function applyCachedUpdateIfAny(){
     try {
       var cached = await idbGet("latest");
       if (cached && cached.version && cmpVersions(cached.version, ROLLONE_CONTENT_VERSION) > 0){
-        document.open(); document.write(cached.html); document.close();
+        swapToHtml(cached.html);
       }
     } catch(e){ /* nessuna cache o IndexedDB non disponibile: si resta sulla versione integrata */ }
   }
@@ -15547,7 +15559,7 @@ function removeDarkGift(character, giftName) {
       }
       var html = new TextDecoder("utf-8").decode(buf);
       await idbSet("latest", { version: manifest.version, html: html });
-      document.open(); document.write(html); document.close();
+      swapToHtml(html);
     } catch(e){
       console.log("Controllo aggiornamento contenuti fallito:", e && e.message);
     }
