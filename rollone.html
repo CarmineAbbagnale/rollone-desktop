@@ -15458,9 +15458,24 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.0.0"; // bump ad ogni release dei contenuti pubblicata nel repository
+  var ROLLONE_CONTENT_VERSION = "1.0.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
+
+  function getAppliedVersion(){
+    // Confrontare sempre con questo valore, mai con ROLLONE_CONTENT_VERSION da sola:
+    // dopo uno swap la pagina appena caricata è già alla versione più recente, ma la
+    // costante resterebbe comunque "1.0.0" (è scritta nel file, non si aggiorna da
+    // sola). Usare solo la costante come riferimento avrebbe fatto ripartire lo swap
+    // ad ogni caricamento della pagina appena aggiornata, in un loop infinito che si
+    // vedeva come uno sfarfallio continuo dello schermo.
+    try { return localStorage.getItem(APPLIED_VERSION_KEY) || ROLLONE_CONTENT_VERSION; }
+    catch(e){ return ROLLONE_CONTENT_VERSION; }
+  }
+  function setAppliedVersion(v){
+    try { localStorage.setItem(APPLIED_VERSION_KEY, v); } catch(e){}
+  }
 
   function openDb(){
     return new Promise(function(resolve, reject){
@@ -15519,6 +15534,78 @@ function removeDarkGift(character, giftName) {
       overlay.querySelector("#ru-later").onclick = function(){ overlay.remove(); resolve(false); };
     });
   }
+  function showProgressOverlay(){
+    var overlay = document.createElement("div");
+    overlay.id = "ru-progress-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit";
+    overlay.innerHTML =
+      '<div style="background:#1b1712;border:1px solid #4a3c28;border-radius:14px;padding:22px 24px;max-width:320px;width:80%;color:#f0e6d2;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.6)">' +
+      '<div style="font-size:15px;font-weight:700;margin-bottom:14px" id="ru-progress-label">Download in corso…</div>' +
+      '<div style="height:10px;border-radius:6px;background:#3a2f22;overflow:hidden">' +
+      '<div id="ru-progress-bar" style="height:100%;width:0%;background:#c99a3c;transition:width .15s ease"></div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#cbbfa4;margin-top:10px" id="ru-progress-pct">0%</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    return {
+      setProgress: function(pct, label){
+        var bar = overlay.querySelector("#ru-progress-bar");
+        var pctEl = overlay.querySelector("#ru-progress-pct");
+        var labelEl = overlay.querySelector("#ru-progress-label");
+        if (pct == null){
+          // percentuale non calcolabile (server senza Content-Length): barra indeterminata
+          bar.style.width = "100%";
+          bar.style.opacity = "0.55";
+          pctEl.textContent = "";
+        } else {
+          bar.style.opacity = "1";
+          bar.style.width = Math.max(0, Math.min(100, pct)) + "%";
+          pctEl.textContent = Math.round(pct) + "%";
+        }
+        if (label) labelEl.textContent = label;
+      },
+      remove: function(){ overlay.remove(); }
+    };
+  }
+  async function downloadWithProgress(url, onProgress){
+    var res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("download fallito");
+    var total = Number(res.headers.get("content-length")) || 0;
+    if (!res.body || !res.body.getReader){
+      // fallback per ambienti senza streaming: nessun progresso intermedio
+      var buf = await res.arrayBuffer();
+      onProgress(null);
+      return buf;
+    }
+    var reader = res.body.getReader();
+    var received = 0;
+    var chunks = [];
+    while (true){
+      var step = await reader.read();
+      if (step.done) break;
+      chunks.push(step.value);
+      received += step.value.length;
+      onProgress(total ? (received / total) * 100 : null);
+    }
+    var out = new Uint8Array(received);
+    var offset = 0;
+    for (var i = 0; i < chunks.length; i++){ out.set(chunks[i], offset); offset += chunks[i].length; }
+    return out.buffer;
+  }
+  function showRestartNotice(){
+    return new Promise(function(resolve){
+      var overlay = document.createElement("div");
+      overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit";
+      overlay.innerHTML =
+        '<div style="background:#1b1712;border:1px solid #4a3c28;border-radius:14px;padding:22px 24px;max-width:320px;color:#f0e6d2;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.6)">' +
+        '<div style="font-size:17px;font-weight:700;margin-bottom:8px">Aggiornamento completato</div>' +
+        '<div style="font-size:13px;line-height:1.5;color:#cbbfa4;margin-bottom:18px">I nuovi contenuti sono stati scaricati e verificati. RollOne va riavviato per applicarli.</div>' +
+        '<button id="ru-restart" style="width:100%;padding:10px;border-radius:8px;border:none;background:#c99a3c;color:#1b1712;font-weight:700">Riavvia ora</button>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      overlay.querySelector("#ru-restart").onclick = function(){ resolve(); };
+    });
+  }
   function swapToHtml(html){
     // Non usare document.write: sostituisce il DOM ma non azzera lo scope
     // JavaScript della pagina, quindi le "const" della pagina nuova andrebbero
@@ -15534,7 +15621,8 @@ function removeDarkGift(character, giftName) {
   async function applyCachedUpdateIfAny(){
     try {
       var cached = await idbGet("latest");
-      if (cached && cached.version && cmpVersions(cached.version, ROLLONE_CONTENT_VERSION) > 0){
+      if (cached && cached.version && cmpVersions(cached.version, getAppliedVersion()) > 0){
+        setAppliedVersion(cached.version);
         swapToHtml(cached.html);
       }
     } catch(e){ /* nessuna cache o IndexedDB non disponibile: si resta sulla versione integrata */ }
@@ -15544,21 +15632,33 @@ function removeDarkGift(character, giftName) {
       var res = await fetch(MANIFEST_URL, { cache: "no-store" });
       if (!res.ok) return;
       var manifest = await res.json();
-      var cached = await idbGet("latest").catch(function(){ return null; });
-      var localVersion = (cached && cached.version) || ROLLONE_CONTENT_VERSION;
-      if (!manifest.version || cmpVersions(manifest.version, localVersion) <= 0) return;
+      if (!manifest.version || cmpVersions(manifest.version, getAppliedVersion()) <= 0) return;
       var ok = await askConfirm(manifest.version);
       if (!ok) return;
-      var htmlRes = await fetch(manifest.htmlUrl, { cache: "no-store" });
-      if (!htmlRes.ok) throw new Error("download fallito");
-      var buf = await htmlRes.arrayBuffer();
+      var progress = showProgressOverlay();
+      var buf;
+      try {
+        buf = await downloadWithProgress(manifest.htmlUrl, function(pct){
+          progress.setProgress(pct, "Download in corso…");
+        });
+      } catch(downloadErr){
+        progress.remove();
+        alert("Download dell'aggiornamento fallito. Riprova più tardi.");
+        return;
+      }
+      progress.setProgress(100, "Verifica dell'integrità…");
       var hex = await sha256Hex(buf);
       if (manifest.sha256 && hex.toLowerCase() !== String(manifest.sha256).toLowerCase()){
+        progress.remove();
         alert("Il file scaricato non corrisponde alla firma attesa. Aggiornamento annullato per sicurezza.");
         return;
       }
+      progress.setProgress(100, "Installazione…");
       var html = new TextDecoder("utf-8").decode(buf);
       await idbSet("latest", { version: manifest.version, html: html });
+      progress.remove();
+      await showRestartNotice();
+      setAppliedVersion(manifest.version);
       swapToHtml(html);
     } catch(e){
       console.log("Controllo aggiornamento contenuti fallito:", e && e.message);
