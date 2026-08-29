@@ -5622,9 +5622,8 @@ function exportJSON(){
     theme:STATE.theme, mode:STATE.mode, divineUnlocked:STATE.divineUnlocked, battleMaps:STATE.battleMaps, shops:STATE.shops,
     settlements:STATE.settlements, guild:STATE.guild, settings:STATE.settings, mp:STATE.mp, dmSecrets:STATE.dmSecrets, lore:STATE.lore,
     worldMaps:STATE.worldMaps};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-  const a=el("a",{href:URL.createObjectURL(blob),download:"grimorio-backup.json"});
-  document.body.append(a);a.click();a.remove();toast("Backup completo esportato");
+  const bytes=new TextEncoder().encode(JSON.stringify(data,null,2));
+  saveBytesChoosingLocation(bytes,"grimorio-backup.json","application/json","Backup completo");
 }
 function importJSON(file){
   const r=new FileReader();
@@ -5712,12 +5711,11 @@ function applyData(obj,mode){
   return added;
 }
 function dlFile(name,text,type){
-  const blob=new Blob([text],{type:type||"text/plain"});
-  const a=el("a",{href:URL.createObjectURL(blob),download:name});
-  document.body.append(a); a.click(); setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href);},400);
+  const bytes=new TextEncoder().encode(text);
+  saveBytesChoosingLocation(bytes,name,type||"text/plain","Backup");
 }
 function escHTML(s){return String(s==null?"":s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
-function exportDataJSON(){ dlFile("grimorio-backup.json",JSON.stringify(collectData(),null,2),"application/json"); toast("Backup JSON esportato"); }
+function exportDataJSON(){ dlFile("grimorio-backup.json",JSON.stringify(collectData(),null,2),"application/json"); }
 function exportDataHTML(){
   const d=collectData();
   const rows=DATA_KEYS.map(x=>`<tr><td>${x.label}</td><td style="text-align:right">${(d[x.k]||[]).length}</td></tr>`).join("");
@@ -5734,7 +5732,7 @@ function exportDataHTML(){
     `<p>File leggibile e allo stesso tempo ricaricabile: apri il Grimorio e vai su <b>Impostazioni &rarr; Carica dati</b>.</p>`+
     `<table>${rows}</table><h3>Personaggi</h3><ul>${chars}</ul>`+
     `<script id="grimorio-save" type="application/json">${payload}<\/script></body></html>`;
-  dlFile("grimorio-dati.html",html,"text/html"); toast("Backup HTML esportato");
+  dlFile("grimorio-dati.html",html,"text/html");
 }
 function extractPayload(text,filename){
   if(/\.json$/i.test(filename||"")){ try{return JSON.parse(text);}catch(e){} }
@@ -5770,7 +5768,7 @@ function contentTemplate(){
     customSpells:[{n:"Nome incantesimo",lv:1,scuola:"Evocazione",cls:["Mago"],txt:"Effetto dell'incantesimo…"}],
     customItems:[{name:"Nome oggetto",kind:"Arma",cat:"Oggetto magico",desc:"Proprietà magiche…"}],
     customSubclasses:[{name:"Nome sottoclasse",cls:"Guerriero",feats:[{lvl:3,name:"Privilegio",txt:"Effetto…"}]}]};
-  dlFile("grimorio-modello-contenuti.json",JSON.stringify(tpl,null,2),"application/json"); toast("Modello scaricato");
+  dlFile("grimorio-modello-contenuti.json",JSON.stringify(tpl,null,2),"application/json");
 }
 function viewSettings(){
   const wrap=el("div",{class:"grid"});
@@ -8088,34 +8086,70 @@ function exportCharacterPdf(c){
 /* Salva un documento jsPDF lasciando scegliere all'utente dove metterlo, con più livelli di
    fallback in ordine di preferenza (vedi commento su exportCharacterPdf per i dettagli). */
 async function savePdfChoosingLocation(doc, fileName){
+  const bytes = new Uint8Array(doc.output("arraybuffer"));
+  await saveBytesChoosingLocation(bytes, fileName, "application/pdf", "PDF");
+}
+/* Helper generico di salvataggio, usato sia per l'export PDF della scheda personaggio sia per i
+   backup dati in Impostazioni (JSON/HTML): un file può arrivare da più punti dell'app, ma il modo
+   di salvarlo davvero sul dispositivo dell'utente deve essere unico e affidabile ovunque.
+   Ordine di preferenza:
+   1) Windows/macOS (Electron): ponte preload.js → processo main (dialog.showSaveDialog reale).
+      BUG CORRETTO (2026-08-28): window.showSaveFilePicker() sembrava la soluzione più semplice ma
+      in Electron non è affidabile (issue note electron/electron#33648, #23440: finestra "Salva con
+      nome" che scrive un file vuoto, o funzione non disponibile) — da qui i salvataggi che
+      "sembravano riuscire" ma non producevano nulla. Il processo main è l'unico modo affidabile.
+   2) Android (Capacitor): plugin nativo SaveFile (vedi SaveFilePlugin.java), che scrive
+      direttamente nella cartella pubblica "Download" tramite MediaStore — l'unico modo
+      ufficialmente supportato su Android 10+ (scoped storage) di far comparire un file nella app
+      Download/File del telefono. BUG CORRETTO (2026-08-29): la versione precedente scriveva nella
+      cartella Cache privata dell'app (invisibile all'utente e cancellata automaticamente dal
+      sistema) — il messaggio di successo appariva ma non c'era nulla da trovare in Download.
+   3) Browser desktop generico: window.showSaveFilePicker(), se disponibile.
+   4) Web Share API standard (navigator.share), per contesti mobile non-Capacitor.
+   5) Download standard del browser come ultima risorsa. */
+async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
+  label = label || "File";
+  const blobFrom = () => new Blob([bytes], { type: mimeType });
+  try{
+    if (window.electronAPI && window.electronAPI.saveFile) {
+      const res = await window.electronAPI.saveFile(bytes, fileName);
+      if (!res || res.canceled) return; // l'utente ha annullato la finestra "Salva con nome": nessun errore da mostrare
+      toast(label+" salvato.");
+      return;
+    }
+  }catch(e){ /* se il ponte Electron non è disponibile in questa build, si prosegue con i metodi sottostanti */ }
+  try{
+    const SaveFile = window.Capacitor?.Plugins?.SaveFile;
+    if (window.Capacitor && SaveFile) {
+      let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
+      const b64 = btoa(binary);
+      await SaveFile.saveToDownloads({ data: b64, fileName, mimeType });
+      toast(label+" salvato in Download.");
+      return;
+    }
+  }catch(e){ /* plugin nativo non disponibile (build vecchia non ancora aggiornata): si prosegue sotto */ }
   try{
     if (typeof window.showSaveFilePicker === "function") {
       const handle = await window.showSaveFilePicker({
         suggestedName: fileName,
-        types: [{ description: "Documento PDF", accept: { "application/pdf": [".pdf"] } }]
+        types: [{ description: label, accept: { [mimeType]: ["."+fileName.split(".").pop()] } }]
       });
       const writable = await handle.createWritable();
-      await writable.write(doc.output("blob"));
+      await writable.write(blobFrom());
       await writable.close();
-      toast("PDF salvato.");
+      toast(label+" salvato.");
       return;
     }
   }catch(e){
     if (e && e.name === "AbortError") return; // l'utente ha chiuso la finestra "Salva con nome": nessun errore da mostrare
     // altrimenti si prosegue con i metodi sottostanti (es. API non supportata in questo contesto)
   }
-  // Android: Web Share API standard con file allegato. A differenza del plugin Filesystem/Share
-  // di Capacitor (aggiunto a questa build ma non ancora presente sull'app già installata sul
-  // telefono finché non viene rifatta la build), questa è un'API del browser incorporata nella
-  // WebView di sistema: funziona GIÀ, senza dover ricompilare l'app, perché arriva con questo
-  // stesso aggiornamento dei contenuti. Apre il foglio di condivisione nativo di Android, da cui
-  // l'utente sceglie dove salvare (Drive, Files, ecc.) — proprio quello che mancava.
   try{
     if (navigator.share && navigator.canShare) {
-      const file = new File([doc.output("blob")], fileName, { type: "application/pdf" });
+      const file = new File([blobFrom()], fileName, { type: mimeType });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: fileName });
-        toast("Scegli dove salvare il PDF.");
+        toast("Scegli dove salvare il "+label.toLowerCase()+".");
         return;
       }
     }
@@ -8124,24 +8158,10 @@ async function savePdfChoosingLocation(doc, fileName){
     // altrimenti si prosegue con i metodi sottostanti
   }
   try{
-    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
-    const Share = window.Capacitor?.Plugins?.Share;
-    if (window.Capacitor && Filesystem) {
-      const b64 = doc.output("datauristring").split(",")[1];
-      const res = await Filesystem.writeFile({ path: fileName, data: b64, directory: "CACHE" });
-      if (Share && res?.uri) {
-        await Share.share({ title: fileName, url: res.uri, dialogTitle: "Salva o condividi il PDF" });
-        toast("Scegli dove salvare il PDF.");
-      } else {
-        toast("PDF pronto (salvato nella memoria dell'app).");
-      }
-      return;
-    }
-  }catch(e){ /* se il salvataggio nativo fallisce, si prosegue comunque con il download standard sotto */ }
-  try{
-    doc.save(fileName); // download standard del browser: salva nella cartella Download predefinita
-    toast("PDF scaricato nella cartella Download.");
-  }catch(e){ toast("Impossibile salvare il PDF: "+e.message); }
+    const a=el("a",{href:URL.createObjectURL(blobFrom()),download:fileName});
+    document.body.append(a); a.click(); setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href);},400);
+    toast(label+" scaricato nella cartella Download.");
+  }catch(e){ toast("Impossibile salvare il "+label.toLowerCase()+": "+e.message); }
 }
 function editBasics(c){
   const body=el("div",{});
@@ -16677,6 +16697,46 @@ function removeDarkGift(character, giftName) {
     // authGate()/render(): non bisogna avviarli anche qui, nel documento vecchio ormai
     // coperto e invisibile (eviterebbe solo lavoro e chiamate di rete sprecate).
     if(!swapped) bootApp();
+  });
+})();
+
+// Windows/macOS (Electron): barra di caricamento/installazione durante l'aggiornamento dei
+// contenuti (main.js la pilota via IPC 'update-progress'). Prima mancava del tutto un riscontro
+// visivo nella finestra durante il download: l'utente vedeva solo il popup di conferma iniziale e
+// quello finale, con un'attesa "muta" in mezzo.
+(function(){
+  if (!window.electronAPI || !window.electronAPI.onUpdateProgress) return;
+  var overlay=null, bar=null, pct=null, label=null;
+  function ensureOverlay(){
+    if (overlay) return;
+    overlay = document.createElement("div");
+    overlay.id = "electron-update-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:inherit";
+    overlay.innerHTML =
+      '<div style="background:#1b1712;border:1px solid #4a3c28;border-radius:14px;padding:22px 24px;max-width:320px;width:80%;color:#f0e6d2;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.6)">' +
+      '<div style="font-size:15px;font-weight:700;margin-bottom:14px" id="eu-label">Download in corso…</div>' +
+      '<div style="height:10px;border-radius:6px;background:#3a2f22;overflow:hidden">' +
+      '<div id="eu-bar" style="height:100%;width:0%;background:#c99a3c;transition:width .15s ease"></div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#cbbfa4;margin-top:10px" id="eu-pct">0%</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    bar = overlay.querySelector("#eu-bar");
+    pct = overlay.querySelector("#eu-pct");
+    label = overlay.querySelector("#eu-label");
+  }
+  window.electronAPI.onUpdateProgress(function(payload){
+    if (!payload) return;
+    if (payload.phase === "done") { if (overlay) { overlay.remove(); overlay=null; } return; }
+    ensureOverlay();
+    if (payload.phase === "install") label.textContent = "Installazione dell'aggiornamento…";
+    else label.textContent = "Download dell'aggiornamento in corso…";
+    if (payload.percent == null || payload.percent < 0) {
+      bar.style.width = "100%"; bar.style.opacity = "0.55"; pct.textContent = "";
+    } else {
+      var clamped = Math.max(0, Math.min(100, payload.percent*100));
+      bar.style.opacity = "1"; bar.style.width = clamped + "%"; pct.textContent = Math.round(clamped) + "%";
+    }
   });
 })();
 </script>
