@@ -4442,10 +4442,22 @@ async function authGate(){
         try{ mpTrackPresence(); }catch(e2){}
         try{ mpCheckInvites(true); }catch(e2){}
         try{ mpSyncAccountOnLogin(); }catch(e2){}
+        checkForUpdatesOnLogin();
       }
     }catch(e){ /* nessuna sessione valida (o offline): si passa al gate mostrato da render() */ }
   }
   // Se non impostato sopra, AUTH_GATE_PASSED resta false: render() mostra renderAuthGate().
+}
+/* Controllo aggiornamento contenuti agganciato al login (regola 2026-08-29): oltre al controllo
+   già fatto all'avvio dell'app, un aggiornamento (anche "pesante", cioè con molte modifiche) viene
+   cercato e applicato anche ogni volta che l'utente entra con successo, su ogni piattaforma — così
+   un fix arriva sempre tramite aggiornamento automatico dei contenuti, senza dover più distribuire
+   una nuova build fisica ad ogni bug. Su Android/iOS chiama la stessa funzione usata all'avvio
+   (window.__rollOneCheckForUpdate, esposta più sotto); su Windows/macOS chiede al processo main di
+   Electron di ripetere il suo controllo (vedi preload.js/main.js, canale 'check-for-updates'). */
+function checkForUpdatesOnLogin(){
+  try{ if (window.__rollOneCheckForUpdate) window.__rollOneCheckForUpdate(); }catch(e){}
+  try{ if (window.electronAPI && window.electronAPI.checkForUpdates) window.electronAPI.checkForUpdates(); }catch(e){}
 }
 /* Ripristino silenzioso all'avvio (versione precedente, non più chiamata dal boot ora che
    c'è authGate(): lasciata intatta come funzione di utilità, non referenziata altrove). Se
@@ -6873,6 +6885,7 @@ function renderAuthGate(){
       try{ mpTrackPresence(); }catch(e2){}
       try{ mpCheckInvites(true); }catch(e2){}
       try{ mpSyncAccountOnLogin(); }catch(e2){}
+      checkForUpdatesOnLogin();
     }catch(e){ msg.textContent="❌ "+(e.message||e); okB.disabled=false; okB.textContent="Continua"; }
   };
   renderFields();
@@ -8092,21 +8105,35 @@ async function savePdfChoosingLocation(doc, fileName){
 /* Helper generico di salvataggio, usato sia per l'export PDF della scheda personaggio sia per i
    backup dati in Impostazioni (JSON/HTML): un file può arrivare da più punti dell'app, ma il modo
    di salvarlo davvero sul dispositivo dell'utente deve essere unico e affidabile ovunque.
+   REGOLA DA QUI IN AVANTI (2026-08-29, richiesta esplicita): niente più build fisiche solo per
+   inseguire bug come questo — ogni fallback qui sotto deve funzionare con un aggiornamento dei
+   SOLI contenuti (questo file HTML), senza richiedere di reinstallare l'app. Per questo l'ordine
+   di preferenza su Android usa SOLO plugin nativi che sono già compilati nelle build già installate
+   dagli utenti (Filesystem+Share, presenti dalla 1.2.6 in poi), non il nuovo plugin SaveFile
+   (che esiste solo nella build 1.2.7 fisica e quindi non aiuta chi non la reinstalla).
    Ordine di preferenza:
    1) Windows/macOS (Electron): ponte preload.js → processo main (dialog.showSaveDialog reale).
       BUG CORRETTO (2026-08-28): window.showSaveFilePicker() sembrava la soluzione più semplice ma
       in Electron non è affidabile (issue note electron/electron#33648, #23440: finestra "Salva con
       nome" che scrive un file vuoto, o funzione non disponibile) — da qui i salvataggi che
       "sembravano riuscire" ma non producevano nulla. Il processo main è l'unico modo affidabile.
-   2) Android (Capacitor): plugin nativo SaveFile (vedi SaveFilePlugin.java), che scrive
-      direttamente nella cartella pubblica "Download" tramite MediaStore — l'unico modo
-      ufficialmente supportato su Android 10+ (scoped storage) di far comparire un file nella app
-      Download/File del telefono. BUG CORRETTO (2026-08-29): la versione precedente scriveva nella
-      cartella Cache privata dell'app (invisibile all'utente e cancellata automaticamente dal
-      sistema) — il messaggio di successo appariva ma non c'era nulla da trovare in Download.
+   2) Android (Capacitor): plugin ufficiale Filesystem (già presente in ogni build installata dalla
+      1.2.6) che scrive in directory "Documents" (cartella pubblica, visibile da altre app — non
+      "Cache" come nel bug precedente, che è privata e invisibile) seguito subito da Share.share(),
+      che apre il foglio di condivisione nativo di Android da cui l'utente sceglie DAVVERO dove
+      salvare (Download, Drive, Files, ecc.). BUG CORRETTO (2026-08-29 v2): la versione precedente
+      di questa funzione controllava solo un plugin nativo nuovo (SaveFile) che, non essendo
+      presente nell'app già installata dagli utenti, veniva saltato senza errori — la funzione
+      precipitava silenziosamente fino al download via tag <a>, che sulla WebView di Android non fa
+      assolutamente nulla (nessun errore, nessun messaggio, nessun file: esattamente il sintomo
+      "clicco e non succede niente" confermato da un video di test). Questo plugin invece esiste già
+      su tutti i telefoni con l'app installata, quindi funziona SUBITO con il solo aggiornamento dei
+      contenuti, senza dover ricreare e reinstallare l'APK.
    3) Browser desktop generico: window.showSaveFilePicker(), se disponibile.
    4) Web Share API standard (navigator.share), per contesti mobile non-Capacitor.
-   5) Download standard del browser come ultima risorsa. */
+   5) Download standard del browser come ultima risorsa (solo fuori da Capacitor: dentro l'app
+      Android questo passo non funziona mai, quindi se si arriva qui dentro Capacitor si avvisa
+      onestamente l'utente invece di dichiarare un falso successo). */
 async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
   label = label || "File";
   const blobFrom = () => new Blob([bytes], { type: mimeType });
@@ -8127,7 +8154,23 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
       toast(label+" salvato in Download.");
       return;
     }
-  }catch(e){ /* plugin nativo non disponibile (build vecchia non ancora aggiornata): si prosegue sotto */ }
+  }catch(e){ /* plugin nativo non disponibile (build vecchia): si prosegue sotto con Filesystem+Share, già presente ovunque */ }
+  try{
+    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+    const Share = window.Capacitor?.Plugins?.Share;
+    if (window.Capacitor && Filesystem) {
+      let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
+      const b64 = btoa(binary);
+      const res = await Filesystem.writeFile({ path: fileName, data: b64, directory: "Documents" });
+      if (Share && res && res.uri) {
+        await Share.share({ title: fileName, url: res.uri, dialogTitle: "Salva "+label.toLowerCase() });
+        toast("Scegli dove salvare "+label.toLowerCase()+".");
+      } else {
+        toast(label+" salvato in Documenti.");
+      }
+      return;
+    }
+  }catch(e){ /* plugin non disponibile in questo contesto (es. build molto vecchia): si prosegue sotto */ }
   try{
     if (typeof window.showSaveFilePicker === "function") {
       const handle = await window.showSaveFilePicker({
@@ -8156,6 +8199,12 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
   }catch(e){
     if (e && e.name === "AbortError") return; // l'utente ha chiuso il foglio di condivisione: nessun errore da mostrare
     // altrimenti si prosegue con i metodi sottostanti
+  }
+  if (window.Capacitor) {
+    // Dentro l'app Android/iOS il download via tag <a> non funziona mai: meglio dirlo chiaramente
+    // che mostrare un "scaricato" falso quando in realtà non è successo nulla (il bug appena corretto).
+    toast("Impossibile salvare "+label.toLowerCase()+" su questo dispositivo. Riprova o aggiorna l'app.");
+    return;
   }
   try{
     const a=el("a",{href:URL.createObjectURL(blobFrom()),download:fileName});
@@ -16691,6 +16740,11 @@ function removeDarkGift(character, giftName) {
   // è già quella aggiornata. applyCachedUpdateIfAny() si risolve sempre (nel peggiore dei
   // casi dopo il timeout di sicurezza di 8s dello scambio via iframe), quindi bootApp()
   // parte comunque anche se lo scambio fallisce o non c'è nulla da applicare.
+  // Esposta globalmente (regola 2026-08-29: ogni fix va consegnato via aggiornamento automatico,
+  // mai più con una nuova build fisica): il login (authGate/renderAuthGate) chiama questa stessa
+  // funzione appena l'utente entra, così un aggiornamento consistente arriva anche a chi apre
+  // l'app raramente ma fa login spesso, non solo ai 4s fissi dopo l'avvio.
+  window.__rollOneCheckForUpdate = checkForUpdate;
   applyCachedUpdateIfAny().then(function(swapped){
     setTimeout(checkForUpdate, 4000);
     // Se c'è stato uno scambio, il documento nuovo dentro l'iframe avvia già da sé
