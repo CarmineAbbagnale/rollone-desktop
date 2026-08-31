@@ -5910,6 +5910,26 @@ function viewSettings(){
   }
   wrap.append(c0);
 
+  // Controllo aggiornamenti manuale (2026-08-31): prima l'unico modo di ricevere un
+  // aggiornamento era chiudere e riaprire davvero l'app (il controllo parte solo all'avvio o al
+  // login) — se l'utente si limitava a tornare sull'app già aperta (dal task switcher/alt-tab),
+  // nessun controllo partiva mai e sembrava che "l'aggiornamento non si scarica", anche quando il
+  // contenuto sul server era già aggiornato. Questo pulsante forza il controllo subito, senza
+  // dover indovinare lo stato dell'app.
+  const cUpd=el("div",{class:"card"});
+  cUpd.append(el("h3",{style:"color:var(--gold2)"},"🔄 Aggiornamenti"));
+  const appliedV=(()=>{ try{return localStorage.getItem("rollone-applied-version");}catch(e){return null;} })();
+  cUpd.append(el("p",{class:"muted",style:"font-size:13px"},
+    "Versione contenuti attuale: "+(appliedV?("v"+appliedV):"non rilevabile su questa piattaforma")+
+    ". L'app controlla da sola se c'è una versione più recente all'avvio e al login; usa questo pulsante per controllare subito, senza chiudere e riaprire l'app."));
+  cUpd.append(el("button",{class:"btn ghost sm",style:"margin-top:8px",onclick:()=>{
+    let triggered=false;
+    try{ if(window.__rollOneCheckForUpdate){ window.__rollOneCheckForUpdate(); triggered=true; } }catch(e){}
+    try{ if(window.electronAPI && window.electronAPI.checkForUpdates){ window.electronAPI.checkForUpdates(); triggered=true; } }catch(e){}
+    toast(triggered?"Controllo aggiornamenti in corso…":"Controllo automatico non disponibile in questa build: chiudi e riapri l'app per verificare.");
+  }},"🔄 Controlla aggiornamenti ora"));
+  wrap.append(cUpd);
+
   const cAI=el("div",{class:"card"});
   cAI.append(el("h3",{style:"color:var(--gold2)"},"🤖 Intelligenza Artificiale"));
   cAI.append(el("p",{class:"muted",style:"font-size:13px"},"Provider, chiave e modello usati da campagne, generatori del DM e narrazione. L'app parte già pronta con una chiave e una catena di modelli gratuiti preimpostate, ma resti libero di sostituirle in ogni momento con qualsiasi servizio IA (OpenRouter, OpenAI, Groq, DeepSeek, Mistral, un server locale…) e la tua chiave personale."));
