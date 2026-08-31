@@ -200,6 +200,18 @@ body::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
 [data-theme="dark"] .btn.ghost{box-shadow:0 0 0 1px rgba(232,168,60,.06) inset}
 h1,h2,h3,h4{font-family:"Cinzel","Trajan Pro","Georgia",serif;letter-spacing:.06em;margin:.2em 0;font-weight:600;color:var(--amber-d)}
 button{font-family:inherit;cursor:pointer}
+/* Rimozione del riquadro blu lampeggiante (2026-08-31): il browser mostra di default un contorno
+   blu (outline) al focus e, su mobile, un flash blu semitrasparente (-webkit-tap-highlight-color)
+   su qualunque elemento cliccabile/toccabile — su questa UI scura, dorata, "da tavolo di gioco di
+   ruolo" quel blu stona ed è quello che veniva percepito come un bug visivo. La soluzione NON è un
+   outline:none globale cieco (romperebbe l'accessibilità da tastiera): si toglie solo il contorno
+   per il click/touch col mouse (nessuna evidenza necessaria, l'utente ha appena visto dove ha
+   cliccato) e si ridisegna un contorno discreto, coerente col tema, SOLO quando la navigazione è
+   davvera da tastiera (:focus-visible, supportato da tutti i browser moderni). */
+button,.btn,.die,a,[tabindex],input,select,textarea{-webkit-tap-highlight-color:transparent;tap-highlight-color:transparent}
+button:focus,.btn:focus,.die:focus,a:focus,[tabindex]:focus{outline:none}
+button:focus-visible,.btn:focus-visible,.die:focus-visible,a:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--gold2,#d98a2b);outline-offset:2px;border-radius:6px}
 .hidden{display:none!important}
 a{color:var(--amber)}
 ::selection{background:rgba(176,106,18,.2)}
@@ -934,6 +946,93 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
 .roll-log .r.fumble{animation:rollRowIn .28s cubic-bezier(.2,.7,.2,1),fumbleShake .4s ease .28s 1}
 @keyframes fumbleShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
 @media(prefers-reduced-motion:reduce){.die.rolling,.roll-log .r,.roll-log .r.crit,.roll-log .r.fumble{animation:none}}
+
+/* ================= LANCIA DADI — sistema unificato (2026-08-31) =================
+   Tray di selezione tipo di dado (riusa .die/.dice-tray sopra) + pannello D20 avanzato
+   con animazione cinematografica originale (nessun asset/codice di terzi: forme e
+   colori disegnati in CSS puro) + pannello semplificato per gli altri dadi. */
+.dice-type-tray .die{width:44px;height:44px;font-size:12px}
+.dice-widget-body{display:flex;flex-direction:column;gap:14px}
+.d20-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.d20-toolbar .fld{min-width:150px}
+.mode-toggle{display:flex;gap:6px}
+.mode-toggle button{padding:8px 14px;border-radius:8px;border:1px solid var(--line2);background:linear-gradient(180deg,var(--dieA),var(--dieB));
+  color:var(--amber-d);font-family:"Cinzel",serif;font-size:12px;cursor:pointer;transition:.15s}
+.mode-toggle button.active{border-color:var(--amber);color:var(--ink);background:linear-gradient(180deg,var(--amber),var(--amber-d));box-shadow:0 0 12px rgba(217,138,43,.5)}
+.mode-toggle button.active.adv{background:linear-gradient(180deg,#7fdba3,#3f9e63)}
+.mode-toggle button.active.disadv{background:linear-gradient(180deg,#e2604a,#a5301c)}
+.auto-bonus-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:linear-gradient(180deg,var(--panelA),var(--cardB))}
+.auto-bonus-box .row-line{display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0;color:var(--muted)}
+.auto-bonus-box .row-line b{color:var(--gold2)}
+.auto-bonus-box .total-line{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);color:var(--gold2)}
+.manual-mods-list{display:flex;flex-wrap:wrap;gap:6px;min-height:26px}
+.manual-mod-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:20px;font-size:12px;
+  border:1px solid var(--line2);background:var(--panelA);color:var(--gold2)}
+.manual-mod-chip button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0}
+.qty-stepper{display:flex;align-items:center;gap:10px}
+.qty-stepper button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line2);background:linear-gradient(180deg,var(--dieA),var(--dieAltB));
+  color:var(--amber-d);font-size:18px;cursor:pointer;display:grid;place-items:center}
+.qty-stepper button:hover{border-color:var(--amber-l);color:var(--amber)}
+.qty-stepper .qty-val{min-width:28px;text-align:center;font-weight:700;font-family:"Cinzel",serif;color:var(--gold2);font-size:16px}
+/* ---- Palcoscenico del lancio: dove avviene l'animazione ---- */
+.dice-stage{min-height:150px;display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;
+  padding:18px 10px;border-radius:14px;background:radial-gradient(120% 140% at 50% 20%,rgba(232,168,60,.08),transparent 65%),
+  linear-gradient(180deg,var(--headA),var(--headB));border:1px solid var(--line)}
+.d20-cine-wrap{display:flex;gap:26px;align-items:center;justify-content:center}
+/* Dado disegnato in CSS puro (nessun asset esterno): una losanga con sfaccettature
+   simulate da gradienti, che dà un'idea di volume/peso senza essere un vero 3D. */
+.d20-3d{--d20-size:96px;width:var(--d20-size);height:var(--d20-size);position:relative;display:grid;place-items:center;
+  transform-style:preserve-3d;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
+.d20-face{width:100%;height:100%;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  background:linear-gradient(155deg,var(--r-gold-light,#e8c88a) 0%,var(--amber,#d98a2b) 45%,var(--r-wood-dark,#5a3d1e) 100%);
+  display:grid;place-items:center;font-family:"Cinzel",serif;font-weight:800;font-size:calc(var(--d20-size)*.34);
+  color:#3a2408;text-shadow:0 1px 0 rgba(255,255,255,.35);box-shadow:inset 0 0 0 2px rgba(255,255,255,.25),inset 0 -10px 18px rgba(0,0,0,.25)}
+/* Fase 1-6: preparazione, lancio, rimbalzo, rotolamento, decelerazione, stop — tutto in
+   un'unica sequenza di keyframe percentuale, così le fasi restano in ordine ed è semplice
+   ritoccarne il ritmo. */
+.d20-throwing{animation:d20CinePrep .22s ease both, d20CineThrow 1.15s cubic-bezier(.16,.85,.2,1) .22s both}
+@keyframes d20CinePrep{0%{transform:translateY(0) scale(.7);opacity:0}100%{transform:translateY(0) scale(.86);opacity:1}}
+@keyframes d20CineThrow{
+  0%{transform:translateY(-40px) scale(.9) rotate(-30deg);opacity:1}
+  10%{transform:translateY(-70px) scale(1.05) rotate(60deg)}
+  28%{transform:translateY(10px) scale(1.08) rotate(230deg)}
+  38%{transform:translateY(-18px) scale(1) rotate(310deg)}
+  50%{transform:translateY(4px) scale(1.02) rotate(430deg)}
+  60%{transform:translateY(-6px) scale(.99) rotate(500deg)}
+  70%{transform:translateY(2px) rotate(560deg)}
+  80%{transform:translateY(-2px) rotate(610deg)}
+  90%{transform:translateY(0) rotate(645deg)}
+  100%{transform:translateY(0) scale(1) rotate(660deg)}
+}
+.d20-settled{animation:d20Reveal .4s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes d20Reveal{0%{transform:scale(1.22)}60%{transform:scale(.94)}100%{transform:scale(1)}}
+.d20-cine-wrap.dual .d20-3d{--d20-size:78px}
+.d20-discarded{opacity:.4;filter:grayscale(.6) drop-shadow(0 6px 10px rgba(0,0,0,.35));transform:scale(.88)}
+.d20-chosen .d20-face{box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),0 0 0 3px var(--amber) ,0 0 22px 6px rgba(232,168,60,.65)}
+.d20-chosen{animation:d20ChosenPop .5s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes d20ChosenPop{0%{transform:scale(1)}50%{transform:scale(1.16)}100%{transform:scale(1.06)}}
+.d20-crit .d20-face{background:linear-gradient(155deg,#fff2c4,#ffd876 45%,#a06a10 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 26px 8px rgba(255,196,60,.75)}
+.d20-fumble .d20-face{background:linear-gradient(155deg,#e28a7a,#c0221a 45%,#3a0a06 100%);color:#fff}
+.d20-die-caption{text-align:center;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:6px;font-family:"Cinzel",serif}
+.d20-die-caption b{color:var(--gold2)}
+@media(prefers-reduced-motion:reduce){
+  .d20-throwing{animation:none;opacity:1}
+  .d20-settled,.d20-chosen{animation:none}
+}
+/* ---- Dadi semplici (D4…D100): stessa .die/.rolling già esistente, solo in griglia ---- */
+.simple-dice-wrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:100%}
+.simple-die{width:44px;height:44px;font-size:13px;cursor:default}
+.simple-die:hover{transform:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+/* ---- Riepilogo risultato: la sequenza "fase 8" appare riga per riga via JS (classe .in) ---- */
+.roll-result{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:linear-gradient(180deg,var(--panelA),var(--cardB))}
+.roll-result .rr-line{opacity:0;transform:translateY(4px);transition:opacity .25s ease,transform .25s ease;display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:var(--muted)}
+.roll-result .rr-line.in{opacity:1;transform:none}
+.roll-result .rr-line b{color:var(--gold2)}
+.roll-result .rr-total{font-family:"Cinzel",serif;font-size:26px;color:var(--gold2);text-align:center;margin-top:8px;opacity:0;transform:scale(.85);transition:opacity .3s ease,transform .3s cubic-bezier(.2,.9,.3,1.3)}
+.roll-result .rr-total.in{opacity:1;transform:scale(1)}
+.roll-result .rr-total.crit{color:#ffd876;text-shadow:0 0 14px rgba(255,196,60,.6)}
+.roll-result .rr-total.fumble{color:#e2604a}
+@media(prefers-reduced-motion:reduce){.roll-result .rr-line,.roll-result .rr-total{transition:none;opacity:1;transform:none}}
 
 /* ================= STATBLOCK ================= */
 .statblock{position:relative;color:#2a1c0e;border-radius:10px;padding:20px;font-size:16px;
@@ -6759,35 +6858,350 @@ function playDieRollAnim(btnEl){
   btnEl.classList.remove("rolling"); void btnEl.offsetWidth; btnEl.classList.add("rolling");
   setTimeout(()=>btnEl.classList.remove("rolling"),500);
 }
+/* =========================================================================
+   LANCIA DADI — sistema unificato (2026-08-31)
+   Il motore di base (rollDie/doRoll/ROLL_LOG/rollForChar sopra) resta
+   invariato e continua a servire tutta l'app (scheda personaggio, Companion,
+   Ispirazione Eroica): qui si aggiunge SOLO ciò che serve al D20 in modalità
+   avanzata, senza duplicarlo. Architettura, per chiarezza:
+   - CharacterBonusResolver → d20AutoBonus(): legge SOLO dati reali dalla
+     scheda (derived(), SKILLS, WEAPONS), mai valori inventati.
+   - DiceRollEngine → rollD20Advanced(): genera i tiri reali e determina il
+     risultato PRIMA di qualunque animazione (regola §36); usa la STESSA
+     ROLL_LOG di doRoll(), con una forma compatibile (faces/rolls/sum/modv/
+     adv/crit/fumble) più i campi extra (breakdown/manualMods/bonusRolls/
+     usedIndex/label), così lo storico del Companion (renderRollHistory,
+     altrove nel file) continua a leggerla senza bisogno di modifiche.
+   - DiceAnimationController → playD20Cinematic()/playSimpleDiceAnim():
+     rappresentano SOLO un risultato già determinato, non lo influenzano.
+   - DiceRollUI → diceWidget(): interfaccia, con due modalità nettamente
+     separate (D20 avanzato vs D4/D6/D8/D10/D12/D100 semplificati).
+   ========================================================================= */
+
+/* ---- CharacterBonusResolver (solo D20) ---- */
+function d20AutoBonus(c, rollType, subKey){
+  if(!c || rollType==="free") return {parts:[], total:0};
+  const d=derived(c);
+  if(rollType==="skill"){
+    const ab=SKILLS[subKey]; if(!ab) return {parts:[],total:0};
+    const abName=(ABIL.find(a=>a.k===ab)||{}).name||ab;
+    const isP=d.skillProfs.has(subKey);
+    const isExp=isP && (c.skillExpertise||[]).includes(subKey);
+    const parts=[{label:abName,value:d.mods[ab]}];
+    if(isExp) parts.push({label:"Competenza (Expertise ×2)",value:d.prof*2});
+    else if(isP) parts.push({label:"Competenza",value:d.prof});
+    return {parts,total:parts.reduce((s,p)=>s+p.value,0)};
+  }
+  if(rollType==="save"){
+    const abName=(ABIL.find(a=>a.k===subKey)||{}).name||subKey;
+    const isP=d.saveProfs.has(subKey);
+    const parts=[{label:abName,value:d.mods[subKey]}];
+    if(isP) parts.push({label:"Competenza",value:d.prof});
+    return {parts,total:parts.reduce((s,p)=>s+p.value,0)};
+  }
+  if(rollType==="attack"){
+    const w=subKey; const wd=WEAPONS[w]||STATE.customItems.find(i=>i.name===w);
+    const finesse=wd&&/Accurata|finesse/i.test(wd.props||wd.properties||"");
+    const abil=finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
+    const abName=(ABIL.find(a=>a.k===abil)||{}).name||abil;
+    const parts=[{label:abName,value:d.mods[abil]},{label:"Competenza",value:d.prof}];
+    return {parts,total:parts.reduce((s,p)=>s+p.value,0)};
+  }
+  return {parts:[],total:0};
+}
+/* ---- DiceRollEngine (solo D20 avanzato) ---- */
+function rollD20Advanced({mode, breakdown, manualMods, bonusDice, label, charId, charName}){
+  const a=rollDie(20);
+  let rolls=[a], usedIndex=0;
+  if(mode!=="normal"){ const b=rollDie(20); rolls=[a,b];
+    usedIndex = mode==="adv" ? (b>a?1:0) : (b<a?1:0); }
+  const used=rolls[usedIndex];
+  const autoTotal=(breakdown||[]).reduce((s,p)=>s+p.value,0);
+  const manualTotal=(manualMods||[]).reduce((s,p)=>s+p.value,0);
+  const bonusRolls=(bonusDice||[]).map(f=>({faces:f,value:rollDie(f)}));
+  const bonusTotal=bonusRolls.reduce((s,p)=>s+p.value,0);
+  const modv=autoTotal+manualTotal+bonusTotal;
+  const sum=used+modv;
+  // Regola §18-20: il Natural 20/1 dipende SOLO dal dado naturale effettivamente
+  // usato (dopo vantaggio/svantaggio), mai dal totale finale con i bonus.
+  const crit=used===20, fumble=used===1;
+  const entry={faces:20,rolls,usedIndex,used,sum,modv,adv:mode==="adv"?1:mode==="disadv"?-1:0,
+    ts:Date.now(),crit,fumble,label,charName,breakdown:breakdown||[],manualMods:manualMods||[],bonusRolls};
+  ROLL_LOG.unshift(entry); ROLL_LOG=ROLL_LOG.slice(0,40);
+  const ac=activeCampaign();
+  if(ac&&ac.cloudId) mpBroadcastRoll(ac,{label:(label||"D20")+(mode==="adv"?" (vant.)":mode==="disadv"?" (svant.)":""),
+    faces:20,count:1,total:sum,crit,fumble});
+  return entry;
+}
+/* ---- DiceAnimationController ----
+   Fasi 1-6 (preparazione/lancio/rimbalzo/rotolamento/decelerazione/stop) sono
+   un'unica sequenza @keyframes (d20CinePrep+d20CineThrow, vedi CSS "LANCIA
+   DADI"): un'animazione originale disegnata in CSS puro (nessun asset, nessun
+   modello 3D, nessuna texture o codice di terzi), non una copia di alcun gioco.
+   Fase 7 (reveal) è .d20-settled; fase 8 (calcolo) è la sequenza rr-line qui
+   sotto, in renderD20Result(). */
+function playD20Cinematic(stage, entry, onSettled){
+  stage.innerHTML="";
+  const isDual=entry.rolls.length===2;
+  const wrap=el("div",{class:"d20-cine-wrap"+(isDual?" dual":"")});
+  const dice=entry.rolls.map((v,i)=>{
+    const d=el("div",{class:"d20-3d d20-throwing"},el("div",{class:"d20-face"},String(v)));
+    d.style.animationDelay=(i*0.08)+"s";
+    return d;
+  });
+  dice.forEach(d=>wrap.append(d));
+  stage.append(el("div",{},wrap,
+    isDual?el("div",{class:"d20-die-caption"},"Due D20 in lancio — verrà usato il "+(entry.adv>0?"più alto":"più basso")):""));
+  const THROW_MS=1450;
+  setTimeout(()=>{
+    dice.forEach((d,i)=>{
+      d.classList.remove("d20-throwing");
+      d.classList.add("d20-settled");
+      if(isDual) d.classList.add(i===entry.usedIndex?"d20-chosen":"d20-discarded");
+      if(entry.crit && i===entry.usedIndex) d.classList.add("d20-crit");
+      if(entry.fumble && i===entry.usedIndex) d.classList.add("d20-fumble");
+    });
+    if(isDual){
+      const cap=stage.querySelector(".d20-die-caption");
+      if(cap) cap.innerHTML=`D20 #1: <b>${entry.rolls[0]}</b>${entry.usedIndex===0?" — RISULTATO UTILIZZATO":" — non selezionato"}`+
+        ` &nbsp;·&nbsp; D20 #2: <b>${entry.rolls[1]}</b>${entry.usedIndex===1?" — RISULTATO UTILIZZATO":" — non selezionato"}`;
+    }
+    if(entry.crit) showCritSuccess();
+    else if(entry.fumble) showFumbleHorror();
+    if(onSettled) onSettled();
+  }, THROW_MS + (dice.length-1)*80);
+}
+/* Rivela il risultato riga per riga (naturale → bonus automatici → modificatori
+   manuali → dadi bonus → totale), non tutto insieme: "veloce ma cinematografica"
+   come da regola §33. */
+function renderD20Result(container, entry){
+  container.innerHTML="";
+  const lines=[];
+  lines.push({t:`Risultato naturale`, v:String(entry.used)+(entry.rolls.length===2?` (di [${entry.rolls.join(", ")}])`:"")});
+  (entry.breakdown||[]).forEach(p=>lines.push({t:p.label, v:sign(p.value)}));
+  (entry.manualMods||[]).forEach(p=>lines.push({t:p.label, v:sign(p.value)}));
+  (entry.bonusRolls||[]).forEach(p=>lines.push({t:"Dado bonus (d"+p.faces+")", v:"+"+p.value}));
+  const rows=lines.map(l=>el("div",{class:"rr-line"},el("span",{},l.t),el("b",{},l.v)));
+  rows.forEach(r=>container.append(r));
+  const totalCls="rr-total"+(entry.crit?" crit":entry.fumble?" fumble":"");
+  const totalLine=el("div",{class:totalCls},
+    "TOTALE: "+entry.sum+(entry.crit?" — CRITICAL SUCCESS":entry.fumble?" — CRITICAL FAILURE":""));
+  container.append(totalLine);
+  rows.forEach((r,i)=>setTimeout(()=>r.classList.add("in"), 90*i));
+  setTimeout(()=>totalLine.classList.add("in"), 90*rows.length+120);
+}
+function playSimpleDiceAnim(stage, results){
+  stage.innerHTML="";
+  const heavy=results.length>24; // troppi dadi: niente animazione per-dado (regola §41, niente freeze)
+  const wrap=el("div",{class:"simple-dice-wrap"});
+  results.forEach((v,i)=>{
+    const d=el("div",{class:"die simple-die"+(heavy?"":" rolling")},String(v));
+    if(!heavy) d.style.animationDelay=(Math.min(i,12)*0.03)+"s";
+    wrap.append(d);
+  });
+  stage.append(wrap);
+}
+/* ---- DiceRollUI ---- */
 function diceWidget(){
+  const DICE_TYPES=[4,6,8,10,12,20,100];
+  const st={faces:20, mode:"normal", rollType:"free", subKey:"",
+    charId: STATE.current || (STATE.characters[0]&&STATE.characters[0].id) || "",
+    repeat:1, simpleQty:4, manualMods:[], bonusDice:[]};
+
+  const root=el("div",{});
+  root.append(el("div",{class:"section-title"},"🎲 Lancia Dadi",el("span",{class:"ln"})));
+  const typeTray=el("div",{class:"dice-tray dice-type-tray"});
+  const body=el("div",{class:"dice-widget-body"});
   const log=el("div",{class:"roll-log"});
-  const renderLog=()=>{ log.innerHTML=""; ROLL_LOG.forEach(e=>{
-    const cls=e.crit?"crit":e.fumble?"fumble":"";
-    log.append(el("div",{class:"r "+cls},
-      `d${e.faces}${e.adv>0?" (vant.)":e.adv<0?" (svant.)":""}: [${e.rolls.join(", ")}]${e.modv?` ${sign(e.modv)}`:""} = `,
-      el("b",{},String(e.sum)), e.crit?" ★ CRITICO":e.fumble?" ✖ 1 naturale":"" ));
-  }); };
-  const tray=el("div",{class:"dice-tray"});
-  [4,6,8,10,12,20,100].forEach(f=>tray.append(el("button",{class:"die",onclick:(e)=>{playDieRollAnim(e.currentTarget);doRoll(f);renderLog();}},"d"+f)));
-  const modIn=el("input",{type:"number",value:"0",style:"width:70px"});
-  const cntIn=el("input",{type:"number",value:"1",min:"1",style:"width:70px"});
-  const advSel=el("select",{},el("option",{value:"0"},"Normale"),el("option",{value:"1"},"Vantaggio"),el("option",{value:"-1"},"Svantaggio"));
-  const box=el("div",{},
-    el("div",{class:"section-title"},"🎲 Tiradadi",el("span",{class:"ln"})),
-    tray,
-    el("div",{class:"row",style:"margin:12px 0"},
-      el("label",{class:"fld"},el("span",{},"Quantità"),cntIn),
-      el("label",{class:"fld"},el("span",{},"Modificatore"),modIn),
-      el("label",{class:"fld"},el("span",{},"d20"),advSel)),
-    el("button",{class:"btn ghost sm",onclick:(e)=>{
-      playDieRollAnim(tray.querySelector(".die"));
-      doRoll(20,1,parseInt(modIn.value)||0,parseInt(advSel.value)||0);
-      // count applies to non-d20 quick roll of custom
-      renderLog();}},"Tira d20"),
-    el("button",{class:"btn ghost sm",style:"margin-left:8px",onclick:()=>{ROLL_LOG=[];renderLog();}},"Pulisci"),
-    el("div",{style:"margin-top:12px"},log));
-  renderLog();
-  return box;
+  root.append(typeTray, body, el("div",{style:"margin-top:14px"},
+    el("div",{class:"row",style:"align-items:center"},
+      el("div",{class:"section-title",style:"flex:1"},"Storico",el("span",{class:"ln"})),
+      el("button",{class:"btn ghost sm",onclick:()=>{ROLL_LOG=[];renderLog();}},"Pulisci")),
+    log));
+
+  function renderTypeTray(){
+    typeTray.innerHTML="";
+    DICE_TYPES.forEach(f=>typeTray.append(el("button",
+      {class:"die"+(f===st.faces?" active":""),onclick:()=>{st.faces=f;renderTypeTray();renderBody();}},"d"+f)));
+  }
+  function renderLog(){
+    log.innerHTML="";
+    ROLL_LOG.forEach(e=>{
+      const cls=e.crit?"crit":e.fumble?"fumble":"";
+      if(e.breakdown!==undefined){
+        // Voce D20 avanzata: personaggio, tipo di tiro, vant./svant., critico.
+        log.append(el("div",{class:"r "+cls},
+          (e.label?e.label+" — ":"")+`D20${e.adv>0?" (vant.)":e.adv<0?" (svant.)":""}: `+
+          (e.rolls.length===2?`[${e.rolls.join(", ")}] → `:"")+`${e.used}`+(e.modv?` ${sign(e.modv)}`:"")+" = ",
+          el("b",{},String(e.sum)), e.crit?" ★ CRITICAL SUCCESS":e.fumble?" ✖ CRITICAL FAILURE":""));
+      } else {
+        log.append(el("div",{class:"r "+cls},
+          `d${e.faces}${e.rolls.length>1?"×"+e.rolls.length:""}: [${e.rolls.join(", ")}]${e.modv?` ${sign(e.modv)}`:""} = `,
+          el("b",{},String(e.sum)), e.crit?" ★ CRITICO":e.fumble?" ✖ 1 naturale":""));
+      }
+    });
+  }
+
+  function activeChar(){ return STATE.characters.find(c=>c.id===st.charId)||null; }
+
+  function buildD20Panel(){
+    const wrap=el("div",{class:"dice-widget-body"});
+    // Personaggio attivo
+    const charSel=el("select",{},
+      el("option",{value:""},"— nessuno (solo tiro libero) —"),
+      ...STATE.characters.map(c=>el("option",{value:c.id,selected:c.id===st.charId?"selected":null},c.name||"Senza nome")));
+    charSel.value=st.charId||"";
+    charSel.onchange=()=>{ st.charId=charSel.value; st.subKey=""; renderAutoBonus(); };
+    // Tipo di tiro
+    const typeSel=el("select",{},
+      el("option",{value:"free"},"Dado libero"),
+      el("option",{value:"skill"},"Abilità"),
+      el("option",{value:"save"},"Tiro salvezza"),
+      el("option",{value:"attack"},"Attacco"));
+    typeSel.value=st.rollType;
+    const subSelWrap=el("div",{});
+    function renderSubSel(){
+      subSelWrap.innerHTML="";
+      const c=activeChar();
+      if(st.rollType==="skill"){
+        const sel=el("select",{},...Object.keys(SKILLS).sort().map(sk=>el("option",{value:sk},sk+" ("+SKILLS[sk].toUpperCase()+")")));
+        sel.value=st.subKey||Object.keys(SKILLS)[0]; st.subKey=sel.value;
+        sel.onchange=()=>{st.subKey=sel.value;renderAutoBonus();};
+        subSelWrap.append(el("label",{class:"fld"},el("span",{},"Abilità"),sel));
+      } else if(st.rollType==="save"){
+        const sel=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
+        sel.value=st.subKey||ABIL[0].k; st.subKey=sel.value;
+        sel.onchange=()=>{st.subKey=sel.value;renderAutoBonus();};
+        subSelWrap.append(el("label",{class:"fld"},el("span",{},"Caratteristica"),sel));
+      } else if(st.rollType==="attack"){
+        const weapons=(c&&c.weapons)||[];
+        if(!weapons.length){ subSelWrap.append(el("p",{class:"muted",style:"font-size:12px"},"Il personaggio selezionato non ha armi equipaggiate.")); st.subKey=""; }
+        else{
+          const sel=el("select",{},...weapons.map(w=>el("option",{value:w},w)));
+          sel.value=st.subKey||weapons[0]; st.subKey=sel.value;
+          sel.onchange=()=>{st.subKey=sel.value;renderAutoBonus();};
+          subSelWrap.append(el("label",{class:"fld"},el("span",{},"Arma"),sel));
+        }
+      } else { st.subKey=""; }
+    }
+    typeSel.onchange=()=>{ st.rollType=typeSel.value; st.subKey=""; renderSubSel(); renderAutoBonus(); };
+    // Modalità normale/vantaggio/svantaggio
+    const modeBtns={};
+    const modeToggle=el("div",{class:"mode-toggle"});
+    [["normal","Normale",""],["adv","Vantaggio","adv"],["disadv","Svantaggio","disadv"]].forEach(([k,lbl,cls])=>{
+      const b=el("button",{class:(cls?cls+" ":"")+(st.mode===k?"active":""),onclick:()=>{st.mode=k;Object.values(modeBtns).forEach(x=>x.classList.remove("active"));b.classList.add("active");}},lbl);
+      modeBtns[k]=b; modeToggle.append(b);
+    });
+    // Bonus automatici
+    const autoBox=el("div",{class:"auto-bonus-box"});
+    function renderAutoBonus(){
+      autoBox.innerHTML="";
+      const c=activeChar();
+      const {parts,total}=d20AutoBonus(c, st.rollType, st.subKey);
+      if(st.rollType==="free"||!c){
+        autoBox.append(el("div",{class:"row-line"},el("span",{},"Nessun bonus automatico (tiro libero).")));
+        return;
+      }
+      parts.forEach(p=>autoBox.append(el("div",{class:"row-line"},el("span",{},p.label),el("b",{},sign(p.value)))));
+      autoBox.append(el("div",{class:"total-line"},el("span",{},"BONUS AUTOMATICO"),el("span",{},sign(total))));
+    }
+    // Modificatori manuali (numerici + dadi bonus)
+    const manualChips=el("div",{class:"manual-mods-list"});
+    function renderManualChips(){
+      manualChips.innerHTML="";
+      st.manualMods.forEach((m,i)=>manualChips.append(el("span",{class:"manual-mod-chip"},m.label+" "+sign(m.value),
+        el("button",{onclick:()=>{st.manualMods.splice(i,1);renderManualChips();}},"✕"))));
+      st.bonusDice.forEach((f,i)=>manualChips.append(el("span",{class:"manual-mod-chip"},"+1d"+f,
+        el("button",{onclick:()=>{st.bonusDice.splice(i,1);renderManualChips();}},"✕"))));
+    }
+    const manualNumIn=el("input",{type:"number",value:"1",style:"width:64px"});
+    const bonusDieSel=el("select",{},...[4,6,8,10,12].map(f=>el("option",{value:f},"d"+f)));
+    const manualRow=el("div",{class:"row",style:"gap:8px;flex-wrap:wrap;align-items:flex-end"},
+      el("label",{class:"fld"},el("span",{},"Bonus/malus numerico"),manualNumIn),
+      el("button",{class:"btn ghost sm",onclick:()=>{const v=parseInt(manualNumIn.value)||0; if(!v)return;
+        st.manualMods.push({label:v>0?"Bonus manuale":"Malus manuale",value:v}); renderManualChips();}},"Aggiungi"),
+      el("label",{class:"fld"},el("span",{},"Dado bonus"),bonusDieSel),
+      el("button",{class:"btn ghost sm",onclick:()=>{st.bonusDice.push(parseInt(bonusDieSel.value)); renderManualChips();}},"Aggiungi dado"));
+    // Quantità (ripetizioni del tiro, es. attacchi multipli): limitata per non intasare l'interfaccia.
+    const repeatVal=el("span",{class:"qty-val"},String(st.repeat));
+    const repeatStepper=el("div",{class:"qty-stepper"},
+      el("button",{onclick:()=>{if(st.repeat>1){st.repeat--;repeatVal.textContent=st.repeat;}}},"−"),
+      repeatVal,
+      el("button",{onclick:()=>{if(st.repeat<6){st.repeat++;repeatVal.textContent=st.repeat;}}},"＋"));
+    // Palcoscenico + risultato
+    const stage=el("div",{class:"dice-stage"});
+    const resultBox=el("div",{class:"roll-result",style:"margin-top:12px"});
+    const rollBtn=el("button",{class:"btn",style:"width:100%;margin-top:6px"},"🎲 LANCIA D20");
+    let rolling=false;
+    rollBtn.onclick=()=>{
+      if(rolling) return;
+      const c=activeChar();
+      const {parts}=d20AutoBonus(c, st.rollType, st.subKey);
+      const labelParts=[c?c.name:null, st.rollType==="free"?"Tiro libero":st.rollType==="skill"?st.subKey:
+        st.rollType==="save"?"TS "+((ABIL.find(a=>a.k===st.subKey)||{}).name||st.subKey):st.rollType==="attack"?"Attacco: "+st.subKey:null].filter(Boolean);
+      const label=labelParts.join(" · ");
+      const runOnce=(times)=>{
+        rolling=true; rollBtn.disabled=true;
+        const entry=rollD20Advanced({mode:st.mode, breakdown:parts, manualMods:st.manualMods.slice(),
+          bonusDice:st.bonusDice.slice(), label, charId:st.charId, charName:c&&c.name});
+        playD20Cinematic(stage, entry, ()=>{
+          renderD20Result(resultBox, entry);
+          renderLog();
+          rolling=false; rollBtn.disabled=false;
+          if(times>1) setTimeout(()=>runOnce(times-1), 650);
+        });
+      };
+      runOnce(st.repeat);
+    };
+    renderSubSel(); renderAutoBonus(); renderManualChips();
+    wrap.append(
+      el("div",{class:"d20-toolbar"},
+        el("label",{class:"fld"},el("span",{},"Personaggio attivo"),charSel),
+        el("label",{class:"fld"},el("span",{},"Tipo di tiro"),typeSel),
+        subSelWrap),
+      el("div",{},el("div",{class:"dieqty-lbl",style:"margin-bottom:4px"},"MODALITÀ"),modeToggle),
+      el("div",{},el("div",{class:"dieqty-lbl",style:"margin-bottom:4px"},"BONUS AUTOMATICI"),autoBox),
+      el("div",{},el("div",{class:"dieqty-lbl",style:"margin-bottom:4px"},"MODIFICATORI MANUALI"),manualChips,el("div",{style:"margin-top:6px"},manualRow)),
+      el("div",{class:"row",style:"align-items:center;gap:14px"},
+        el("div",{},el("div",{class:"dieqty-lbl"},"QUANTITÀ (ripetizioni)"),repeatStepper)),
+      stage, resultBox, rollBtn);
+    return wrap;
+  }
+
+  function buildSimplePanel(){
+    const wrap=el("div",{class:"dice-widget-body"});
+    const qtyVal=el("span",{class:"qty-val"},String(st.simpleQty));
+    const MAXQ=50; // limite ragionevole: oltre non si anima singolarmente comunque (vedi playSimpleDiceAnim)
+    const stepper=el("div",{class:"qty-stepper"},
+      el("button",{onclick:()=>{if(st.simpleQty>1){st.simpleQty--;qtyVal.textContent=st.simpleQty;}}},"−"),
+      qtyVal,
+      el("button",{onclick:()=>{if(st.simpleQty<MAXQ){st.simpleQty++;qtyVal.textContent=st.simpleQty;}}},"＋"));
+    const stage=el("div",{class:"dice-stage"});
+    const resultBox=el("div",{class:"roll-result",style:"margin-top:12px"});
+    const rollBtn=el("button",{class:"btn",style:"width:100%;margin-top:6px"},"🎲 LANCIA DADI");
+    rollBtn.onclick=()=>{
+      const entry=doRoll(st.faces, st.simpleQty, 0, 0);
+      playSimpleDiceAnim(stage, entry.rolls);
+      resultBox.innerHTML="";
+      resultBox.append(el("div",{class:"rr-line in"},el("span",{},"Tipo"),el("b",{},"D"+st.faces)),
+        el("div",{class:"rr-line in"},el("span",{},"Quantità"),el("b",{},String(st.simpleQty))),
+        el("div",{class:"rr-line in"},el("span",{},"Risultati"),el("b",{},entry.rolls.join(", "))),
+        el("div",{class:"rr-total in"},"TOTALE: "+entry.sum));
+      renderLog();
+    };
+    wrap.append(
+      el("div",{},el("div",{class:"dieqty-lbl",style:"margin-bottom:4px"},"QUANTITÀ"),stepper),
+      stage, resultBox, rollBtn);
+    return wrap;
+  }
+
+  function renderBody(){
+    body.innerHTML="";
+    body.append(st.faces===20 ? buildD20Panel() : buildSimplePanel());
+  }
+
+  renderTypeTray(); renderBody(); renderLog();
+  return root;
 }
 
 /* =========================================================================
