@@ -1838,6 +1838,27 @@ function toast(msg){
   $("#toastRoot").append(t);
   setTimeout(()=>t.remove(),2200);
 }
+
+/* ---- Compressione foto per "Segnala bug" (Impostazioni) -----------------------------------
+   Ridimensiona lato massimo a maxDim e ricodifica JPEG a "quality", per tenere gli allegati
+   piccoli (upload più veloce, meno spazio sul bucket Supabase). Usa createImageBitmap dove
+   disponibile (più veloce, non blocca il main thread), altrimenti un <img> come fallback. ---- */
+async function compressImageForBugReport(file,maxDim,quality){
+  maxDim=maxDim||1600; quality=quality||0.82;
+  const bitmap=await (window.createImageBitmap ? createImageBitmap(file) : new Promise((resolve,reject)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    img.onload=()=>{ resolve(img); };
+    img.onerror=reject; img.src=url;
+  }));
+  const srcW=bitmap.width||bitmap.naturalWidth, srcH=bitmap.height||bitmap.naturalHeight;
+  const scale=Math.min(1, maxDim/Math.max(srcW,srcH));
+  const w=Math.max(1,Math.round(srcW*scale)), h=Math.max(1,Math.round(srcH*scale));
+  const canvas=document.createElement("canvas"); canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext("2d");
+  ctx.drawImage(bitmap,0,0,w,h);
+  if(bitmap.close) bitmap.close();
+  return await new Promise(resolve=>canvas.toBlob(b=>resolve(b),"image/jpeg",quality));
+}
 </script>
 
 <script>
@@ -6134,6 +6155,75 @@ function viewSettings(){
       })},"🗑 Elimina il mio account")));
   wrap.append(cPriv);
 
+  // NUOVO (2026-09-01): "Segnala bug" — testo + fino a 5 foto, salvati su Supabase (bucket
+  // "bug-reports" + tabella "bug_reports"). Funziona anche senza account multiplayer: la
+  // scrittura è aperta (RLS insert-only, nessuna lettura pubblica) con la sola chiave
+  // pubblica dell'app. Non c'è ancora invio email automatico verso lo sviluppatore: le
+  // segnalazioni si consultano dal pannello Supabase finché non viene collegato un servizio
+  // email dedicato (richiede credenziali che l'utente deve fornire lui stesso).
+  const cBug=el("div",{class:"card"});
+  cBug.append(el("h3",{style:"color:var(--gold2)"},"🐞 Segnala bug"));
+  cBug.append(el("p",{class:"muted",style:"font-size:13px"},"Descrivi cosa non ha funzionato: più dettagli dai (cosa stavi facendo, cosa ti aspettavi), più è facile trovare e sistemare il problema. Puoi allegare fino a 5 foto o screenshot."));
+  const bugMsg=el("textarea",{rows:"4",style:"width:100%",placeholder:"Es: ho creato un personaggio Barbaro, aggiunto un privilegio epico al livello 21 e la scheda si è bloccata su una schermata bianca…"});
+  cBug.append(bugMsg);
+  let bugPhotos=[]; // File[] in attesa di invio
+  const bugPhotoRow=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"});
+  function drawBugPhotos(){
+    bugPhotoRow.innerHTML="";
+    bugPhotos.forEach((f,i)=>{
+      const url=URL.createObjectURL(f);
+      bugPhotoRow.append(el("div",{style:"position:relative;width:64px;height:64px"},
+        el("img",{src:url,style:"width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--line)"}),
+        el("button",{class:"btn red sm",style:"position:absolute;top:-8px;right:-8px;width:20px;height:20px;padding:0;line-height:1;border-radius:50%;font-size:12px",onclick:()=>{bugPhotos.splice(i,1);drawBugPhotos();}},"✕")));
+    });
+    if(bugPhotos.length<5){
+      const fileIn=el("input",{type:"file",accept:"image/*",multiple:"multiple",style:"display:none"});
+      fileIn.onchange=()=>{
+        const room=5-bugPhotos.length;
+        const picked=Array.from(fileIn.files);
+        picked.slice(0,room).forEach(f=>bugPhotos.push(f));
+        if(picked.length>room) toast("Massimo 5 foto: ho preso le prime "+room+".");
+        drawBugPhotos();
+      };
+      bugPhotoRow.append(el("label",{class:"btn ghost sm",style:"width:64px;height:64px;display:flex;align-items:center;justify-content:center;cursor:pointer;text-align:center;font-size:11px"},"+ foto",fileIn));
+    }
+  }
+  drawBugPhotos();
+  cBug.append(bugPhotoRow);
+  const bugSendBtn=el("button",{class:"btn sm",style:"margin-top:12px",onclick:async()=>{
+    const msg=bugMsg.value.trim();
+    if(!msg){ toast("Descrivi il problema prima di inviare"); return; }
+    const sb=mpClient();
+    if(!sb || !mpOnline()){ toast("Serve una connessione a internet per inviare la segnalazione."); return; }
+    bugSendBtn.disabled=true; const oldLbl=bugSendBtn.textContent; bugSendBtn.textContent="Invio in corso…";
+    try{
+      const reportId=uid();
+      const photoPaths=[];
+      for(let i=0;i<bugPhotos.length;i++){
+        const blob=await compressImageForBugReport(bugPhotos[i]);
+        const path=reportId+"/"+(i+1)+".jpg";
+        const {error:upErr}=await sb.storage.from("bug-reports").upload(path,blob,{contentType:"image/jpeg",upsert:false});
+        if(upErr) throw upErr;
+        photoPaths.push(path);
+      }
+      const platformLabel=window.electronAPI?"Desktop (Electron)":(window.Capacitor?"Android (Capacitor)":"Web");
+      const {error:insErr}=await sb.from("bug_reports").insert({
+        message:msg, photo_paths:photoPaths,
+        app_version:appliedV||null, platform:platformLabel,
+        reporter_user_id: MP_READY && MP_USER_ID ? MP_USER_ID : null
+      });
+      if(insErr) throw insErr;
+      toast("Segnalazione inviata, grazie!");
+      bugMsg.value=""; bugPhotos=[]; drawBugPhotos();
+    }catch(e){
+      toast("Invio non riuscito ("+(e.message||e)+"). Riprova più tardi.");
+    }finally{
+      bugSendBtn.disabled=false; bugSendBtn.textContent=oldLbl;
+    }
+  }},"📨 Invia segnalazione");
+  cBug.append(bugSendBtn);
+  wrap.append(cBug);
+
   const cMode=el("div",{class:"card"});
   cMode.append(el("h3",{style:"color:var(--gold2)"},"🎭 Modalità"));
   cMode.append(el("p",{class:"muted",style:"font-size:13px"},"Modalità attuale: "),
@@ -7570,7 +7660,7 @@ function render(){
   if(STATE.view==="explore") STATE.view="home";
   applyModeVisibility();
   const app=$("#app"); app.innerHTML="";
-  const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
+  const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
   const _cr=document.getElementById("crumb"); if(_cr)_cr.textContent=VIEW_NAMES[STATE.view]||"";
   // Anche qui: se il personaggio attivo ha dati che mandano in errore derived() (es. una classe
   // forgiata/homebrew salvata in modo incompleto), non deve poter bloccare TUTTO render() prima
@@ -7595,6 +7685,7 @@ function render(){
       case "sheet": node=viewSheet(); break;
       case "companion": node=viewCompanion(); break;
       case "wizard": node=viewWizard(); break;
+      case "howto": node=viewHowToPlay(); break;
       case "bestiary": node=viewBestiary(); break;
       case "forge": node=viewForge(); break;
       case "explore": node=viewExplore(); break;
@@ -7630,7 +7721,7 @@ function renderViewCrashRecovery(viewName, err){
   return box;
 }
 function VIEW_LABEL_FALLBACK(v){
-  const names={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
+  const names={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
   return names[v]||v||"questa vista";
 }
 function renderSidebarProfile(){
@@ -7701,7 +7792,8 @@ function viewHome(){
             el("button",{class:"btn",onclick:resumeWizard},"▶ Riprendi creazione"),
             el("button",{class:"btn ghost",onclick:()=>{ if(confirm("Ricominciare da zero? Il personaggio in creazione verrà scartato.")){startWizard();} }},"＋ Nuovo"))
         : el("button",{class:"btn",onclick:startWizard},"＋ Nuovo Personaggio"),
-      el("button",{class:"btn ghost",onclick:importCharacterPdfModal},"📄 Importa da PDF"))));
+      el("button",{class:"btn ghost",onclick:importCharacterPdfModal},"📄 Importa da PDF"),
+      el("button",{class:"btn ghost",onclick:()=>go("howto")},"📖 Come si gioca"))));
   if(!STATE.characters.length){
     wrap.append(el("div",{class:"emptybox"},
       el("p",{},"Nessun personaggio ancora forgiato."),
@@ -9096,9 +9188,11 @@ function viewWizard(){
   const wrap=el("div",{class:"grid"});
   const stepper=el("div",{class:"stepper"});
   WSTEPS.forEach((s,i)=>stepper.append(el("div",{class:"st"+(i===w.step?" active":i<w.step?" done":"")},(i+1)+". "+s)));
-  wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
+  wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"},
     el("h2",{style:"color:var(--gold2)"},"Crea un Personaggio"),
-    el("button",{class:"btn ghost sm",onclick:()=>go("home")},"Annulla")));
+    el("div",{style:"display:flex;gap:8px"},
+      el("button",{class:"btn ghost sm",onclick:()=>go("howto")},"📖 Come si gioca"),
+      el("button",{class:"btn ghost sm",onclick:()=>go("home")},"Annulla"))));
   wrap.append(stepper);
   const card=el("div",{class:"card"});
   card.append(WIZ_STEP[w.step](w));
@@ -9445,6 +9539,119 @@ const WIZ_STEP=[
     return box;
   }
 ];
+/* =========================================================================
+   GUIDA "COME SI GIOCA" — pensata per chi non ha mai giocato a D&D.
+   Raggiungibile da un pulsante sempre visibile nell'intestazione del wizard
+   di creazione (in ogni suo passo), così chi è alle prime armi può
+   consultarla quando vuole senza perdere i dati già inseriti nel personaggio
+   che sta creando (STATE.wizard resta intatto: si torna al wizard con
+   go("wizard") esattamente al punto in cui si era). È organizzata in
+   sezioni con un indice laterale (STATE.howtoSection) invece che come un
+   ottavo passo obbligatorio del wizard, per due motivi: non rallenta chi
+   sta già creando il suo secondo o terzo personaggio, e permette di saltare
+   liberamente da un argomento all'altro invece di leggere tutto in fila.
+   I contenuti sono una spiegazione originale, in linguaggio semplice, basata
+   sulle regole 2024 (SRD) di D&D — non sono un testo copiato dai manuali. */
+const HOWTO_SECTIONS=[
+  {id:"intro",icon:"🎲",title:"Cos'è D&D e come si gioca",
+    p:[
+      "Dungeons & Dragons è un gioco di ruolo: insieme ad altre persone (di solito 3-6) interpreti un personaggio dentro una storia raccontata a voce, un po' come un romanzo che si scrive insieme mentre lo si vive. Una persona del gruppo fa da Dungeon Master (DM): descrive il mondo, interpreta i personaggi non giocanti e decide le conseguenze delle vostre azioni.",
+      "Non esiste una tavola di gioco fissa con caselle da percorrere: a turno dici cosa vuole fare il tuo personaggio (\"provo ad aprire la porta\", \"parlo con la guardia\", \"attacco il lupo\") e il DM ti dice cosa succede, a volte chiedendoti di tirare un dado per capire se ci riesci.",
+      "RollOne ti aiuta nella parte \"tecnica\": tiene traccia di punti ferita, incantesimi, equipaggiamento e tira i dadi al posto tuo quando serve, così tu puoi concentrarti sulla storia."
+    ]},
+  {id:"prove",icon:"🎯",title:"Il d20 e le prove",
+    p:[
+      "Il dado più importante è il d20 (20 facce). Ogni volta che il tuo personaggio tenta qualcosa il cui esito è incerto — scassinare una serratura, convincere una guardia, schivare un colpo — tiri un d20, aggiungi un modificatore (che dipende dalle tue caratteristiche e dalla tua competenza) e confronti il risultato con una Classe Difficoltà (CD) decisa dal DM: se il totale è pari o superiore alla CD, ci riesci.",
+      "Un 20 naturale (il dado mostra proprio 20) è quasi sempre un ottimo risultato; un 1 naturale è quasi sempre un pessimo risultato — soprattutto in combattimento, dove valgono anche come successo o fallimento automatico negli attacchi.",
+      "A volte hai vantaggio (tiri due d20 e prendi il risultato migliore, perché le circostanze ti favoriscono) o svantaggio (tiri due d20 e prendi il peggiore, perché le circostanze sono contro di te). RollOne calcola tutto questo automaticamente quando tiri dalla scheda."
+    ]},
+  {id:"specie",icon:"🧬",title:"Come scegliere la specie",
+    p:[
+      "La specie (elfo, nano, umano, tiefling e molte altre) rappresenta la razza del tuo personaggio e nelle regole 2024 determina soprattutto taglia, velocità di movimento e alcuni tratti speciali (per esempio la visione al buio, o una resistenza magica). Non dà più bonus alle caratteristiche: quelli arrivano dal background.",
+      "Per scegliere: nel primo passo del wizard apri il menu a tendina, seleziona una specie e leggi la scheda che compare subito sotto con lore e tratti per esteso. Non c'è una scelta \"giusta\": scegli quella la cui ambientazione o i cui tratti ti incuriosiscono di più, oppure quella che meglio si adatta al personaggio che hai in mente.",
+      "Se vuoi, puoi includere anche le specie homebrew (create appositamente per RollOne, segnalate con 🌿): sono pensate per integrarsi bene con le regole ufficiali, ma se preferisci restare sul materiale ufficiale puoi disattivarle con la casella in alto."
+    ]},
+  {id:"classe",icon:"⚔",title:"Come scegliere la classe",
+    p:[
+      "La classe è il \"mestiere\" d'avventura del tuo personaggio e influenza moltissimo come lo giocherai: un Guerriero colpisce forte in mischia con armi e armature pesanti, un Mago lancia incantesimi studiati su un libro, un Ladro è specializzato in furtività e abilità, un Chierico cura ed è sostenuto dalla sua divinità, e così via.",
+      "Per orientarti, chiediti come preferisci risolvere i problemi nella finzione: corpo a corpo diretto, magia a distanza, furtività e inganno, oppure supportare ed evitare i compagni dai guai. Ogni classe nella lista mostra subito dado vita, caratteristica principale e se è incantatrice o marziale, per farti un'idea veloce prima di leggere i dettagli.",
+      "Non preoccuparti di sbagliare: puoi sempre creare un altro personaggio per provare una classe diversa, e molte classi hanno una sottoclasse (una specializzazione) da scegliere più avanti che le rende ancora più varie."
+    ]},
+  {id:"background",icon:"📜",title:"Come scegliere il background",
+    p:[
+      "Il background racconta cosa faceva il tuo personaggio prima di diventare un avventuriero (Soldato, Erudito, Criminale, Guaritore...) e in termini di regole ti dà: due abilità in cui sei competente, un talento iniziale, un set di strumenti o una lingua, ed è la fonte dei bonus alle tue caratteristiche.",
+      "Quando lo scegli, il wizard ti fa distribuire i bonus di caratteristica legati a quel background: puoi mettere +2 a una e +1 a un'altra, oppure +1 a tutte e tre quelle indicate. Scegli in base a cosa vuoi che il tuo personaggio sappia fare bene fin dal primo livello.",
+      "Il background è anche un'ottima base per il retroscena narrativo: perché il tuo personaggio ha lasciato quella vita? È un buon argomento da discutere con il DM prima di iniziare a giocare."
+    ]},
+  {id:"caratteristiche",icon:"💪",title:"Le sei caratteristiche",
+    p:[
+      "Ogni personaggio ha sei caratteristiche che ne descrivono le capacità innate: Forza (potenza fisica), Destrezza (agilità e riflessi), Costituzione (resistenza e salute), Intelligenza (memoria e ragionamento), Saggezza (percezione e intuito), Carisma (personalità e persuasione).",
+      "Ogni caratteristica va da un punteggio numerico (di solito tra 8 e 15 a inizio gioco) a un modificatore, cioè il numero che aggiungi davvero ai tiri di dado: più il punteggio è alto, più il modificatore è positivo. RollOne calcola i modificatori automaticamente non appena inserisci i punteggi.",
+      "Nel passo \"Caratteristiche\" del wizard puoi distribuire i punteggi con il metodo che preferisci tra quelli proposti: scegli quelli più alti per la caratteristica principale della tua classe, così i tuoi attacchi o incantesimi saranno più efficaci fin da subito."
+    ]},
+  {id:"abilita",icon:"🎭",title:"Abilità e competenze",
+    p:[
+      "Le abilità (Percezione, Furtività, Persuasione, Storia e altre) sono applicazioni più specifiche delle caratteristiche: per esempio Percezione usa Saggezza, Atletica usa Forza. Quando sei competente in un'abilità, aggiungi anche il tuo bonus di competenza (che cresce con il livello) al tiro, oltre al modificatore della caratteristica.",
+      "Nel passo \"Abilità\" del wizard scegli quali abilità conosce il tuo personaggio, tra quelle offerte dalla tua classe: il numero esatto da scegliere dipende dalla classe stessa ed è indicato chiaramente nel wizard.",
+      "Scegli le abilità pensando a cosa vuoi che il tuo personaggio faccia bene fuori dal combattimento: indagare, intrattenere una folla, orientarsi in natura, curare i feriti. Sono spesso protagoniste delle scene più memorabili di una sessione."
+    ]},
+  {id:"equipaggiamento",icon:"🎒",title:"Equipaggiamento e Classe Armatura",
+    p:[
+      "Nel passo \"Equipaggiamento\" scegli cosa porta con sé il tuo personaggio all'inizio dell'avventura: armi, armatura, uno zaino con l'occorrente base. La tua classe suggerisce alcune opzioni sensate, così non devi conoscere a memoria tutto l'equipaggiamento del manuale.",
+      "L'armatura (insieme allo scudo, se lo usi, e al modificatore di Destrezza) determina la tua Classe Armatura (CA): più è alta, più è difficile per i nemici colpirti con un attacco. RollOne la calcola da solo sulla scheda del personaggio non appena assegni l'equipaggiamento.",
+      "Non serve scegliere l'equipaggiamento \"perfetto\": puoi sempre comprare, trovare o scambiare altro oggetto durante l'avventura."
+    ]},
+  {id:"combattimento",icon:"🗡",title:"Il combattimento in breve",
+    p:[
+      "Quando inizia uno scontro, ogni personaggio (e ogni nemico) tira l'iniziativa (un d20 + modificatore di Destrezza) per stabilire l'ordine dei turni: si agisce dal punteggio più alto al più basso, un turno alla volta.",
+      "Nel tuo turno hai di solito un'Azione (per esempio attaccare o lanciare un incantesimo), un Movimento (spostarti fino alla tua velocità) e, in certe situazioni, un'Azione Bonus o una Reazione. Un attacco è un tiro di d20 + modificatore contro la Classe Armatura del bersaglio: se lo eguagli o superi, colpisci e tiri i dadi del danno.",
+      "I Punti Ferita (PF) rappresentano quanto danno può assorbire il tuo personaggio prima di cadere privo di sensi: quando arrivano a 0 non muori subito, ma inizi a tirare Tiri Salvezza contro la Morte finché non vieni curato o stabilizzato. RollOne tiene traccia di PF, dadi vita e condizioni direttamente sulla scheda."
+    ]},
+  {id:"glossario",icon:"📖",title:"Glossario per i primi passi",
+    p:[
+      "CD (Classe Difficoltà): il numero che devi eguagliare o superare con un tiro perché un'azione riesca, deciso dal DM.",
+      "CA (Classe Armatura): quanto è difficile colpire il tuo personaggio in combattimento.",
+      "PF (Punti Ferita): quanto danno puoi subire prima di cadere privo di sensi.",
+      "TS (Tiro Salvezza): un tiro di d20 per resistere a un effetto (una trappola, un incantesimo nemico, un veleno).",
+      "Bonus di competenza: il bonus extra che aggiungi nelle prove e negli attacchi legati a ciò in cui sei competente; cresce con il livello.",
+      "Vantaggio / Svantaggio: tirare due d20 e tenere il migliore (vantaggio) o il peggiore (svantaggio) risultato.",
+      "Dado Vita: il dado (es. d8, d10) legato alla tua classe, usato per calcolare i PF guadagnati salendo di livello e per recuperarli durante i riposi lunghi."
+    ]}
+];
+function viewHowToPlay(){
+  const wrap=el("div",{class:"grid"});
+  const backTarget=STATE.wizard?"wizard":"home";
+  wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"},
+    el("h2",{style:"color:var(--gold2)"},"📖 Come si gioca"),
+    el("button",{class:"btn ghost sm",onclick:()=>go(backTarget)},backTarget==="wizard"?"← Torna alla creazione":"← Torna alla Home")));
+  wrap.append(el("p",{class:"muted",style:"font-size:13px;margin-top:-6px"},
+    "Una guida rapida per chi non ha mai giocato a D&D: puoi consultarla in qualsiasi momento, anche a metà della creazione del personaggio — non perderai nulla di quello che hai già scelto."));
+  const cur=STATE.howtoSection||HOWTO_SECTIONS[0].id;
+  const layout=el("div",{style:"display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start"});
+  const nav=el("div",{class:"card",style:"flex:0 0 220px;min-width:200px;padding:10px"});
+  HOWTO_SECTIONS.forEach(s=>{
+    nav.append(el("div",{
+      style:"padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13px;margin-bottom:2px"+
+        (cur===s.id?";background:var(--tagamber);color:var(--ink);font-weight:600":";color:var(--muted)"),
+      onclick:()=>{STATE.howtoSection=s.id;persist();render();}
+    },s.icon+" "+s.title));
+  });
+  layout.append(nav);
+  const content=el("div",{class:"card",style:"flex:1 1 340px;min-width:280px"});
+  const section=HOWTO_SECTIONS.find(s=>s.id===cur)||HOWTO_SECTIONS[0];
+  content.append(el("h3",{style:"color:var(--gold2);margin-top:0"},section.icon+" "+section.title));
+  section.p.forEach(par=>content.append(el("p",{style:"line-height:1.7;font-size:14px;margin:0 0 12px"},par)));
+  const idx=HOWTO_SECTIONS.findIndex(s=>s.id===cur);
+  const pager=el("div",{style:"display:flex;justify-content:space-between;margin-top:14px;gap:8px"});
+  if(idx>0) pager.append(el("button",{class:"btn ghost sm",onclick:()=>{STATE.howtoSection=HOWTO_SECTIONS[idx-1].id;persist();render();}},"← "+HOWTO_SECTIONS[idx-1].title));
+  else pager.append(el("span",{}));
+  if(idx<HOWTO_SECTIONS.length-1) pager.append(el("button",{class:"btn sm",onclick:()=>{STATE.howtoSection=HOWTO_SECTIONS[idx+1].id;persist();render();}},HOWTO_SECTIONS[idx+1].title+" →"));
+  else pager.append(el("span",{}));
+  content.append(pager);
+  layout.append(content);
+  wrap.append(layout);
+  return wrap;
+}
 function finishWizard(w){
   const c=w.c;
   c.skillProfs=[...w.pickedSkills];
