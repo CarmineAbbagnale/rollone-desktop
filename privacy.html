@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RollOne — Informativa sulla privacy</title>
+<style>
+  :root{
+    --bg:#12141c; --card:#1b1e2a; --text:#e8e6f0; --muted:#a5a2b8;
+    --accent:#c9a24d; --border:#2b2f40;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#faf8f3; --card:#ffffff; --text:#241f1a; --muted:#5c5646; --accent:#8a6a1e; --border:#e6dfcd; }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Georgia","Iowan Old Style",serif;
+    line-height:1.65;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:48px 24px 96px}
+  header{margin-bottom:40px; border-bottom:1px solid var(--border); padding-bottom:24px}
+  h1{
+    font-size:2rem; margin:0 0 8px; letter-spacing:.01em;
+  }
+  .eyebrow{
+    text-transform:uppercase; letter-spacing:.12em; font-size:.75rem;
+    color:var(--accent); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-weight:600; margin:0 0 12px;
+  }
+  .updated{color:var(--muted); font-size:.9rem; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  h2{
+    font-size:1.25rem; margin:40px 0 12px; color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-weight:700;
+  }
+  p, li{font-size:1.02rem}
+  ul{padding-left:1.3em}
+  li{margin-bottom:6px}
+  strong{color:var(--accent)}
+  a{color:var(--accent)}
+  table{width:100%; border-collapse:collapse; margin:16px 0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.92rem}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+  th{color:var(--muted); font-weight:600; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em}
+  .box{
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:20px 24px; margin:20px 0;
+  }
+  footer{
+    margin-top:56px; padding-top:24px; border-top:1px solid var(--border);
+    color:var(--muted); font-size:.85rem; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  .overflow{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">RollOne — Compagno D&amp;D 5e</p>
+    <h1>Informativa sulla privacy</h1>
+    <p class="updated">Ultimo aggiornamento: 1 settembre 2026</p>
+  </header>
+
+  <p>Questa informativa spiega quali dati RollOne raccoglie, come li usa e come puoi richiederne la cancellazione. RollOne è un'app personale per la gestione di personaggi e campagne di Dungeons &amp; Dragons 5ª edizione, disponibile per Windows, macOS e Android.</p>
+
+  <h2>Titolare del trattamento</h2>
+  <p>Carmine Abbagnale, sviluppatore indipendente di RollOne. Per qualsiasi richiesta relativa ai tuoi dati puoi scrivere a <strong><a href="mailto:twitabomb@gmail.com">twitabomb@gmail.com</a></strong>.</p>
+
+  <h2>Come funziona l'app</h2>
+  <p>RollOne funziona principalmente in locale: la creazione e la gestione dei personaggi non richiedono un account e i dati restano sul tuo dispositivo. Un account è necessario solo se scegli di usare le funzioni multiplayer (campagne condivise tra più giocatori). Senza account, RollOne non invia nessun dato a un server.</p>
+
+  <h2>Dati raccolti</h2>
+  <div class="box overflow">
+  <table>
+    <tr><th>Quando</th><th>Cosa</th><th>Dove</th></tr>
+    <tr><td>Sempre</td><td>Personaggi, schede, lanci di dado, impostazioni dell'app</td><td>Solo sul tuo dispositivo (memoria locale del browser/app)</td></tr>
+    <tr><td>Sempre</td><td>Copia del contenuto dell'app usata per verificare la disponibilità di aggiornamenti</td><td>Cache locale sul dispositivo</td></tr>
+    <tr><td>Solo se crei un account multiplayer</td><td>Indirizzo email e password (gestita in modo sicuro dal fornitore di autenticazione, mai visibile in chiaro a noi)</td><td>Database del fornitore di infrastruttura (Supabase)</td></tr>
+    <tr><td>Solo se crei un account multiplayer</td><td>Personaggi, campagne, appartenenza alle campagne, mappe di battaglia, segnalini, note riservate del Dungeon Master, condivise con gli altri partecipanti alla stessa campagna</td><td>Database del fornitore di infrastruttura (Supabase)</td></tr>
+    <tr><td>Solo se crei un account multiplayer</td><td>Identificativo del dispositivo/sessione, usato per riconoscere le sessioni attive del tuo account</td><td>Database del fornitore di infrastruttura (Supabase)</td></tr>
+  </table>
+  </div>
+  <p>RollOne non contiene pubblicità, non usa strumenti di tracciamento pubblicitario o di analisi del comportamento (analytics), e non vende né cede dati a terzi per finalità commerciali.</p>
+
+  <h2>Perché raccogliamo questi dati</h2>
+  <ul>
+    <li><strong>Far funzionare l'app.</strong> I dati locali servono unicamente a farti giocare: personaggi, dadi, regole.</li>
+    <li><strong>Far funzionare il multiplayer.</strong> Email e password servono per farti accedere al tuo account; i dati di campagna servono a sincronizzare quello che vedono tutti i giocatori dello stesso tavolo.</li>
+    <li><strong>Sicurezza dell'account.</strong> L'identificativo di sessione serve solo a riconoscere un accesso già autorizzato e a permetterti di disconnetterti da remoto.</li>
+  </ul>
+
+  <h2>Autorizzazioni richieste sul dispositivo</h2>
+  <p>La versione Android di RollOne richiede due sole autorizzazioni, usate esclusivamente per le funzioni che descrivono:</p>
+  <ul>
+    <li><strong>Accesso ai file:</strong> per esportare o importare la scheda di un personaggio come file, su tua richiesta esplicita.</li>
+    <li><strong>Condivisione:</strong> per condividere un file (es. una scheda personaggio) tramite le altre app installate sul telefono, su tua richiesta esplicita.</li>
+  </ul>
+  <p>Nessuna di queste autorizzazioni viene usata per raccogliere dati in background.</p>
+
+  <h2>Conservazione dei dati</h2>
+  <p>I dati locali restano sul tuo dispositivo finché non disinstalli l'app o non li cancelli tu stesso dalle impostazioni. I dati dell'account multiplayer (email, personaggi e campagne condivise) restano sul database del fornitore di infrastruttura finché non richiedi la cancellazione dell'account.</p>
+
+  <h2>I tuoi diritti</h2>
+  <p>Puoi in qualsiasi momento:</p>
+  <ul>
+    <li>chiedere una copia dei dati legati al tuo account;</li>
+    <li>chiedere la correzione di dati inesatti;</li>
+    <li>chiedere la cancellazione completa del tuo account e dei dati associati.</li>
+  </ul>
+  <p>Puoi avviare la cancellazione direttamente dall'app, in <strong>Impostazioni → Privacy e Account → Elimina il mio account</strong>, oppure scrivendo a <a href="mailto:twitabomb@gmail.com">twitabomb@gmail.com</a>. Le richieste via email vengono evase entro 30 giorni.</p>
+
+  <h2>Fornitori terzi coinvolti</h2>
+  <p>RollOne si appoggia a <strong>Supabase</strong> (infrastruttura di database e autenticazione) esclusivamente per far funzionare le funzioni multiplayer descritte sopra. Nessun altro servizio terzo (pubblicità, analisi, statistiche) è integrato nell'app.</p>
+
+  <h2>Minori</h2>
+  <p>RollOne non è rivolta specificamente a minori di 13 anni e non raccoglie consapevolmente dati di bambini sotto quell'età tramite le funzioni multiplayer.</p>
+
+  <h2>Modifiche a questa informativa</h2>
+  <p>Se questa informativa cambia in modo sostanziale, la data di "ultimo aggiornamento" in cima alla pagina verrà aggiornata di conseguenza.</p>
+
+  <footer>
+    RollOne — informativa sulla privacy · <a href="https://github.com/CarmineAbbagnale/rollone-desktop">repository del progetto</a>
+  </footer>
+</div>
+</body>
+</html>
