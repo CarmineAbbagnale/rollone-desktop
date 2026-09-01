@@ -8187,9 +8187,15 @@ function companionCharPanel(c,d){
   const shownSkills=[...(d.skillProfs||[])].slice(0,10);
   if(shownSkills.length){
     shownSkills.forEach(s=>{
-      const info=SKILL_DESC?.[s]; const abilK=SKILLS?.[s];
+      const abilK=SKILLS?.[s];
       const bonus=abilK?d.mods[abilK]+d.prof:d.prof;
-      skGrid.append(el("div",{class:"row2"},el("span",{},s),el("b",{style:"color:var(--gold2)"},sign(bonus))));
+      // BUG FIX (2026-09-01): questa riga non aveva ALCUN onclick — segnalato
+      // dall'utente ("ho provato a cliccare ma non succedeva nulla"). I dettagli
+      // esistevano già (SKILL_DESC + showSkillInfo(), usati altrove nell'app) ma
+      // qui non erano collegati. Ora ogni abilità apre la stessa scheda di
+      // dettaglio (caratteristica legata, cosa misura, quando si tira, esempi).
+      skGrid.append(el("div",{class:"row2",style:"cursor:pointer",onclick:()=>showSkillInfo(s)},
+        el("span",{},s),el("b",{style:"color:var(--gold2)"},sign(bonus))));
     });
   } else skGrid.append(el("div",{class:"muted",style:"font-size:12px"},"Nessuna competenza scelta."));
   card.append(skGrid);
@@ -14150,12 +14156,31 @@ function showFeatureModal(f,cls,isSub,subLabel){
 /* ---- Talenti ---- */
 function findFeat(name){ if(!name)return null; const base=name.replace(/\s*\([^)]*\)\s*/,"").trim();
   return FEATS.find(f=>f.name===base)||FEATS.find(f=>name.startsWith(f.name))||null; }
+// BUG FIX (2026-09-01): findFeat cercava SOLO nel vecchio array FEATS, ma il
+// selettore talenti attuale (openFeatSelector, vedi sopra) legge da FEATS_DB —
+// un database più recente che include talenti (soprattutto 2024 e Doni Epici)
+// assenti o rinominati in FEATS. Risultato segnalato dall'utente: sceglievi un
+// talento (es. un Dono Epico per un personaggio Semidio) e, riaprendolo dalla
+// scheda, vedevi solo il messaggio generico "Talento concesso dal background"
+// invece della descrizione vera — sembrava che il talento non "sapesse cosa
+// fa" e, di riflesso, che la scelta non fosse stata salvata sul serio. Ora, se
+// il nome non si trova in FEATS, si cerca anche in FEATS_DB e si adatta la
+// forma dei dati (description_it/benefits/category) a quella attesa da
+// showFeat(), così qualunque talento scelto mostra sempre la sua descrizione.
+function findFeatDb(name){
+  if(!name || typeof FEATS_DB==="undefined") return null;
+  const base=name.replace(/\s*\([^)]*\)\s*/,"").trim();
+  const rec=FEATS_DB.find(f=>f.name===base)||FEATS_DB.find(f=>name.startsWith(f.name));
+  if(!rec) return null;
+  const desc=rec.description_it+((rec.benefits||[]).length?"\n\n"+rec.benefits.map(b=>"• "+b).join("\n"):"");
+  return {name:rec.name,cat:featCatLabel(rec.category),prereq:(rec.prerequisites&&rec.prerequisites.level)?"Livello "+rec.prerequisites.level+"+":"",desc};
+}
 function showFeat(f,displayName){
   modal(displayName||f.name, el("div",{},
     el("p",{},el("span",{class:"pill"},f.cat),f.prereq?el("span",{class:"pill",style:"margin-left:6px"},"Prerequisito: "+f.prereq):""),
-    el("p",{style:"margin-top:10px;line-height:1.5"},f.desc)));
+    el("p",{style:"margin-top:10px;line-height:1.5;white-space:pre-line"},f.desc)));
 }
-function showFeatByName(name){ const f=findFeat(name); if(f)showFeat(f,name);
+function showFeatByName(name){ const f=findFeat(name)||findFeatDb(name); if(f)showFeat(f,name);
   else modal(name,el("p",{style:"line-height:1.5"},"Talento concesso dal background. Vedi la categoria Origini nel Compendio → Talenti.")); }
 function showSkillInfo(name){
   const d=SKILL_DESC[name]; const ab=SKILLS[name];
