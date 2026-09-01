@@ -372,6 +372,14 @@ header.topbar::after{content:"";position:absolute;left:0;right:0;bottom:-1px;hei
     backdrop-filter:none;
   }
 }
+/* PERFORMANCE (2026-09-01): stesso problema di cui sopra, ma su .modal-back — la sfocatura
+   a schermo intero dietro la scheda di un mostro selezionato nel Bestiario deve ricomporre
+   l'intera griglia (centinaia di card, con box-shadow e sfumature) proprio nel momento in cui
+   la modale entra in scena, causando un blocco percepibile un istante prima che compaia. Su
+   schermi stretti/touch (incluso l'APK) disattiviamo l'effetto vetro, come già fatto sopra. */
+@media (max-width:900px), (pointer:coarse){
+  .modal-back{ backdrop-filter:none; }
+}
 [data-theme="dark"] .crumb{color:var(--r-gold-light);text-shadow:0 1px 0 rgba(0,0,0,.5)}
 /* Separatore "runico" riutilizzabile (RuneDivider): una linea bronzea con un
    piccolo rombo dorato al centro, per spezzare sezioni lunghe senza una card. */
@@ -811,10 +819,16 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
    fisso e mai animato (overflow:hidden — un ritaglio di layout "duro", non un border-radius sullo
    stesso elemento a cui è animato anche un filter, combinazione fragile su alcuni compositor
    Android: vedi nota sopra a dieClip in companionRollPanel()). */
-.companion-d20-clip{position:relative;width:240px;height:240px;border-radius:50%;overflow:hidden}
+/* "perspective" qui è statico (mai animato, mai ricalcolato) — dà solo profondità 3D ai transform
+   rotateX/rotateY dell'immagine figlia sottostante; non ha alcun costo di ricomposizione proprio,
+   quindi non riapre il rischio del riquadro blu descritto sopra (quello nasceva da un filter blur
+   animato INSIEME a un transform sullo STESSO elemento, non dalla sola presenza di una perspective
+   statica sul contenitore). */
+.companion-d20-clip{position:relative;width:240px;height:240px;border-radius:50%;overflow:hidden;
+  perspective:900px}
 /* Immagine reale fornita dall'utente (D20_HERO_IMG), non un'imitazione CSS. */
 .companion-d20-img{position:relative;width:100%;height:100%;object-fit:contain;
-  filter:drop-shadow(0 0 26px rgba(232,168,60,.35));transition:filter .2s}
+  filter:drop-shadow(0 0 26px rgba(232,168,60,.35));transition:filter .2s;transform-style:flat}
 /* Prima il dado "fluttuava" con un'animazione infinita anche da fermo, per tutto il tempo in cui
    restava aperta la schermata principale del gioco (il Companion, dove si sta la maggior parte
    della sessione). Animare "transform" su un elemento con un filtro drop-shadow attivo costringe
@@ -825,7 +839,7 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
    vero e proprio (companionD20Spin qui sotto, sulla classe .rolling) resta invariata: dura meno di
    un secondo per tiro, un costo trascurabile rispetto a un'animazione perenne.
    @keyframes companionD20Float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}} */
-.companion-d20-img.rolling{animation:companionD20Spin .9s cubic-bezier(.2,.8,.3,1)}
+.companion-d20-img.rolling{animation:companionD20Spin 1s cubic-bezier(.16,1,.3,1)}
 /* Rotazione piena (non solo un tremolio): il dado gira davvero due volte su se stesso prima di
    fermarsi, con una leggera sfocatura di movimento a metà corsa, poi il risultato compare sopra
    l'immagine (vedi .companion-die-result). Richiesta esplicita dell'utente (2026-08-28): "il dado
@@ -838,10 +852,33 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
    secondo (visibile nella registrazione dello schermo inviata dall'utente: un riquadro
    bluastro dietro al dado durante il lancio). Tolto il blur di movimento: la rotazione resta
    piena (due giri), solo senza quel passaggio sfocato che rischiava l'artefatto. */
+/* TERZO GIRO (2026-09-01): l'utente segnala che il dado "non tumbla per davvero, sembra ancora
+   una foto ferma con un filtro" — un semplice rotate(0→720deg) 2D più uno scale non basta a
+   leggersi come un tiro fisico. Non avendo facce 3D separate (un'unica foto per tipo di dado),
+   la tecnica realistica e leggera che usano i veri dice-roller (app "Dice Roller", DnDBeyond,
+   ecc.) è sfruttare la "perspective" del contenitore statico qui sopra e ruotare la STESSA foto su
+   TUTTI e tre gli assi (rotateX+rotateY+rotateZ) invece che solo su Z: con la prospettiva attiva,
+   la foto si scorcia e si "gira" davvero nello spazio (esattamente come una moneta o una carta
+   che tumbla), non solo si gira piatta sullo schermo. Ogni tratto tra un fotogramma e il successivo
+   è più corto del precedente (le rotazioni si accorciano progressivamente) e la curva di easing
+   dell'intera animazione (cubic-bezier(.16,1,.3,1), un "ease-out" pronunciato) rallenta ulteriormente
+   verso la fine: insieme danno la sensazione di un dado lanciato con forza che perde slancio e si
+   "posa" sul tavolo, non un loop meccanico a velocità costante. Ogni asse chiude su un multiplo
+   esatto di 360deg al 100% (rotateX(-720) rotateY(1080) rotateZ(360) = tutti equivalenti a 0deg):
+   il dado torna SEMPRE all'orientamento piatto/neutro esatto in cui è leggibile, esattamente
+   nell'istante in cui il tiro si risolve — mai a metà giro. Solo transform+filter (drop-shadow,
+   niente blur, come sopra): nessuna nuova proprietà costosa per l'Android WebView. */
 @keyframes companionD20Spin{
-  0%{transform:scale(1) rotate(0deg);filter:drop-shadow(0 0 26px rgba(232,168,60,.35))}
-  55%{transform:scale(1.14) rotate(430deg);filter:drop-shadow(0 0 34px rgba(232,168,60,.5))}
-  100%{transform:scale(1) rotate(720deg);filter:drop-shadow(0 0 26px rgba(232,168,60,.35))}
+  0%{transform:rotateX(0) rotateY(0) rotateZ(0) scale(1);filter:drop-shadow(0 0 26px rgba(232,168,60,.35))}
+  8%{transform:rotateX(-70deg) rotateY(160deg) rotateZ(40deg) scale(1.1)}
+  18%{transform:rotateX(-150deg) rotateY(360deg) rotateZ(95deg) scale(1.15);filter:drop-shadow(0 0 40px rgba(232,168,60,.55))}
+  30%{transform:rotateX(-260deg) rotateY(560deg) rotateZ(170deg) scale(1.16)}
+  44%{transform:rotateX(-380deg) rotateY(740deg) rotateZ(250deg) scale(1.13);filter:drop-shadow(0 0 40px rgba(232,168,60,.55))}
+  58%{transform:rotateX(-490deg) rotateY(880deg) rotateZ(310deg) scale(1.08)}
+  71%{transform:rotateX(-580deg) rotateY(970deg) rotateZ(345deg) scale(1.04)}
+  83%{transform:rotateX(-640deg) rotateY(1020deg) rotateZ(355deg) scale(1.01)}
+  93%{transform:rotateX(-670deg) rotateY(1045deg) rotateZ(358deg) scale(1)}
+  100%{transform:rotateX(-720deg) rotateY(1080deg) rotateZ(360deg) scale(1);filter:drop-shadow(0 0 26px rgba(232,168,60,.35))}
 }
 @media(prefers-reduced-motion:reduce){.companion-d20-img,.companion-d20-img.rolling{animation:none}}
 /* Il numero del risultato appare SOPRA il dado stesso (non solo come riga di testo separata
@@ -6040,6 +6077,57 @@ function viewSettings(){
   if(STATE.mode!=="player") cMp.append(el("p",{class:"muted",style:"font-size:12px;margin-top:10px"},"Per condividere una campagna, apri i suoi dettagli e usa «Condividi in multiplayer»; per unirti a quella di un altro giocatore, usa «🔗 Unisciti con codice» nella scheda Campagna AI."));
   wrap.append(cMp);
 
+  // NUOVO (2026-09-01): sezione richiesta per la pubblicazione su Google Play Store — la
+  // scheda "Data Safety" del Play Console richiede che l'app renda visibili all'utente,
+  // in-app, una privacy policy, una spiegazione dei dati trattati, un modo di eliminare
+  // l'account e un riepilogo dei permessi/consensi richiesti. Segue lo stesso stile a
+  // card/section-title delle altre schede di questa vista.
+  const cPriv=el("div",{class:"card"});
+  cPriv.append(el("h3",{style:"color:var(--gold2)"},"🔒 Privacy e Account"));
+
+  cPriv.append(el("div",{style:sub},el("b",{},"Informativa sulla privacy")));
+  cPriv.append(el("p",{class:"muted",style:"font-size:13px"},"Consulta l'informativa sulla privacy di RollOne (dati trattati, finalità e diritti dell'utente)."));
+  cPriv.append(el("div",{style:row},
+    el("button",{class:"btn ghost sm",onclick:()=>{
+      // Stessa via d'uscita usata altrove nell'app per aprire un link esterno dal WebView
+      // (Capacitor Android intercetta window.open su un URL http/https e lo apre nel
+      // browser di sistema anziché dentro la WebView a finestra singola dell'app).
+      try{ window.open("https://carmineabbagnale.github.io/rollone-desktop/privacy.html","_blank","noopener"); }catch(e){}
+    }},"📄 Privacy Policy")));
+
+  cPriv.append(el("div",{style:sub+";margin-top:14px"},el("b",{},"Sicurezza dei dati")));
+  cPriv.append(el("p",{class:"muted",style:"font-size:13px;line-height:1.6"},
+    "I tuoi personaggi, creazioni della Forgia e impostazioni restano salvati localmente sul dispositivo (localStorage del browser/WebView); una piccola cache tecnica separata (IndexedDB) memorizza solo il pacchetto di contenuti dell'app per gli aggiornamenti offline, non i tuoi dati. Se attivi un account (email e password, sezione Multiplayer qui sopra), i dati che scegli di sincronizzare o condividere (personaggi, campagne condivise, creazioni) vengono inviati al database cloud di Supabase, il fornitore che gestisce l'account e la sincronizzazione tra i tuoi dispositivi; la chiave IA resta invece configurata solo localmente su ogni dispositivo, per sicurezza, e non viene sincronizzata. Nessun dato viene venduto o condiviso con terze parti per pubblicità: l'unico servizio esterno coinvolto è quello del provider IA che hai scelto tu in Impostazioni AI, a cui vengono inviate le richieste necessarie a generare narrazione/analisi, e Supabase per l'account e la sincronizzazione facoltativa."));
+
+  cPriv.append(el("div",{style:sub+";margin-top:14px"},el("b",{},"Consenso esplicito e autorizzazioni")));
+  cPriv.append(el("p",{class:"muted",style:"font-size:13px;line-height:1.6"},
+    "RollOne richiede solo due permessi di sistema su Android, entrambi tramite plugin Capacitor ufficiali: Filesystem (@capacitor/filesystem), usato esclusivamente per salvare/leggere i file che esporti o importi tu stesso (backup dei personaggi, pacchetti di contenuti); e Share (@capacitor/share), usato solo per condividere quegli stessi file con altre app quando lo scegli tu (es. inviarli su WhatsApp). Nessuno dei due viene mai usato per leggere altri file del dispositivo o per raccogliere dati in background."));
+
+  cPriv.append(el("div",{style:sub+";margin-top:14px;color:var(--red2)"},el("b",{},"Elimina il mio account")));
+  cPriv.append(el("p",{class:"muted",style:"font-size:13px;line-height:1.6"},
+    "Elimina l'account multiplayer da questo dispositivo e tutti i dati di gioco salvati localmente (personaggi, creazioni della Forgia, impostazioni). Operazione irreversibile."));
+  cPriv.append(el("div",{style:row},
+    el("button",{class:"btn red sm",onclick:()=>confirmModal("Eliminare il tuo account?",
+      "Verranno disconnessi l'account multiplayer su questo dispositivo ed eliminati tutti i personaggi, le creazioni della Forgia e le impostazioni salvate localmente. Operazione irreversibile: esporta un backup prima, se vuoi conservare i tuoi dati.",
+      async()=>{
+        // Elimina qui solo ciò che l'app può davvero cancellare da client: la sessione
+        // multiplayer locale e tutti i dati salvati sul dispositivo. NOTA IMPLEMENTAZIONE:
+        // non esiste ancora, in questo codice, una vera cancellazione dell'account lato
+        // server (riga utente Supabase auth + righe collegate nelle tabelle players/
+        // campaigns/account_devices ecc.): richiede una funzione lato Supabase (es. una
+        // Edge Function con service role che chiami supabase.auth.admin.deleteUser e ripulisca
+        // le tabelle collegate), da implementare separatamente se non già presente sul
+        // progetto Supabase. Finché quella parte non esiste, questo pulsante NON deve essere
+        // presentato all'utente come una cancellazione completa lato server.
+        try{ if(MP_READY){ await mpSignOut(); } }catch(e){}
+        STATE.characters=[];STATE.customItems=[];STATE.customMonsters=[];STATE.customSpells=[];STATE.customSubclasses=[];
+        STATE.combat={combatants:[],round:1,turn:0,active:false,log:[]};
+        STATE.mp.playerName="";
+        try{ localStorage.removeItem(AUTH_EVER_LOGGED_KEY); }catch(e){}
+        persist(); go("settings"); toast("Account disconnesso e dati locali eliminati.");
+      })},"🗑 Elimina il mio account")));
+  wrap.append(cPriv);
+
   const cMode=el("div",{class:"card"});
   cMode.append(el("h3",{style:"color:var(--gold2)"},"🎭 Modalità"));
   cMode.append(el("p",{class:"muted",style:"font-size:13px"},"Modalità attuale: "),
@@ -6660,7 +6748,7 @@ function getSubclassOrigin(subName){
 function getAvailableClasses(c, opts){
   opts = opts || {};
   const already = opts.forMulticlass ? (classesOf(c)||[]).map(x=>x.cls) : [];
-  return Object.keys(CLASSES).map(cn => {
+  return Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(cn => {
     const owned = already.includes(cn);
     const eligible = opts.forMulticlass ? (owned || meetsMulticlassReq(c, cn)) : true;
     return { key: cn, data: CLASSES[cn], origin: getClassOrigin(cn), eligible, owned };
@@ -7665,14 +7753,13 @@ function viewSheet(){
         el("button",{class:"btn ghost sm",onclick:()=>go("home")},"← Indietro"))));
   wrap.append(head);
   wrap.append(characterProgressionTimeline(c, d.totalLevel));
-  // Consulente IA in background (niente più pulsante, richiesta esplicita dell'utente): analizza da
-  // sola la scheda a intervalli e mostra eventuali avvisi/suggerimenti in un riquadro di sola lettura.
-  runBackgroundAdvisor(c, "scheda personaggio",
-    `Nome: ${c.name}. Specie: ${c.race}. Classe: ${classLabel(c)}. Livello totale: ${d.totalLevel}. Background: ${c.background}. `+
-    `Caratteristiche: ${ABIL.map(a=>a.name+" "+d.scores[a.k]).join(", ")}. CA: ${d.ac}. PF: ${c.hpCur}/${d.hpMax}. `+
-    `Competenze abilità: ${[...d.skillProfs].join(", ")}. Talenti: ${(c.feats||[]).map(f=>f.name).join(", ")||"nessuno"}. `+
-    `Armatura: ${c.armor}${c.shield?" + scudo":""}. Inventario: ${(c.inventory||[]).map(i=>i.name).join(", ")||"vuoto"}.`);
-  wrap.append(aiNoteBox(c));
+  // BUG FIX (2026-09-01): il "consulente IA in background" interveniva/appariva anche sulla
+  // scheda personaggio, segnalato come fastidioso dall'utente ("non deve essere attivo lì").
+  // Prima chiamava sempre runBackgroundAdvisor() qui sotto, che avviava una richiesta IA
+  // asincrona e poi un save()+render() al suo ritorno — quindi la nota poteva comparire da
+  // sola mentre si guardava la scheda. Ora questa vista NON avvia più l'analisi in background
+  // né mostra il riquadro nota: nessun timer/trigger residuo può far comparire nulla qui.
+  // Il consulente resta invariato e attivo altrove (oggetti forgiati, scontro, esplorazione).
 
   // Storia del personaggio (backstory) — usata dall'IA in campagne e dungeon per restare coerente
   const bioCard=el("div",{class:"card"});
@@ -8068,12 +8155,22 @@ function companionRollPanel(c,d){
     die.classList.remove("crit","fumble");
   }
   selectFaces(dieFaces);
-  let rollFlickerId=null;
-  const ROLL_ANIM_MS=900; // deve combaciare con la durata di @keyframes companionD20Spin
+  // TERZO GIRO (2026-09-01): rispetto di prefers-reduced-motion anche lato JS, non solo CSS —
+  // qui in RollOne non c'era ancora una convenzione JS per questo (altrove è tutto gestito via
+  // @media nel CSS, che già disattiva l'animazione .rolling), ma il ciclo di numeri "a scalare"
+  // qui sotto è pilotato da setTimeout in JS e non da un'animazione CSS, quindi va spento a mano.
+  const REDUCE_MOTION=typeof matchMedia==="function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let rollFlickerTimers=null;
+  const clearRollFlicker=()=>{ if(rollFlickerTimers){ rollFlickerTimers.forEach(clearTimeout); rollFlickerTimers=null; } };
+  const ROLL_ANIM_MS=1000; // deve combaciare con la durata di @keyframes companionD20Spin (1s)
+  const EFFECTIVE_ROLL_MS=REDUCE_MOTION?60:ROLL_ANIM_MS; // niente tumble 3D né attesa per chi ha ridotto le animazioni
   const doTheRoll=()=>{
-    if(rollFlickerId){ clearInterval(rollFlickerId); rollFlickerId=null; }
-    die.classList.remove("rolling"); void die.offsetWidth; die.classList.add("rolling");
-    setTimeout(()=>die.classList.remove("rolling"),ROLL_ANIM_MS);
+    clearRollFlicker();
+    die.classList.remove("rolling"); void die.offsetWidth;
+    if(!REDUCE_MOTION){
+      die.classList.add("rolling");
+      setTimeout(()=>die.classList.remove("rolling"),EFFECTIVE_ROLL_MS);
+    }
     // Il dado gigante del Companion prima ignorava del tutto il Vantaggio in sospeso
     // dell'Ispirazione Eroica (lo applicava solo rollForChar(), usato dai pulsanti della Scheda
     // completa): risultato, il giocatore la spendeva ma sul tiro vero e proprio, fatto quasi
@@ -8090,9 +8187,23 @@ function companionRollPanel(c,d){
     // mentre il dado continuava a girare fino a 900ms): ora tutto si ferma nello stesso istante.
     resultOverlay.classList.remove("show"); resultOverlay.classList.add("show");
     const flickerMax=dieFaces===100?100:dieFaces;
-    rollFlickerId=setInterval(()=>{ resultOverlay.textContent=String(1+Math.floor(Math.random()*flickerMax)); },70);
+    // TERZO GIRO (2026-09-01): prima il numero lampeggiava a intervallo FISSO (70ms) per tutta la
+    // durata del lancio — un flicker a velocità costante che si ferma di colpo, non un "rallentare
+    // fino a fermarsi". I veri dice-roller (app "Dice Roller", DnDBeyond, il widget dadi di Google)
+    // sincronizzano lo "stabilizzarsi" del numero con quello fisico del dado: passi via via più
+    // radi, non un intervallo unico. Stessi ritardi cumulativi crescenti usati per lo spaziamento
+    // dei fotogrammi di @keyframes companionD20Spin qui sopra (parte veloce, poi rallenta). In
+    // prefers-reduced-motion il ciclo è saltato del tutto: si passa subito al valore vero.
+    if(!REDUCE_MOTION){
+      const cumulativeDelays=[0,60,60,70,80,95,110,130,155,185,220]; // somma ≈ 1005ms ≈ EFFECTIVE_ROLL_MS
+      let acc=0;
+      rollFlickerTimers=cumulativeDelays.map(dt=>{
+        acc+=dt;
+        return setTimeout(()=>{ resultOverlay.textContent=String(1+Math.floor(Math.random()*flickerMax)); },acc);
+      });
+    }
     setTimeout(()=>{
-      clearInterval(rollFlickerId); rollFlickerId=null;
+      clearRollFlicker();
       // BUG FIX (2026-09-01, secondo giro): su 1 o 20 naturale il totale mostrato non deve più
       // includere il modificatore (richiesta esplicita) — il dado gigante è pensato per la lettura
       // rapida al tavolo di un critico/fallimento critico "puro", non per un calcolo di danno.
@@ -8106,7 +8217,7 @@ function companionRollPanel(c,d){
           (e.modv?`d${dieFaces} ${sign(e.modv)} = ${e.sum}`:`d${dieFaces} = ${e.sum}`));
       if(e.fumble) showFumbleHorror(); // solo il dado gigante del Companion mostra la schermata horror
       else if(e.crit && dieFaces===20) showCritSuccess(); // idem per il 20 naturale, in oro
-    },ROLL_ANIM_MS);
+    },EFFECTIVE_ROLL_MS);
     renderRollHistory(); // aggiorna subito la card "Cronologia tiri" in fondo alla pagina
   };
   die.onclick=doTheRoll;
@@ -9418,7 +9529,7 @@ function openCharacterReviewModal(draft){
     "⚠ Revisione obbligatoria: la conversione automatica dal PDF può contenere errori. Controlla e correggi ogni campo prima di aggiungere il personaggio.");
   const name=el("input",{value:draft.name||""});
   const race=el("select",{},...Object.keys(RACES).map(r=>el("option",{value:r,selected:draft.race===r?"selected":null},r)));
-  const cls=el("select",{},...Object.keys(CLASSES).map(c=>el("option",{value:c,selected:draft.cls===c?"selected":null},c)));
+  const cls=el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(c=>el("option",{value:c,selected:draft.cls===c?"selected":null},c)));
   const bg=el("select",{},...Object.keys(BACKGROUNDS).map(b=>el("option",{value:b,selected:draft.background===b?"selected":null},b)));
   const level=el("input",{type:"number",min:"1",max:"20",value:String(draft.level||1)});
   const scoreInputs={};
@@ -9943,7 +10054,7 @@ function forgeSubclass(){
   const box=el("div",{});
   box.append(el("div",{class:"section-title"},"Nuova Sottoclasse",el("span",{class:"ln"})));
   const name=el("input",{placeholder:"Es. Cammino del Furore Sanguigno"});
-  const clsSel=el("select",{},...Object.keys(CLASSES).map(cn=>el("option",{},cn)));
+  const clsSel=el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(cn=>el("option",{},cn)));
   box.append(el("div",{class:"twocol"},fld("Nome sottoclasse",name),fld("Classe",clsSel)));
   box.append(el("div",{class:"section-title",style:"margin-top:8px;font-size:14px"},"Privilegi",el("span",{class:"ln"})));
   const list=el("div",{});
@@ -13801,7 +13912,7 @@ function officialSubclasses(clsName){
   const out=[];
   if(cd.subclass) out.push(cd.subclass);
   if(cd.subclasses) Object.keys(cd.subclasses).forEach(n=>{ if(!out.includes(n))out.push(n); });
-  return out;
+  return out.sort((a,b)=>a.localeCompare(b,"it"));
 }
 // privilegi della sottoclasse SCELTA dal personaggio (ufficiale o personalizzata)
 function subclassFeatsFor(clsName,subName){
@@ -14087,8 +14198,8 @@ function viewClasses(){
   wrap.append(el("h2",{style:"color:var(--gold2)"},"⚔ Classi e progressione"));
   const cur=STATE.classView||"Barbaro";
   const allCn=Object.keys(CLASSES);
-  const official=allCn.filter(cn=>!HOMEBREW_CLASSES.includes(cn));
-  const homebrew=allCn.filter(cn=>HOMEBREW_CLASSES.includes(cn));
+  const official=allCn.filter(cn=>!HOMEBREW_CLASSES.includes(cn)).sort((a,b)=>a.localeCompare(b,"it"));
+  const homebrew=allCn.filter(cn=>HOMEBREW_CLASSES.includes(cn)).sort((a,b)=>a.localeCompare(b,"it"));
   const dd=el("select",{style:"font-size:15px;padding:8px 10px;max-width:360px"},
     el("optgroup",{label:"Classi ufficiali"},...official.map(cn=>el("option",{value:cn,selected:cur===cn?"selected":null},cn))),
     homebrew.length?el("optgroup",{label:"🌿 Classi homebrew"},...homebrew.map(cn=>el("option",{value:cn,selected:cur===cn?"selected":null},cn))):"");
