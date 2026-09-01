@@ -6110,21 +6110,27 @@ function viewSettings(){
     el("button",{class:"btn red sm",onclick:()=>confirmModal("Eliminare il tuo account?",
       "Verranno disconnessi l'account multiplayer su questo dispositivo ed eliminati tutti i personaggi, le creazioni della Forgia e le impostazioni salvate localmente. Operazione irreversibile: esporta un backup prima, se vuoi conservare i tuoi dati.",
       async()=>{
-        // Elimina qui solo ciò che l'app può davvero cancellare da client: la sessione
-        // multiplayer locale e tutti i dati salvati sul dispositivo. NOTA IMPLEMENTAZIONE:
-        // non esiste ancora, in questo codice, una vera cancellazione dell'account lato
-        // server (riga utente Supabase auth + righe collegate nelle tabelle players/
-        // campaigns/account_devices ecc.): richiede una funzione lato Supabase (es. una
-        // Edge Function con service role che chiami supabase.auth.admin.deleteUser e ripulisca
-        // le tabelle collegate), da implementare separatamente se non già presente sul
-        // progetto Supabase. Finché quella parte non esiste, questo pulsante NON deve essere
-        // presentato all'utente come una cancellazione completa lato server.
-        try{ if(MP_READY){ await mpSignOut(); } }catch(e){}
+        // Cancellazione server reale (2026-09-01): la funzione Postgres public.delete_my_account()
+        // (SECURITY DEFINER, eseguibile solo da "authenticated" e limitata a auth.uid()) cancella
+        // l'utente da auth.users, che con ON DELETE CASCADE elimina a catena players, account_state,
+        // account_devices, campaign_members, characters e le campagne di cui è owner; le colonne
+        // updated_by/controlled_by su campagne altrui (non in cascade) vengono azzerate prima dalla
+        // funzione stessa. Se l'account multiplayer è attivo proviamo prima questa cancellazione
+        // server-side; in ogni caso ripuliamo poi tutto ciò che resta in locale.
+        if(MP_READY){
+          try{
+            const sb=mpClient();
+            if(sb){ const {error}=await sb.rpc("delete_my_account"); if(error) throw error; }
+          }catch(e){
+            toast("Non sono riuscito a cancellare l'account dal server ("+(e.message||e)+"). Ripulisco comunque i dati locali.");
+          }
+          try{ await mpSignOut(); }catch(e){}
+        }
         STATE.characters=[];STATE.customItems=[];STATE.customMonsters=[];STATE.customSpells=[];STATE.customSubclasses=[];
         STATE.combat={combatants:[],round:1,turn:0,active:false,log:[]};
         STATE.mp.playerName="";
         try{ localStorage.removeItem(AUTH_EVER_LOGGED_KEY); }catch(e){}
-        persist(); go("settings"); toast("Account disconnesso e dati locali eliminati.");
+        persist(); go("settings"); toast("Account e dati eliminati.");
       })},"🗑 Elimina il mio account")));
   wrap.append(cPriv);
 
