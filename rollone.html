@@ -346,6 +346,8 @@ body.mode-gate .app-shell{display:none}
 .sb-profile-portrait{width:38px;height:38px;flex:0 0 auto;border-radius:50%;display:grid;place-items:center;
   font-size:19px;background:radial-gradient(circle at 35% 30%,var(--avatarA),var(--avatarC));
   border:1px solid var(--amber-l);box-shadow:0 0 8px rgba(232,168,60,.25)}
+.sb-profile-portrait.has-portrait{background:var(--bg2);overflow:hidden}
+.sb-profile-portrait.has-portrait img{width:100%;height:100%;object-fit:cover;display:block}
 .sb-profile-info{min-width:0;flex:1}
 .sb-profile-name{font-family:"Cinzel","Georgia",serif;font-size:12.5px;color:var(--amber-d);
   letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -583,20 +585,44 @@ main{max-width:1280px;margin:0 auto;padding:28px 26px 96px;width:100%}
 [data-theme="dark"] .iconbtn:hover{border-color:var(--r-gold-light);box-shadow:0 0 12px rgba(196,154,85,.3)}
 
 /* ================= FORM ================= */
-input,select,textarea{background:var(--inputbg);border:1px solid var(--line2);color:var(--ink);border-radius:8px;font-weight:600;
+input,select,textarea,.csel-btn{background:var(--inputbg);border:1px solid var(--line2);color:var(--ink);border-radius:8px;font-weight:600;
   padding:10px 12px;font-family:inherit;font-size:16px;width:100%;box-shadow:inset 0 1px 3px rgba(120,90,50,.12)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber-l);box-shadow:0 0 0 3px rgba(217,138,43,.18)}
+input:focus,select:focus,textarea:focus,.csel-btn:focus{outline:none;border-color:var(--amber-l);box-shadow:0 0 0 3px rgba(217,138,43,.18)}
 input::placeholder,textarea::placeholder{color:#b09a75}
 select option{background:var(--inputbg);color:var(--ink)}
-[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{
+[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea,[data-theme="dark"] .csel-btn{
   background:linear-gradient(180deg,var(--r-bg-tertiary),var(--r-surface-dark));
   border:1px solid var(--r-border);color:var(--r-text-primary);
   box-shadow:inset 0 2px 5px rgba(0,0,0,.5),inset 0 1px 0 rgba(0,0,0,.3);
 }
-[data-theme="dark"] input:focus,[data-theme="dark"] select:focus,[data-theme="dark"] textarea:focus{
+[data-theme="dark"] input:focus,[data-theme="dark"] select:focus,[data-theme="dark"] textarea:focus,[data-theme="dark"] .csel-btn:focus{
   border-color:var(--r-gold-light);box-shadow:inset 0 2px 5px rgba(0,0,0,.5),0 0 0 3px rgba(196,154,85,.2);
 }
 [data-theme="dark"] input::placeholder,[data-theme="dark"] textarea::placeholder{color:var(--r-text-disabled)}
+/* ---- Menu a tendina personalizzato (customSelect) ----------------------------------------
+   Sostituisce il <select> nativo nei punti più visibili dell'app (es. scelta della specie e
+   delle sue "scelte di specie"/tratti nel wizard di creazione): il popup nativo del sistema
+   operativo — specialmente su Android — non può essere ristilizzato via CSS e rompeva
+   completamente lo stile scuro/dorato dell'app con un elenco bianco standard, segnalato
+   dall'utente come uno dei menu che "fanno cagare" e sono "fuori luogo". .csel-btn eredita
+   l'aspetto identico di un input/select (vedi sopra); qui sotto solo il pannello a tendina. */
+.csel{position:relative}
+.csel-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;text-align:left}
+.csel-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csel-arrow{flex:none;opacity:.7;transition:transform .15s}
+.csel.open .csel-arrow{transform:rotate(180deg)}
+.csel-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;max-height:280px;overflow-y:auto;
+  background:var(--inputbg);border:1px solid var(--line2);border-radius:10px;box-shadow:var(--shadow);
+  padding:4px;display:none}
+.csel-list.open{display:block}
+.csel-opt{padding:9px 10px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink)}
+.csel-opt:hover,.csel-opt.hi{background:var(--chipbg)}
+.csel-opt.sel{color:var(--gold2);background:var(--panelSelB)}
+.csel-opt-sub{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px}
+[data-theme="dark"] .csel-list{background:linear-gradient(180deg,var(--r-bg-tertiary),var(--r-surface-dark));border-color:var(--r-border)}
+[data-theme="dark"] .csel-opt{color:var(--r-text-primary)}
+[data-theme="dark"] .csel-opt:hover,[data-theme="dark"] .csel-opt.hi{background:var(--r-surface-raised)}
+[data-theme="dark"] .csel-opt.sel{color:var(--r-gold-light);background:var(--r-surface-raised)}
 input[type=checkbox]{-webkit-appearance:none;appearance:none;width:20px;height:20px;flex:0 0 auto;border-radius:5px;
   border:1px solid var(--line2);background:var(--inputbg);display:inline-grid;place-items:center;cursor:pointer;padding:0;vertical-align:middle;transition:.15s}
 input[type=checkbox]:hover{border-color:var(--amber-l)}
@@ -632,6 +658,16 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
 .charcard .lvl{font-size:13px;color:var(--muted)}
 .charcard .avatar{width:54px;height:54px;border-radius:10px;display:grid;place-items:center;font-size:28px;
   background:radial-gradient(circle at 35% 28%,var(--avatarA),var(--avatarB));border:1px solid var(--line2)}
+/* Ritratto caricato dall'utente al posto dell'emoji: stesso riquadro (dimensioni/bordo/radius
+   ereditati dai selettori .avatar sopra), ma foto vera invece di sfondo a gradiente + emoji. */
+.avatar.has-portrait{background:var(--bg2);padding:0;overflow:hidden}
+.avatar.has-portrait img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.avatar.clickable{cursor:pointer;position:relative}
+.avatar.clickable:not(.has-portrait):after{content:"🖼";position:absolute;right:-2px;bottom:-2px;font-size:12px;
+  background:var(--panel);border:1px solid var(--line2);border-radius:50%;width:18px;height:18px;display:grid;place-items:center}
+.avatar-wrap{position:relative;flex:0 0 auto}
+.avatar-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line2);
+  background:var(--panel);color:var(--red2);font-size:11px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
 .emptybox{text-align:center;padding:58px 20px;border:1px dashed var(--line2);border-radius:var(--radius);color:var(--muted);background:var(--emptybg)}
 .lore-link{color:var(--gold2);font-weight:600;cursor:pointer;border-bottom:1px dotted var(--gold2)}
 .lore-link:hover{color:var(--amber-l)}
@@ -1859,6 +1895,41 @@ const sign = n => (n>=0?"+":"")+n;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const rollDie = f => 1+Math.floor(Math.random()*f);
 
+/* Menu a tendina personalizzato in stile RollOne (vedi CSS .csel* più sopra) — sostituisce il
+   <select> nativo del browser dove il popup del sistema operativo (specialmente su Android)
+   rompe lo stile scuro/dorato dell'app. Replica solo l'API minima che serve qui: {value,
+   onChange(value), placeholder, items:[{value,label,sub?}] o array di stringhe}. Il valore
+   corrente si legge/scrive con root.value, come su un vero <select>, per restare intercambiabile
+   nei punti dove già si usa `sel.value` altrove nel codice. */
+function customSelect(items,opts={}){
+  const norm=(items||[]).map(it=>typeof it==="string"?{value:it,label:it}:it);
+  let value=opts.value!==undefined&&opts.value!==null?String(opts.value):"";
+  const root=el("div",{class:"csel"+(opts.className?" "+opts.className:""),style:opts.style||""});
+  const labelSpan=el("span",{class:"csel-label"});
+  const btn=el("button",{type:"button",class:"csel-btn"},labelSpan,el("span",{class:"csel-arrow"},"▾"));
+  const list=el("div",{class:"csel-list"});
+  root.append(btn,list);
+  function itemFor(v){ return norm.find(it=>String(it.value)===String(v)); }
+  function renderLabel(){ const it=itemFor(value); labelSpan.textContent=it?it.label:(opts.placeholder||"Scegli…"); }
+  function close(){ root.classList.remove("open"); list.classList.remove("open"); document.removeEventListener("click",onDocClick,true); }
+  function onDocClick(e){ if(!root.contains(e.target)) close(); }
+  function open(){ root.classList.add("open"); list.classList.add("open"); setTimeout(()=>document.addEventListener("click",onDocClick,true),0);
+    const sel=list.querySelector(".csel-opt.sel"); if(sel) sel.scrollIntoView({block:"nearest"}); }
+  btn.onclick=(e)=>{ e.stopPropagation(); root.classList.contains("open")?close():open(); };
+  function renderList(){
+    list.innerHTML="";
+    norm.forEach(it=>{
+      list.append(el("div",{class:"csel-opt"+(String(it.value)===String(value)?" sel":""),onclick:(e)=>{
+        e.stopPropagation(); value=String(it.value); renderLabel(); renderList(); close();
+        if(opts.onChange) opts.onChange(value);
+      }},it.label,it.sub?el("span",{class:"csel-opt-sub"},it.sub):""));
+    });
+  }
+  renderLabel(); renderList();
+  Object.defineProperty(root,"value",{get:()=>value,set:(v)=>{value=v!=null?String(v):""; renderLabel(); renderList();}});
+  root.setItems=(newItems)=>{ norm.length=0; norm.push(...(newItems||[]).map(it=>typeof it==="string"?{value:it,label:it}:it)); renderLabel(); renderList(); };
+  return root;
+}
 function toast(msg){
   const t=el("div",{class:"toast"},msg);
   $("#toastRoot").append(t);
@@ -1869,8 +1940,11 @@ function toast(msg){
    Ridimensiona lato massimo a maxDim e ricodifica JPEG a "quality", per tenere gli allegati
    piccoli (upload più veloce, meno spazio sul bucket Supabase). Usa createImageBitmap dove
    disponibile (più veloce, non blocca il main thread), altrimenti un <img> come fallback. ---- */
-async function compressImageForBugReport(file,maxDim,quality){
-  maxDim=maxDim||1600; quality=quality||0.82;
+/* Estratta dal corpo originale di compressImageForBugReport (2026-09-02): carica un file
+   immagine e lo disegna, ridimensionato, su un <canvas>. Riusata ora anche dal ritratto del
+   personaggio e dall'estrazione colori per il tema personalizzato (vedi più avanti nel file),
+   invece di duplicare tre volte la stessa logica di caricamento/ridimensionamento. */
+async function loadImageScaledToCanvas(file,maxDim){
   const bitmap=await (window.createImageBitmap ? createImageBitmap(file) : new Promise((resolve,reject)=>{
     const img=new Image(); const url=URL.createObjectURL(file);
     img.onload=()=>{ resolve(img); };
@@ -1883,7 +1957,53 @@ async function compressImageForBugReport(file,maxDim,quality){
   const ctx=canvas.getContext("2d");
   ctx.drawImage(bitmap,0,0,w,h);
   if(bitmap.close) bitmap.close();
+  return canvas;
+}
+async function compressImageForBugReport(file,maxDim,quality){
+  maxDim=maxDim||1600; quality=quality||0.82;
+  const canvas=await loadImageScaledToCanvas(file,maxDim);
   return await new Promise(resolve=>canvas.toBlob(b=>resolve(b),"image/jpeg",quality));
+}
+/* ---- Ritratto del personaggio (2026-09-02, richiesta esplicita) ---------------------------
+   Ridimensiona a maxDim (lato massimo) e restituisce direttamente una data URL JPEG, pronta da
+   salvare in c.portraitData e mostrare con un semplice <img src="...">: niente upload su un
+   server, il ritratto resta nel salvataggio locale del personaggio come ogni altro suo dato. ---- */
+async function compressImageToDataURL(file,maxDim,quality){
+  maxDim=maxDim||480; quality=quality||0.85;
+  const canvas=await loadImageScaledToCanvas(file,maxDim);
+  return canvas.toDataURL("image/jpeg",quality);
+}
+/* Nodo avatar condiviso: mostra il ritratto caricato (c.portraitData) se presente, altrimenti
+   la solita icona/emoji di specie (c.icon) come prima — stessa firma ovunque nell'app invece di
+   ripetere il controllo in ogni punto che disegna un avatar (lista personaggi, scheda, sidebar,
+   Companion). La classe "has-portrait" toglie lo sfondo/i padding pensati per un'emoji. */
+function avatarClass(c,extra){ return "avatar"+(c&&c.portraitData?" has-portrait":"")+(extra?" "+extra:""); }
+function avatarChildren(c){ return c&&c.portraitData?[el("img",{src:c.portraitData,alt:""})]:[c&&c.icon||"🛡"]; }
+// "carica un'immagine che l'IA applica a tutta l'app traendone ispirazione" (richiesta utente
+// 2026-09-02): questa è un'analisi ALGORITMICA dei pixel dell'immagine (media circolare delle
+// tonalità, pesata per saturazione per l'accento e per oscurità per lo sfondo), NON una chiamata
+// a un modello IA generativo/visione: nessuna richiesta esterna, tutto client-side. Riusa la
+// stessa scala hue-rotation di applyTheme()/BG_THEME_VARS, quindi il risultato resta sempre
+// leggibile quanto la palette "Reliquia Arcana" originale.
+async function extractPaletteFromImage(file){
+  const canvas=await loadImageScaledToCanvas(file,96);
+  const ctx=canvas.getContext("2d");
+  const {data}=ctx.getImageData(0,0,canvas.width,canvas.height);
+  let accSin=0,accCos=0,accW=0, bgSin=0,bgCos=0,bgW=0;
+  for(let i=0;i<data.length;i+=4){
+    const a=data[i+3]; if(a<128) continue;
+    const r=data[i]/255,g=data[i+1]/255,b=data[i+2]/255;
+    const max=Math.max(r,g,b),min=Math.min(r,g,b); const l=(max+min)/2;
+    let h=0,s=0;
+    if(max!==min){ const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
+      switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;} h*=60; }
+    const rad=h*Math.PI/180;
+    if(s>0.12){ const w=s; accSin+=Math.sin(rad)*w; accCos+=Math.cos(rad)*w; accW+=w; }
+    if(l<0.42){ const w=1-l; bgSin+=Math.sin(rad)*w; bgCos+=Math.cos(rad)*w; bgW+=w; }
+  }
+  const accentH = accW>0 ? (Math.atan2(accSin,accCos)*180/Math.PI+360)%360 : 38;
+  const bgH = bgW>0 ? (Math.atan2(bgSin,bgCos)*180/Math.PI+360)%360 : accentH;
+  return { accent: hslToHex(accentH,68,52), bg: hslToHex(bgH,55,4) };
 }
 </script>
 
@@ -2170,9 +2290,14 @@ function speciesChoiceEditor(c,readonly){
       if(chosen) box.append(el("div",{class:"muted",style:"font-size:12px;margin:-6px 0 8px"},chosen.d));
       return;
     }
-    const sel=el("select",{onchange:e=>{c.speciesChoices[def.key]=e.target.value;save();render();}},
-      el("option",{value:""},"scegli…"),
-      ...def.options.map(o=>el("option",{value:o.n,selected:c.speciesChoices[def.key]===o.n?"selected":null},o.n)));
+    // FIX (2026-09-02): questo era un <select> nativo — proprio "quelli per la scelta dei
+    // tratti" segnalati dall'utente come brutti e fuori luogo rispetto allo stile scuro/dorato
+    // dell'app (il popup del sistema operativo non si può ristilizzare via CSS). Sostituito col
+    // menu a tendina personalizzato (vedi customSelect più in alto nel file).
+    const sel=customSelect(
+      [{value:"",label:"scegli…"},...def.options.map(o=>({value:o.n,label:o.n}))],
+      {value:c.speciesChoices[def.key]||"",placeholder:"scegli…",
+        onChange:v=>{c.speciesChoices[def.key]=v;save();render();}});
     box.append(el("label",{class:"fld"},el("span",{},def.key+(def.label?", "+def.label:"")),sel));
     if(chosen) box.append(el("div",{class:"muted",style:"font-size:12px;margin:-6px 0 8px"},chosen.d));
   });
@@ -4360,12 +4485,52 @@ function hslToHex(h,s,l){
   const toH=x=>Math.round(x*255).toString(16).padStart(2,"0");
   return `#${toH(f(0))}${toH(f(8))}${toH(f(4))}`;
 }
+// Personalizzazione colori estesa (2026-09-02, richiesta esplicita utente: "cambiare tutti i
+// colori dell'app"). I 5 token --amber/--amber-d/--amber-l/--gold/--gold2 sopra erano già
+// personalizzabili da tempo (colore d'accento). Qui si aggiungono altri due gruppi di token,
+// entrambi ruotati SOLO in tonalità (hue), lasciando saturazione e luminosità originali di ogni
+// singolo token intatte: questo mantiene il contrasto/leggibilità della palette "Reliquia Arcana"
+// già rifinita a mano, permettendo comunque di spostare l'intera app su una famiglia di colori
+// diversa. I colori semantici (rosso errore, verde successo, viola magia, barra HP, overlay
+// vetro, testo) restano deliberatamente fissi per non compromettere leggibilità e significato.
+const ACCENT_CORE_VARS=["--amber","--amber-d","--amber-l","--gold","--gold2"];
+const BG_THEME_VARS={
+  "--bg":"#0a0806","--bg2":"#050403","--parch":"#0e0b07","--panel":"#100c07","--panel2":"#0b0805",
+  "--line":"#3a2f1c","--line2":"#57452a",
+  "--panelA":"#120e08","--panelB":"#0c0905","--panelSelA":"#1c1509","--panelSelB":"#150f08","--optB":"#110d07",
+  "--cardB":"#090704","--stepA":"#100c07","--stepB":"#0d0a06","--optSelB":"#1a1409","--toastB":"#150f08",
+  "--dieA":"#120e08","--dieB":"#0c0905","--dieAltB":"#110d07","--headA":"#161006","--headB":"#110d07",
+  "--inputbg":"#0a0704","--chipbg":"#161006","--navhover":"#110d07","--navactiveA":"#161006","--navactiveB":"#110d07",
+  "--avatarA":"#161006","--avatarB":"#0c0905","--avatarC":"#110d07",
+  "--scrolltrack":"#0a0704","--scrolltrackborder":"#2c2110",
+  "--rpg-void":"#040302","--rpg-obsidian":"#080604",
+  "--r-bg-tertiary":"#211710","--r-surface-dark":"#17100c","--r-surface-raised":"#2a1d14","--r-surface-active":"#3a2719",
+  "--r-wood-dark":"#160e09","--r-wood":"#24160d","--r-wood-light":"#382217",
+  "--r-border-dark":"#3b2818"
+};
+const ACCENT_THEME_VARS_EXTRA={
+  "--sigilA":"#f2c869","--sigilB":"#c79a52","--sigilC":"#8a6428","--sigilD":"#b58a30",
+  "--rpg-bronze":"#a97b28","--rpg-bronze-bright":"#c79a52",
+  "--r-bronze-dark":"#4b321b","--r-bronze":"#8a6638","--r-bronze-light":"#a9824a",
+  "--r-gold-dark":"#80602f","--r-gold-bright":"#f0d79b",
+  "--r-border-gold":"#a9824a","--tagamber":"#241a0a"
+};
+function applyHueRotation(varMap,targetHex){
+  const root=document.documentElement;
+  const [th]=hexToHsl(targetHex);
+  Object.keys(varMap).forEach(name=>{
+    const [,s,l]=hexToHsl(varMap[name]);
+    root.style.setProperty(name, hslToHex(th,s,l));
+  });
+}
 function applyTheme(){
   const t=STATE.theme||{mode:"dark",accent:"#d98a2b"};
   const root=document.documentElement;
   root.dataset.theme = t.mode==="custom" ? "dark" : t.mode;
   // Reset eventuali variabili personalizzate impostate in precedenza
-  ["--amber","--amber-d","--amber-l","--gold","--gold2"].forEach(v=>root.style.removeProperty(v));
+  ACCENT_CORE_VARS.forEach(v=>root.style.removeProperty(v));
+  Object.keys(ACCENT_THEME_VARS_EXTRA).forEach(v=>root.style.removeProperty(v));
+  Object.keys(BG_THEME_VARS).forEach(v=>root.style.removeProperty(v));
   if(t.mode==="custom"){
     const [h]=hexToHsl(t.accent||"#d98a2b");
     root.style.setProperty("--amber", hslToHex(h,72,42));
@@ -4373,6 +4538,8 @@ function applyTheme(){
     root.style.setProperty("--amber-l", hslToHex(h,80,58));
     root.style.setProperty("--gold", hslToHex(h,65,55));
     root.style.setProperty("--gold2", hslToHex(h,75,68));
+    applyHueRotation(ACCENT_THEME_VARS_EXTRA, t.accent||"#d98a2b");
+    if(t.bg) applyHueRotation(BG_THEME_VARS, t.bg);
   }
 }
 
@@ -6037,13 +6204,42 @@ function viewSettings(){
     }},lbl));
   });
   c0.append(themeBtns);
+  const paletteInput=el("input",{type:"file",accept:"image/*",style:"display:none"});
+  paletteInput.onchange=async()=>{
+    const file=paletteInput.files&&paletteInput.files[0]; if(!file) return;
+    try{
+      const pal=await extractPaletteFromImage(file);
+      STATE.theme.mode="custom"; STATE.theme.accent=pal.accent; STATE.theme.bg=pal.bg;
+      applyTheme(); save(); go("settings");
+      toast("Colori applicati dall'analisi automatica dei pixel dell'immagine.");
+    }catch(e){ toast("Non sono riuscito ad analizzare i colori dell'immagine."); }
+  };
+  const paletteRow=el("div",{style:row+";margin-top:10px;align-items:center"},
+    el("button",{class:"btn ghost sm",onclick:()=>paletteInput.click()},"🖼 Ispirati a un'immagine"),
+    paletteInput);
+  c0.append(paletteRow);
+  c0.append(el("p",{class:"muted",style:"font-size:12px;margin-top:4px"},
+    "Analizza i colori dominanti dell'immagine scelta (tonalità e luminosità dei pixel) e li applica come accento e sfondo. È un'analisi automatica sul tuo dispositivo, non una generazione creativa via intelligenza artificiale."));
   if(STATE.theme.mode==="custom"){
     const accentRow=el("div",{style:row+";align-items:center;margin-top:10px"});
     const colorIn=el("input",{type:"color",value:STATE.theme.accent||"#d98a2b",style:"width:60px;height:40px;padding:2px"});
     colorIn.oninput=()=>{ STATE.theme.accent=colorIn.value; applyTheme(); };
     colorIn.onchange=()=>{ STATE.theme.accent=colorIn.value; applyTheme(); save(); };
     accentRow.append(el("label",{class:"fld",style:"flex:0 0 auto"},el("span",{},"Colore d'accento"),colorIn));
+    // Secondo selettore: sfondo/superfici. Ruota in tonalità l'intera scala di pannelli, bordi e
+    // fondali dell'app (BG_THEME_VARS) mantenendo intatti i rapporti di contrasto già rifiniti.
+    const bgIn=el("input",{type:"color",value:STATE.theme.bg||"#0a0806",style:"width:60px;height:40px;padding:2px"});
+    bgIn.oninput=()=>{ STATE.theme.bg=bgIn.value; applyTheme(); };
+    bgIn.onchange=()=>{ STATE.theme.bg=bgIn.value; applyTheme(); save(); };
+    accentRow.append(el("label",{class:"fld",style:"flex:0 0 auto"},el("span",{},"Colore di sfondo"),bgIn));
+    if(STATE.theme.bg){
+      accentRow.append(el("button",{class:"btn ghost sm",style:"flex:0 0 auto;align-self:flex-end",onclick:()=>{
+        delete STATE.theme.bg; applyTheme(); save(); go("settings");
+      }},"↺ Sfondo predefinito"));
+    }
     c0.append(accentRow);
+    c0.append(el("p",{class:"muted",style:"font-size:12px;margin-top:8px"},
+      "L'analisi automatica dei colori di un'immagine (qui sopra) può impostare entrambi questi colori al posto tuo."));
   }
   wrap.append(c0);
 
@@ -7186,6 +7382,43 @@ function showCritSuccess(){
   setTimeout(()=>overlay.remove(),2400); // rete di sicurezza se l'evento animationend non arriva
 }
 let ROLL_LOG=[];
+/* ---- Danno versatile delle armi (2026-09-02) ------------------------------------------------
+   Segnalato dall'utente: alcune armi (es. Spada lunga, Lancia, Ascia da battaglia...) hanno la
+   proprietà "Versatile (1dX)" — il dado di danno più alto quando l'arma si impugna a due mani —
+   ma questo valore non compariva da NESSUNA parte nell'app, nemmeno per tirare i danni: era solo
+   testo dentro la stringa "props" della scheda tecnica dell'arma, mai estratto né usato. Queste
+   funzioni condivise leggono quel testo, lo trasformano in dadi tirabili e calcolano il colpo/
+   danno esattamente con la stessa logica finesse/a-distanza già usata in tre punti diversi
+   dell'app (Equipaggiamento sulla scheda, Risorse in combattimento del Companion, "Applica
+   bonus" del lanciatore dadi) — questa è ora la versione unica, le altre la riusano. */
+function weaponData(w){ return WEAPONS[w]||(STATE.customItems||[]).find(i=>i.name===w); }
+function weaponAtkAbil(d,w,wd){
+  wd=wd||weaponData(w);
+  const finesse=wd&&/Accurata|finesse/i.test(wd.props||wd.properties||"");
+  return finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
+}
+function weaponAtkBonus(d,w,wd){ return d.prof+d.mods[weaponAtkAbil(d,w,wd)]; }
+function parseDiceStr(s){ const m=/(\d+)\s*d\s*(\d+)/i.exec(String(s||"")); return m?{n:+m[1],d:+m[2]}:null; }
+/* Riconosce "Versatile (1d10)" nella stringa props, non case-sensitive (nei dati alcune armi la
+   scrivono maiuscola a inizio proprietà, altre minuscola in mezzo a una lista). */
+function weaponVersatile(wd){ const m=/versatile\s*\(\s*(\d+\s*d\s*\d+)\s*\)/i.exec((wd&&(wd.props||wd.properties))||""); return m?parseDiceStr(m[1]):null; }
+function weaponDamageDice(wd,versatile){ return versatile?weaponVersatile(wd):parseDiceStr(wd&&(wd.dmg||wd.damage)); }
+/* Testo pronto da mostrare accanto al nome dell'arma, es. "1d8 tagliente (2 mani: 1d10)". */
+function weaponDamageLabel(wd){
+  if(!wd) return "";
+  const base=wd.dmg||wd.damage||""; const vers=weaponVersatile(wd);
+  return base+(wd.type?" "+wd.type:"")+(vers?` (2 mani: ${vers.n}d${vers.d})`:"");
+}
+/* Tira davvero il danno di un'arma (dado/i + modificatore di caratteristica, SENZA bonus di
+   competenza: quello vale solo per il tiro per colpire). versatile=true usa il dado a due mani
+   quando l'arma ce l'ha. Ritorna null se l'arma non ha un dado di danno riconoscibile. */
+function rollWeaponDamage(c,d,w,versatile){
+  const wd=weaponData(w); const dice=weaponDamageDice(wd,versatile);
+  if(!dice) return null;
+  const abil=weaponAtkAbil(d,w,wd);
+  const r=doRoll(dice.d,dice.n,d.mods[abil],0);
+  return {r,dice,abil,type:wd.type||""};
+}
 function doRoll(faces,count=1,modv=0,adv=0){
   let rolls=[]; for(let i=0;i<count;i++)rolls.push(rollDie(faces));
   let picked=rolls;
@@ -7891,7 +8124,7 @@ function renderSidebarProfile(){
   box.className="sb-profile has-char";
   box.innerHTML="";
   const row=el("div",{class:"sb-profile-row"},
-    el("div",{class:"sb-profile-portrait"},c.icon||"🛡"),
+    el("div",{class:"sb-profile-portrait"+(c.portraitData?" has-portrait":"")},...avatarChildren(c)),
     el("div",{class:"sb-profile-info"},
       el("div",{class:"sb-profile-name"},c.name||"Senza nome"),
       el("div",{class:"sb-profile-lvl"},"Livello "+d.totalLevel)));
@@ -8014,7 +8247,7 @@ function viewHome(){
         el("div",{},el("h3",{},c.name||"Senza nome"),
           el("div",{class:"lvl"},`${c.race||"?"} · ${c.cls||"?"} liv. ${c.level}`,
             c.epicLevelsEnabled?el("span",{class:"pill",style:"margin-left:6px;font-size:10px;opacity:.85"},"🌿 Epico"):"")),
-        el("div",{class:"avatar"},c.icon)),
+        el("div",{class:avatarClass(c)},...avatarChildren(c))),
       el("div",{style:"display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"},
         el("span",{class:"pill"},`CA ${d.ac}`),
         el("span",{class:"pill"},`PF ${c.hpCur}/${d.hpMax}`),
@@ -8036,9 +8269,24 @@ function viewSheet(){
   const wrap=el("div",{class:"grid"});
 
   // Header
+  // FEATURE AGGIUNTA (2026-09-02, richiesta esplicita): ritratto del personaggio, prima assente
+  // del tutto — solo l'emoji di specie. Tocca l'avatar per caricare una foto/illustrazione;
+  // resta salvata nel personaggio (c.portraitData, JPEG ridotto lato client, niente upload su
+  // un server) e compare qui, nella lista personaggi, nel Companion e nella sidebar.
+  const portraitInput=el("input",{type:"file",accept:"image/*",style:"display:none"});
+  portraitInput.onchange=async()=>{
+    const file=portraitInput.files&&portraitInput.files[0]; if(!file) return;
+    try{ c.portraitData=await compressImageToDataURL(file,480,0.85); save(); render(); toast("Ritratto aggiornato."); }
+    catch(e){ toast("Non sono riuscito a caricare l'immagine."); }
+  };
+  const avatarBox=el("div",{class:avatarClass(c,"clickable"),title:"Tocca per caricare un ritratto",
+    onclick:()=>portraitInput.click()},...avatarChildren(c));
+  const avatarWrap=el("div",{class:"avatar-wrap"},avatarBox,portraitInput,
+    c.portraitData?el("button",{type:"button",class:"avatar-remove",title:"Rimuovi ritratto",
+      onclick:(e)=>{e.stopPropagation();c.portraitData=null;save();render();}},"✕"):"");
   const head=el("div",{class:"card"},
     el("div",{class:"sheet-head"},
-      el("div",{class:"avatar"},c.icon),
+      avatarWrap,
       el("div",{style:"flex:1;min-width:180px"},
         el("h2",{style:"color:var(--gold2);margin:0"},c.name||"Senza nome"),
         el("div",{class:"muted"},`${c.race} · ${classLabel(c)} · ${c.background}`),
@@ -8281,24 +8529,38 @@ function viewSheet(){
   eqCard.append(el("div",{class:"section-title"},"Equipaggiamento",el("span",{class:"ln"})));
   eqCard.append(el("div",{class:"list-line"},el("span",{},"Armatura"),el("b",{},c.armor+(c.shield?" + Scudo":""))));
   (c.weapons||[]).forEach(w=>{
-    const wd=WEAPONS[w]||STATE.customItems.find(i=>i.name===w);
-    const finesse=wd&&/Accurata|finesse/i.test(wd.props||wd.properties||"");
-    const abil=finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
-    const atk=d.prof+d.mods[abil];
+    const wd=weaponData(w);
+    const atk=weaponAtkBonus(d,w,wd);
     const masteryName=wd&&wd.mastery;
     // BUG FIX (2026-09-02): la proprietà di maestria dell'arma veniva applicata a QUALUNQUE
     // arma portata, mentre nelle regole 2024 vale solo per le armi scelte come "padroneggiate"
     // (numero limitato, vedi weaponMasteryCount()/manageWeaponMastery()). Ora si mostra solo se
     // l'arma è davvero tra quelle padroneggiate dal personaggio.
     const mastered=(c.masteredWeapons||[]).includes(w);
+    const atkRoll=()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${rollBreakdown(r)}`);renderRollHistory();};
     eqCard.append(el("div",{class:"list-line"},
-      el("span",{style:"cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${rollBreakdown(r)}`);}},
-        "⚔ "+w, wd?el("span",{class:"muted",style:"font-size:11px"},` ${wd.dmg||wd.damage||""}`):"",
+      el("span",{style:"cursor:pointer",onclick:atkRoll},
+        "⚔ "+w, wd?el("span",{class:"muted",style:"font-size:11px"},` ${weaponDamageLabel(wd)}`):"",
         masteryName&&mastered?el("span",{class:"muted",style:"font-size:11px;cursor:pointer;text-decoration:underline dotted",
           onclick:(e)=>{ e.stopPropagation(); weaponMasteryModal(c,w,wd); }}," · Maestria: "+masteryName):"",
         masteryName&&!mastered?el("span",{class:"muted",style:"font-size:11px;opacity:.7;cursor:pointer",
           onclick:(e)=>{ e.stopPropagation(); manageWeaponMastery(c); }}," · Maestria non ancora scelta"):""),
-      el("b",{style:"color:var(--gold2);cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${rollBreakdown(r)}`);}},sign(atk))));
+      el("b",{style:"color:var(--gold2);cursor:pointer",onclick:atkRoll},sign(atk))));
+    // FEATURE AGGIUNTA (2026-09-02, richiesta esplicita): prima il danno dell'arma era solo
+    // testo, mai tirabile da qui — bisognava andare a scegliere a mano il dado giusto sul
+    // lanciatore generico. Ora un tocco tira davvero il danno (dado/i + modificatore, senza
+    // competenza), e se l'arma è "Versatile" compare anche la variante a due mani.
+    if(weaponDamageDice(wd,false)){
+      const dmgRow=el("div",{style:"display:flex;gap:14px;flex-wrap:wrap;margin:-4px 0 4px;padding:0 6px"});
+      const dmgBtn=(label,versatile)=>el("span",{class:"muted",style:"font-size:11px;cursor:pointer;text-decoration:underline dotted",
+        onclick:()=>{ const res=rollWeaponDamage(c,d,w,versatile); if(!res)return;
+          toast(`${w}: danno ${res.dice.n}d${res.dice.d}${sign(res.r.modv)} = ${res.r.sum} (${res.r.rolls.join(" + ")}) ${res.type}`);
+          renderRollHistory(); }},
+        "🎲 "+label);
+      dmgRow.append(dmgBtn("Danni",false));
+      if(weaponVersatile(wd)) dmgRow.append(dmgBtn("Danni a due mani",true));
+      eqCard.append(dmgRow);
+    }
   });
   eqCard.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"},
     el("button",{class:"btn ghost sm",onclick:()=>manageEquip(c)},"Gestisci equipaggiamento"),
@@ -8397,7 +8659,7 @@ function companionCharPanel(c,d){
   const card=el("div",{class:"card companion-card"});
   card.append(el("div",{style:"text-align:center;font-family:'Cinzel',serif;letter-spacing:.18em;color:var(--gold2);font-size:11px;margin-bottom:12px"},"PERSONAGGIO"));
   card.append(el("div",{class:"cc-avatar-row"},
-    el("div",{class:"avatar"},c.icon),
+    el("div",{class:avatarClass(c)},...avatarChildren(c)),
     el("div",{},el("h3",{style:"margin:0;color:var(--gold2)"},c.name||"Senza nome"),
       el("div",{class:"muted",style:"font-size:12px"},`${c.race||"?"} · ${classLabel(c)}`))));
   const xp=xpToNextLevel(c);
@@ -8488,6 +8750,16 @@ function companionCharPanel(c,d){
     card.append(el("button",{class:"btn ghost sm",style:"margin-top:6px;font-size:11px",onclick:()=>{c.deathSaves={s:0,f:0};save();render();}},"Azzera tiri"));
   }
 
+  // ── Note (2026-09-02) ──
+  // Segnalato dall'utente: le note libere esistevano solo in fondo alla Scheda completa, la
+  // schermata meno usata durante il gioco vero — nel Companion, quella che si tiene aperta al
+  // tavolo, non c'erano affatto e sembravano "sparite". Stesso campo (c.notes), non un duplicato:
+  // scrivere qui aggiorna la stessa nota che compare anche nella Scheda completa e viceversa.
+  card.append(el("div",{class:"section-title",style:"font-size:13px;margin-top:12px"},"Note",el("span",{class:"ln"})));
+  const notesArea=el("textarea",{rows:"3",placeholder:"Appunti, obiettivi, cosa non dimenticare la prossima sessione…"},c.notes||"");
+  notesArea.oninput=()=>{ c.notes=notesArea.value; save(); };
+  card.append(notesArea);
+
   return card;
 }
 /* Mappa tipo-dado -> immagine reale corrispondente. D20_HERO_IMG resta quella fornita
@@ -8535,12 +8807,6 @@ function companionRollPanel(c,d){
   // competente, armi equipaggiate) e sceglierne uno precompila da solo il campo numerico, che
   // resta comunque modificabile a mano per qualunque altro caso (bonus situazionali, ecc.).
   const modSourceSel=el("select",{class:"companion-modsrc",style:"max-width:230px"});
-  function weaponAtkBonus(w){
-    const wd=WEAPONS[w]||STATE.customItems.find(i=>i.name===w);
-    const finesse=wd&&/Accurata|finesse/i.test(wd.props||wd.properties||"");
-    const abil=finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
-    return d.prof+d.mods[abil];
-  }
   function buildModSourceOptions(){
     modSourceSel.innerHTML="";
     modSourceSel.append(el("option",{value:""},"Modificatore manuale"));
@@ -8559,20 +8825,38 @@ function companionRollPanel(c,d){
     }
     const weapons=(c.weapons||[]);
     if(weapons.length){
-      const ogWeap=el("optgroup",{label:"Armi (attacco)"});
-      weapons.forEach(w=>ogWeap.append(el("option",{value:"weapon:"+w},w+" "+sign(weaponAtkBonus(w)))));
+      const ogWeap=el("optgroup",{label:"Armi (colpo)"});
+      weapons.forEach(w=>ogWeap.append(el("option",{value:"weapon:"+w},w+" "+sign(weaponAtkBonus(d,w)))));
       modSourceSel.append(ogWeap);
+      // FEATURE AGGIUNTA (2026-09-02, richiesta esplicita): il danno delle armi — incluso quello
+      // versatile a due mani, che prima non compariva da nessuna parte — ora si può impostare qui
+      // in un colpo solo: seleziona la voce e sia il dado/quantità sopra sia il modificatore
+      // vengono precompilati pronti per il tiro (vedi weaponDamageDice()/weaponVersatile()).
+      const ogDmg=el("optgroup",{label:"Armi (danno)"});
+      weapons.forEach(w=>{
+        const wd=weaponData(w); const dice=weaponDamageDice(wd,false);
+        if(dice) ogDmg.append(el("option",{value:"dmg:"+dice.n+":"+dice.d+":"+w},w+" "+dice.n+"d"+dice.d));
+        const vdice=weaponVersatile(wd);
+        if(vdice) ogDmg.append(el("option",{value:"dmg:"+vdice.n+":"+vdice.d+":"+w},w+" a due mani "+vdice.n+"d"+vdice.d));
+      });
+      if(ogDmg.children.length) modSourceSel.append(ogDmg);
     }
   }
   buildModSourceOptions();
   modSourceSel.onchange=()=>{
     const v=modSourceSel.value; if(!v) return;
+    if(v.startsWith("dmg:")){
+      const parts=v.split(":"); const n=parseInt(parts[1]),faces=parseInt(parts[2]),w=parts.slice(3).join(":");
+      selectFaces(faces); updateQty(n);
+      modIn.value=String(d.mods[weaponAtkAbil(d,w)]);
+      return;
+    }
     const [kind,key]=v.split(":");
     let val=0;
     if(kind==="abil") val=d.mods[key];
     else if(kind==="save") val=d.mods[key]+d.prof;
     else if(kind==="skill") val=d.mods[SKILLS[key]]+d.prof;
-    else if(kind==="weapon") val=weaponAtkBonus(key);
+    else if(kind==="weapon") val=weaponAtkBonus(d,key);
     modIn.value=String(val);
   };
   const dieOptions=[4,6,8,10,12,20,100];
@@ -8692,17 +8976,29 @@ function companionResourcesPanel(c,d){
   if(!weapons.length){
     weaponsBox.append(el("div",{class:"muted",style:"font-size:12px"},"Nessun'arma equipaggiata (Scheda completa → Inventario)."));
   } else {
-    // Stessa identica logica di calcolo colpo della sezione Equipaggiamento sulla scheda
-    // completa (righe ~7796-7807: arma finesse/a distanza usa Destrezza se conviene).
+    // Stessa identica logica di colpo/danno della sezione Equipaggiamento sulla scheda completa
+    // (weaponAtkAbil/weaponAtkBonus/rollWeaponDamage, definite una sola volta accanto a doRoll).
     weapons.forEach(w=>{
-      const wd=WEAPONS[w]||STATE.customItems.find(i=>i.name===w);
-      const finesse=wd&&/Accurata|finesse/i.test(wd.props||wd.properties||"");
-      const abil=finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
-      const atk=d.prof+d.mods[abil];
+      const wd=weaponData(w);
+      const atk=weaponAtkBonus(d,w,wd);
       weaponsBox.append(el("div",{class:"list-line",style:"cursor:pointer",onclick:()=>{
         const r=rollForChar(c,20,1,atk); toast(`${w}: colpo ${rollBreakdown(r)}`); renderRollHistory();}},
-        el("span",{},"⚔ "+w,wd?el("span",{class:"muted",style:"font-size:11px"},` ${wd.dmg||wd.damage||""}`):""),
+        el("span",{},"⚔ "+w,wd?el("span",{class:"muted",style:"font-size:11px"},` ${weaponDamageLabel(wd)}`):""),
         el("span",{class:"muted",style:"font-size:11px"},"colpo "+sign(atk))));
+      // FEATURE AGGIUNTA (2026-09-02): tiro danno diretto anche qui nel Companion, dove si gioca
+      // davvero — prima il danno (incluso quello versatile a due mani) non si poteva tirare da
+      // nessuna parte, solo leggere come testo.
+      if(weaponDamageDice(wd,false)){
+        const dmgRow=el("div",{style:"display:flex;gap:14px;flex-wrap:wrap;margin:-6px 0 6px;padding:0 4px"});
+        const dmgBtn=(label,versatile)=>el("span",{class:"muted",style:"font-size:11px;cursor:pointer;text-decoration:underline dotted",
+          onclick:()=>{ const res=rollWeaponDamage(c,d,w,versatile); if(!res)return;
+            toast(`${w}: danno ${res.dice.n}d${res.dice.d}${sign(res.r.modv)} = ${res.r.sum} (${res.r.rolls.join(" + ")}) ${res.type}`);
+            renderRollHistory(); }},
+          "🎲 "+label);
+        dmgRow.append(dmgBtn("Danni",false));
+        if(weaponVersatile(wd)) dmgRow.append(dmgBtn("Danni a due mani",true));
+        weaponsBox.append(dmgRow);
+      }
     });
   }
   card.append(weaponsBox);
@@ -8908,7 +9204,7 @@ function swapKnownSpell(c){
   const known=(c.knownSpells||[]).filter(sn=>{const s=spellObj(sn);return s&&s.lv>=1;});
   if(!known.length){toast("Non hai incantesimi conosciuti da scambiare.");return;}
   const classNames=classesOf(c).map(x=>x.cls);
-  const remSel=el("select",{},...known.map(n=>el("option",{value:n},n)));
+  const remSel=el("select",{},...known.sort((a,b)=>a.localeCompare(b,"it")).map(n=>el("option",{value:n},n)));
   const pool=[...SPELLS,...STATE.customSpells].filter(s=>s.lv>=1 && (!s.cls || s.cls.some(cn=>classNames.includes(cn))) && (c.knownSpells||[]).indexOf(s.n)<0)
     .sort((a,b)=>a.lv-b.lv||a.n.localeCompare(b.n));
   const addSel=el("select",{},...pool.map(s=>el("option",{value:s.n},"L"+s.lv+" · "+s.n)));
@@ -9502,7 +9798,9 @@ function manageEquip(c){
   allCb.onchange=()=>{c._equipShowAll=allCb.checked;save();manageEquip(c);};
   body.append(el("label",{style:"display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-bottom:8px"},allCb,"Mostra tutto (ignora competenze)"));
   // Armatura
-  const armList=Object.keys(ARMOR).filter(a=>showAll||armorAllowed(c,a));
+  // BUG FIX (2026-09-02): armature e armi qui non erano in ordine alfabetico, a
+  // differenza di quasi tutto il resto dell'app — segnalato dall'utente.
+  const armList=Object.keys(ARMOR).filter(a=>showAll||armorAllowed(c,a)).sort((a,b)=>a.localeCompare(b,"it"));
   const armSel=el("select",{},...armList.map(a=>el("option",{value:a,selected:c.armor===a?"selected":null},
     a+(ARMOR[a].str?` (For ${ARMOR[a].str})`:""))));
   const shield=el("input",{type:"checkbox"}); shield.checked=c.shield;
@@ -9513,7 +9811,7 @@ function manageEquip(c){
     body.append(el("label",{class:"fld"},el("span",{style:"display:inline"},""),el("span",{},shield," Scudo (+2 CA)")));
   // Armi
   body.append(el("div",{class:"section-title",style:"margin-top:10px"},"Armi",el("span",{class:"ln"})));
-  const allW=[...Object.keys(WEAPONS).filter(wn=>showAll||weaponAllowed(c,wn)),...STATE.customItems.filter(i=>i.kind==="Arma").map(i=>i.name)];
+  const allW=[...Object.keys(WEAPONS).filter(wn=>showAll||weaponAllowed(c,wn)),...STATE.customItems.filter(i=>i.kind==="Arma").map(i=>i.name)].sort((a,b)=>a.localeCompare(b,"it"));
   const wWrap=el("div",{style:"display:flex;flex-wrap:wrap;gap:6px"});
   allW.forEach(w=>{
     const on=(c.weapons||[]).includes(w);
@@ -9689,11 +9987,14 @@ const WIZ_STEP=[
     box.append(el("label",{style:"display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-bottom:10px"},hbCb,"🌿 Includi le specie homebrew nell'elenco"));
     let speciesList=getAvailableSpecies();
     if(!w._raceShowHb) speciesList=speciesList.filter(s=>!s.origin.whollyHomebrew);
-    const raceSel=el("select",{style:"width:100%;max-width:420px"},
-      el("option",{value:"",selected:w.c.race?null:"selected"},"— Scegli una specie —"),
-      ...speciesList.map(({key:name,origin})=>el("option",{value:name,selected:w.c.race===name?"selected":null},
-        name+(origin.whollyHomebrew?" 🌿 (homebrew)":""))));
-    raceSel.onchange=()=>{ const name=raceSel.value; if(!name){w.c.race="";return render();} w.c.race=name; w.c.icon=SPECIES[name].icon; render(); };
+    // FIX (2026-09-02): era un <select> nativo, il primo che il giocatore incontra creando un
+    // personaggio — segnalato dall'utente insieme alle "scelte di specie" subito sotto come menu
+    // fuori posto rispetto allo stile dell'app. Ora usa customSelect (vedi più in alto nel file).
+    const raceSel=customSelect(
+      [{value:"",label:"— Scegli una specie —"},
+       ...speciesList.map(({key:name,origin})=>({value:name,label:name+(origin.whollyHomebrew?" 🌿 (homebrew)":"")}))],
+      {value:w.c.race||"",placeholder:"— Scegli una specie —",style:"width:100%;max-width:420px",
+        onChange:name=>{ if(!name){w.c.race="";return render();} w.c.race=name; w.c.icon=SPECIES[name].icon; render(); }});
     box.append(raceSel);
     if(!speciesList.length) box.append(el("p",{class:"muted",style:"font-size:13px;margin-top:8px"},"Nessuna specie disponibile con questo filtro."));
     box.append(el("p",{class:"muted",style:"font-size:12px;margin-top:8px"},"Nelle regole 2024 la specie dà tratti, taglia e velocità; i bonus di caratteristica derivano dal background."));
@@ -9753,7 +10054,10 @@ const WIZ_STEP=[
     const box=el("div",{});
     box.append(el("div",{class:"section-title"},"Background",el("span",{class:"ln"})));
     const grid=el("div",{class:"opt-grid"});
-    Object.entries(BACKGROUNDS).forEach(([name,b])=>{
+    // BUG FIX (2026-09-02): la griglia dei background nel wizard non era ordinata
+    // alfabeticamente (a differenza delle altre liste dell'app), segnalato dall'utente
+    // come "confusione enorme" nell'ordine delle varie sezioni.
+    Object.entries(BACKGROUNDS).sort((a,b)=>a[0].localeCompare(b[0],"it")).forEach(([name,b])=>{
       grid.append(el("div",{class:"opt"+(w.c.background===name?" sel":""),onclick:()=>{
           w.c.background=name; w.bgAsi=null; render();}},
         el("h4",{},name),
@@ -9979,7 +10283,9 @@ const WIZ_STEP=[
     } else {
       box.append(el("p",{class:"muted",style:"font-size:12px;margin-top:0"},"Scelta libera: puoi equipaggiarti con qualunque arma/armatura con cui la tua classe è competente. La dotazione standard resta solo un suggerimento, già precaricata qui sotto come punto di partenza."));
       const d0={scores:w.c.scores};
-      const armList=Object.keys(ARMOR).filter(a=>w._equipShowAll||armorAllowed(w.c,a));
+      // BUG FIX (2026-09-02): stessa mancanza di ordinamento alfabetico del modale
+      // "Gestisci equipaggiamento" sulla scheda, qui nel wizard di creazione.
+      const armList=Object.keys(ARMOR).filter(a=>w._equipShowAll||armorAllowed(w.c,a)).sort((a,b)=>a.localeCompare(b,"it"));
       const armSel=el("select",{},...armList.map(a=>el("option",{value:a,selected:w.c.armor===a?"selected":null},
         a+(ARMOR[a].str?` (For ${ARMOR[a].str})`:""))));
       armSel.onchange=()=>{ w.c.armor=armSel.value; render(); };
@@ -9991,7 +10297,7 @@ const WIZ_STEP=[
       box.append(fld("Armatura",armSel));
       if(showAllCb.checked||armorProf(w.c).has("scudo")) box.append(el("label",{class:"fld"},el("span",{style:"display:inline"},""),el("span",{},shieldCb," Scudo (+2 CA)")));
       box.append(el("div",{class:"section-title",style:"margin-top:10px"},"Armi",el("span",{class:"ln"})));
-      const allW=Object.keys(WEAPONS).filter(wn=>w._equipShowAll||weaponAllowed(w.c,wn));
+      const allW=Object.keys(WEAPONS).filter(wn=>w._equipShowAll||weaponAllowed(w.c,wn)).sort((a,b)=>a.localeCompare(b,"it"));
       const wWrap=el("div",{style:"display:flex;flex-wrap:wrap;gap:6px"});
       w.c.weapons=w.c.weapons||[];
       allW.forEach(wn=>{
@@ -10275,9 +10581,9 @@ function openCharacterReviewModal(draft){
   const warn=el("div",{style:"padding:10px 12px;background:var(--panel2);border:1px solid var(--red);border-radius:10px;margin-bottom:14px;font-size:13px;font-weight:bold;color:var(--red)"},
     "⚠ Revisione obbligatoria: la conversione automatica dal PDF può contenere errori. Controlla e correggi ogni campo prima di aggiungere il personaggio.");
   const name=el("input",{value:draft.name||""});
-  const race=el("select",{},...Object.keys(RACES).map(r=>el("option",{value:r,selected:draft.race===r?"selected":null},r)));
+  const race=el("select",{},...Object.keys(RACES).sort((a,b)=>a.localeCompare(b,"it")).map(r=>el("option",{value:r,selected:draft.race===r?"selected":null},r)));
   const cls=el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(c=>el("option",{value:c,selected:draft.cls===c?"selected":null},c)));
-  const bg=el("select",{},...Object.keys(BACKGROUNDS).map(b=>el("option",{value:b,selected:draft.background===b?"selected":null},b)));
+  const bg=el("select",{},...Object.keys(BACKGROUNDS).sort((a,b)=>a.localeCompare(b,"it")).map(b=>el("option",{value:b,selected:draft.background===b?"selected":null},b)));
   const level=el("input",{type:"number",min:"1",max:"20",value:String(draft.level||1)});
   const scoreInputs={};
   const scoreGrid=el("div",{style:"display:grid;grid-template-columns:repeat(6,1fr);gap:6px"});
@@ -10289,7 +10595,7 @@ function openCharacterReviewModal(draft){
   const draftSkills=new Set(draft.skillProfs||[]);
   skillKeys.forEach(s=>{ const cb=el("input",{type:"checkbox",checked:draftSkills.has(s)?"checked":null}); skillBoxes[s]=cb;
     skillGrid.append(el("label",{style:"display:flex;gap:6px;align-items:center;font-size:13px"},cb,s)); });
-  const armor=el("select",{},...Object.keys(ARMOR).map(a=>el("option",{value:a,selected:draft.armor===a?"selected":null},a)));
+  const armor=el("select",{},...Object.keys(ARMOR).sort((a,b)=>a.localeCompare(b,"it")).map(a=>el("option",{value:a,selected:draft.armor===a?"selected":null},a)));
   const shield=el("input",{type:"checkbox",checked:draft.shield?"checked":null});
   const weapons=el("input",{value:(draft.weapons||[]).join(", "),placeholder:"Es. Spada lunga, Arco corto"});
   const gold=el("input",{type:"number",value:String(draft.gold||0)});
@@ -18022,7 +18328,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.9"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
