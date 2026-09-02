@@ -6418,6 +6418,73 @@ function viewEpic(){
 /* =========================================================================
    MOTORE PERSONAGGIO, calcoli derivati automatici
    ========================================================================= */
+/* =========================================================================
+   ALLINEAMENTO E TRATTI PER IL ROLEPLAY (aggiunto 2026-09-02)
+   Le SRD di D&D descrivono l'allineamento attraverso due assi indipendenti
+   (Ordine e Moralità) che, combinati, danno la classica griglia a 9
+   allineamenti — è il sistema implementato qui. Le regole 2024 rendono
+   l'allineamento facoltativo e narrativo: per questo entrambi gli assi
+   restano deselezionabili (nessun allineamento imposto), e chi preferisce
+   definire il personaggio solo con tratti/ideali/legami/difetti può farlo
+   senza mai scegliere un allineamento.
+   Testi originali, non copiati da alcun manuale: solo la struttura (i due
+   assi, i nove allineamenti risultanti, le quattro categorie di tratti da
+   roleplay) segue la terminologia standard D&D. */
+const ALIGNMENT_LAW_AXIS=[{id:"legale",name:"Legale"},{id:"neutrale",name:"Neutrale"},{id:"caotico",name:"Caotico"}];
+const ALIGNMENT_MORAL_AXIS=[{id:"buono",name:"Buono"},{id:"neutrale",name:"Neutrale"},{id:"malvagio",name:"Malvagio"}];
+const ALIGNMENTS={
+  "legale_buono":{name:"Legale Buono",description:"Crede che regole, tradizione e senso del dovere siano gli strumenti migliori per fare del bene. Mantiene la parola data, rispetta le gerarchie e le leggi giuste, e preferisce riformare un sistema ingiusto dall'interno piuttosto che romperlo. Al tavolo: onora patti e giuramenti, cerca l'autorizzazione prima di agire quando può, e prova disagio di fronte a scorciatoie disoneste anche per una buona causa."},
+  "neutrale_buono":{name:"Neutrale Buono",description:"Fa la cosa giusta perché è giusta, senza sentirsi vincolato né dalla legge né dalla ribellione per principio. Valuta ogni situazione caso per caso, aiuta chi ne ha bisogno e si fida del proprio giudizio più che di regole scritte. Al tavolo: infrange una legge ingiusta se serve ad aiutare qualcuno, ma non lo fa per il gusto di farlo."},
+  "caotico_buono":{name:"Caotico Buono",description:"Segue la propria coscienza più di ogni codice esterno, e vede la libertà personale come condizione necessaria per fare davvero del bene. Diffida delle istituzioni rigide, soprattutto quando proteggono chi ha potere invece di chi ne ha bisogno. Al tavolo: agisce d'istinto per aiutare, anche infrangendo regole o autorità, e mal sopporta ordini che non condivide."},
+  "legale_neutrale":{name:"Legale Neutrale",description:"Crede nell'ordine, nella disciplina e nel sistema in sé, più che in un ideale morale specifico. Segue codici, gerarchie o tradizioni con rigore, considerandoli un valore a prescindere da dove portino. Al tavolo: rispetta le regole della fazione o dell'ordine a cui appartiene anche quando non ne condivide personalmente ogni conseguenza, e diffida del caos quanto dell'arbitrio."},
+  "neutrale_neutrale":{name:"Neutrale Puro",description:"Non ha una bussola morale marcata: agisce secondo convenienza, equilibrio o pragmatismo, senza schierarsi stabilmente né per la legge né per il caos, né per il bene né per il male. Alcuni lo vivono come indifferenza, altri come ricerca consapevole di equilibrio. Al tavolo: le sue scelte dipendono più dal contesto e dall'interesse immediato che da un principio fisso."},
+  "caotico_neutrale":{name:"Caotico Neutrale",description:"Valorizza la libertà individuale sopra ogni cosa, comprese le regole morali fisse: agisce secondo il proprio istinto e la propria volontà del momento. Non è necessariamente distruttivo, ma è imprevedibile, perché non si sente vincolato da un codice di comportamento costante. Al tavolo: le sue reazioni sono difficili da anticipare anche per gli alleati, e può cambiare rotta di colpo se qualcosa gli sta stretto."},
+  "legale_malvagio":{name:"Legale Malvagio",description:"Usa regole, gerarchie e metodo per perseguire i propri scopi, spesso a danno degli altri, mantenendo però la parola data e una struttura interna: è pericoloso proprio perché affidabile nei suoi patti. Al tavolo: rispetta gli accordi presi (a modo suo) ma li sfrutta per manipolare o controllare, e costruisce sistemi di potere duraturi invece di agire d'impulso."},
+  "neutrale_malvagio":{name:"Neutrale Malvagio",description:"Persegue i propri interessi senza remore morali né particolare fedeltà a regole o caos: fa ciò che conviene, quando conviene, senza il freno della lealtà o dell'onore. Al tavolo: tradisce alleati se il tornaconto lo giustifica, ed è opportunista più che ideologico."},
+  "caotico_malvagio":{name:"Caotico Malvagio",description:"Agisce secondo i propri impulsi e desideri senza curarsi di leggi, patti o conseguenze per gli altri: la libertà che cerca è quella di fare esattamente ciò che vuole, quando vuole. Al tavolo: imprevedibile e spesso distruttivo, difficile da vincolare con accordi o minacce di lungo termine."}
+};
+function getAlignment(law,moral){ if(!law||!moral) return null; return ALIGNMENTS[law+"_"+moral]||null; }
+const PERSONALITY_TRAITS_GENERIC=[
+  "Racconta sempre una storia più lunga del necessario, anche quando basterebbe un sì o un no.",
+  "Conta mentalmente ogni moneta che spende, per abitudine più che per avidità.",
+  "Saluta gli sconosciuti come se li conoscesse da anni.",
+  "Non riesce a dormire in un luogo che non ha controllato prima da cima a fondo.",
+  "Parla ad alta voce con sé stesso quando pensa a un problema.",
+  "Colleziona piccoli oggetti privi di valore, ognuno legato a un ricordo preciso.",
+  "Ride nei momenti di tensione, per nervosismo più che per cattivo gusto.",
+  "Osserva tutto con curiosità professionale, anche nel bel mezzo del pericolo."
+];
+const IDEALS_GENERIC=[
+  "Libertà. Nessuno dovrebbe vivere sotto un giogo che non ha scelto.",
+  "Giustizia. Chi sbaglia deve rispondere delle proprie azioni, senza eccezioni per il potere o la ricchezza.",
+  "Conoscenza. Capire il mondo vale più di qualsiasi tesoro.",
+  "Lealtà. Un patto, una volta dato, si onora fino in fondo.",
+  "Sopravvivenza. Prima si resta vivi, poi si discute di princìpi.",
+  "Comunità. Nessuno dovrebbe essere lasciato indietro, se il gruppo può evitarlo.",
+  "Ambizione. Il proprio nome deve arrivare a contare qualcosa, con ogni mezzo lecito.",
+  "Redenzione. Anche l'errore più grave può essere riscattato, con abbastanza tempo e sacrificio."
+];
+const BONDS_GENERIC=[
+  "Un maestro o mentore a cui deve tutto ciò che sa fare.",
+  "Un luogo d'origine che vuole proteggere o a cui vuole fare ritorno.",
+  "Un oggetto di famiglia che porta sempre con sé e non venderebbe mai.",
+  "Un debito d'onore verso chi gli ha salvato la vita.",
+  "Un compagno d'armi perso, di cui porta ancora il peso.",
+  "Una promessa fatta a qualcuno che ormai non può più liberarlo da quel giuramento.",
+  "Un gruppo, una gilda o un ordine a cui appartiene e di cui difende il nome.",
+  "Un rivale che rispetta più di quanto vorrebbe ammettere."
+];
+const FLAWS_GENERIC=[
+  "Non riesce a resistere alla tentazione di un guadagno facile, anche rischioso.",
+  "Fatica a fidarsi, e finisce per allontanare chi vorrebbe davvero aiutarlo.",
+  "L'orgoglio gli impedisce di chiedere aiuto, anche quando ne avrebbe disperatamente bisogno.",
+  "Ha un vecchio conto in sospeso che è disposto a inseguire anche a costo della missione.",
+  "Sottovaluta il pericolo quando crede di avere già visto di peggio.",
+  "Non sa tenere un segreto quando è sotto pressione o ha bevuto troppo.",
+  "Prova disprezzo per una fazione o un tipo di persona specifico, e fatica a nasconderlo.",
+  "È disposto a mentire pur di evitare un conflitto diretto."
+];
+
 function newCharacter(){
   return { id:uid(), name:"", race:"", background:"", cls:"", level:1, xp:0,
     icon:"&#128100;", scores:{for:10,des:10,cos:10,int:10,sag:10,car:10},
@@ -6425,6 +6492,7 @@ function newCharacter(){
     hpMax:0, hpCur:0, hpTemp:0, hitDiceUsed:0, knownSpells:[], preparedSpells:[],
     slotsUsed:[0,0,0,0,0,0,0,0,0], features:[], notes:"", backstory:"", inventory:[], gold:0,
     coinsPlat:0, coinsSilver:0, coinsCopper:0,
+    alignmentLaw:"", alignmentMoral:"", personalityTrait:"", ideal:"", bond:"", flaw:"",
     conditions:[], inspiration:false, pendingAdvantage:false, deathSaves:{s:0,f:0}, dungeonProgress:{unlockedTier:1} };
 }
 
@@ -7894,6 +7962,41 @@ function viewSheet(){
   bioCard.append(bioBox);
   wrap.append(bioCard);
 
+  // Allineamento e tratti da roleplay — modificabili anche dopo la creazione, usati anche
+  // dal narratore IA (vedi partyBackstoryBlock e il system prompt di campagna/dungeon).
+  const roleCard=el("div",{class:"card"});
+  roleCard.append(el("div",{class:"section-title"},"🧭 Allineamento e ruolo",el("span",{class:"ln"})));
+  roleCard.append(el("p",{class:"muted",style:"font-size:12px;margin-top:-4px"},
+    "Puoi cambiarli in qualsiasi momento: non sono legati a scelte fatte in creazione."));
+  const lawRow2=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"});
+  ALIGNMENT_LAW_AXIS.forEach(l=>lawRow2.append(el("button",{class:"btn ghost sm",style:c.alignmentLaw===l.id?"border-color:var(--gold);color:var(--gold2)":"",onclick:()=>{c.alignmentLaw=(c.alignmentLaw===l.id?"":l.id);save();render();}},l.name)));
+  roleCard.append(el("p",{style:"font-size:12px;margin:0 0 4px;color:var(--muted)"},"Ordine:"),lawRow2);
+  const moralRow2=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"});
+  ALIGNMENT_MORAL_AXIS.forEach(m=>moralRow2.append(el("button",{class:"btn ghost sm",style:c.alignmentMoral===m.id?"border-color:var(--gold);color:var(--gold2)":"",onclick:()=>{c.alignmentMoral=(c.alignmentMoral===m.id?"":m.id);save();render();}},m.name)));
+  roleCard.append(el("p",{style:"font-size:12px;margin:0 0 4px;color:var(--muted)"},"Moralità:"),moralRow2);
+  const align2=getAlignment(c.alignmentLaw,c.alignmentMoral);
+  if(align2){
+    roleCard.append(el("div",{class:"card",style:"padding:10px;margin-bottom:14px"},
+      el("h4",{style:"margin:0 0 4px;color:var(--gold2);font-size:14px"},align2.name),
+      el("p",{style:"font-size:12px;margin:0"},align2.description)));
+  }
+  const roleField2=(key,label,pool)=>{
+    roleCard.append(el("p",{style:"margin:10px 0 4px"},el("b",{},label)));
+    const sel=el("select",{style:"width:100%;max-width:480px;margin-bottom:6px"},
+      el("option",{value:""},"— Scrivi il tuo, oppure scegli un suggerimento —"),
+      ...pool.map(p=>el("option",{value:p},p)));
+    sel.onchange=()=>{ if(sel.value){ c[key]=sel.value; save(); render(); } };
+    roleCard.append(sel);
+    const txt=el("textarea",{rows:"2",style:"width:100%;max-width:480px"},c[key]||"");
+    txt.oninput=()=>{c[key]=txt.value;save();};
+    roleCard.append(txt);
+  };
+  roleField2("personalityTrait","Tratto caratteriale",PERSONALITY_TRAITS_GENERIC);
+  roleField2("ideal","Ideale",IDEALS_GENERIC);
+  roleField2("bond","Legame",BONDS_GENERIC);
+  roleField2("flaw","Difetto",FLAWS_GENERIC);
+  wrap.append(roleCard);
+
   // Caratteristiche
   const abilCard=el("div",{class:"card"});
   abilCard.append(el("div",{class:"section-title"},"Caratteristiche",el("span",{class:"ln"})));
@@ -9015,6 +9118,14 @@ function exportCharacterPdf(c){
     paragraph("Preparati: " + ((c.preparedSpells||[]).map(s=>typeof s==="string"?s:s.name).join(", ")||"—"));
   }
 
+  { const align=getAlignment(c.alignmentLaw,c.alignmentMoral);
+    y += 6; heading("Allineamento e ruolo");
+    paragraph("Allineamento: "+(align?align.name:"Nessuno"), {size:10});
+    if(c.personalityTrait) paragraph("Tratto: "+c.personalityTrait, {size:10});
+    if(c.ideal) paragraph("Ideale: "+c.ideal, {size:10});
+    if(c.bond) paragraph("Legame: "+c.bond, {size:10});
+    if(c.flaw) paragraph("Difetto: "+c.flaw, {size:10}); }
+
   y += 6; heading("Storia del personaggio");
   paragraph(c.backstory, {size:10});
   y += 6; heading("Note");
@@ -9270,7 +9381,7 @@ function startWizard(){
   ABIL.forEach(a=>STATE.wizard.c.scores[a.k]=8);
   go("wizard");
 }
-const WSTEPS=["Specie","Classe","Background","Caratteristiche","Abilità","Equipaggiamento","Riepilogo"];
+const WSTEPS=["Specie","Classe","Background","Ruolo","Caratteristiche","Abilità","Equipaggiamento","Riepilogo"];
 function viewWizard(){
   const w=STATE.wizard; if(!w)return viewHome();
   const wrap=el("div",{class:"grid"});
@@ -9301,7 +9412,7 @@ function validateStep(w){
   if(w.step===0&&!c.race){toast("Scegli una razza");return false;}
   if(w.step===1&&!c.cls){toast("Scegli una classe");return false;}
   if(w.step===2&&!c.background){toast("Scegli un background");return false;}
-  if(w.step===4){ const need=CLASSES[c.cls].skillN; if(w.pickedSkills.length!==need){toast(`Seleziona esattamente ${need} abilità`);return false;} }
+  if(w.step===5){ const need=CLASSES[c.cls].skillN; if(w.pickedSkills.length!==need){toast(`Seleziona esattamente ${need} abilità`);return false;} }
   return true;
 }
 const WIZ_STEP=[
@@ -9441,7 +9552,51 @@ const WIZ_STEP=[
     }
     return box;
   },
-  // 3 Caratteristiche
+  // 3 Ruolo (allineamento e tratti da roleplay)
+  function(w){
+    const c=w.c;
+    const box=el("div",{});
+    box.append(el("div",{class:"section-title"},"Allineamento",el("span",{class:"ln"})));
+    box.append(el("p",{class:"muted",style:"font-size:13px;margin-top:-6px"},
+      "L'allineamento descrive la bussola morale e sociale del personaggio: non è una regola meccanica rigida, ma una guida per interpretarlo al tavolo. Scegli un valore su ciascun asse, oppure lascia entrambi vuoti se preferisci definirlo solo con la storia e con i tratti qui sotto, come suggeriscono le regole 2024."));
+    const lawRow=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"});
+    ALIGNMENT_LAW_AXIS.forEach(l=>lawRow.append(el("button",{class:"btn ghost sm",style:c.alignmentLaw===l.id?"border-color:var(--gold);color:var(--gold2)":"",onclick:()=>{c.alignmentLaw=(c.alignmentLaw===l.id?"":l.id);render();}},l.name)));
+    box.append(el("p",{style:"font-size:12px;margin:0 0 4px;color:var(--muted)"},"Ordine:"),lawRow);
+    const moralRow=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"});
+    ALIGNMENT_MORAL_AXIS.forEach(m=>moralRow.append(el("button",{class:"btn ghost sm",style:c.alignmentMoral===m.id?"border-color:var(--gold);color:var(--gold2)":"",onclick:()=>{c.alignmentMoral=(c.alignmentMoral===m.id?"":m.id);render();}},m.name)));
+    box.append(el("p",{style:"font-size:12px;margin:0 0 4px;color:var(--muted)"},"Moralità:"),moralRow);
+    const align=getAlignment(c.alignmentLaw,c.alignmentMoral);
+    if(align){
+      box.append(el("div",{class:"card",style:"padding:12px;margin-bottom:16px"},
+        el("h4",{style:"margin:0 0 6px;color:var(--gold2)"},align.name),
+        el("p",{style:"font-size:13px;margin:0"},align.description)));
+    }else{
+      box.append(el("p",{class:"muted",style:"font-size:12px;margin-bottom:16px"},"Nessun allineamento selezionato: il personaggio sarà definito dalla sua storia e dalle sue scelte in gioco."));
+    }
+    box.append(el("div",{class:"section-title",style:"margin-top:10px"},"Tratti per il roleplay",el("span",{class:"ln"})));
+    box.append(el("p",{class:"muted",style:"font-size:13px;margin-top:-6px"},
+      "Quattro spunti pensati per rendere il personaggio più vivo al tavolo. Per ciascuno puoi scegliere un suggerimento standard dal menu oppure scriverne uno tuo nella casella di testo: nessuno dei due modi è \"più corretto\" dell'altro, e puoi sempre modificarli in seguito dalla scheda."));
+    const roleplayField=(key,label,hint,pool)=>{
+      const fld=el("div",{style:"margin-bottom:14px"});
+      fld.append(el("p",{style:"margin:0 0 2px"},el("b",{},label)),
+        el("p",{class:"muted",style:"font-size:12px;margin:0 0 6px"},hint));
+      const sel=el("select",{style:"width:100%;max-width:480px;margin-bottom:6px"},
+        el("option",{value:""},"— Scrivi il tuo, oppure scegli un suggerimento —"),
+        ...pool.map(p=>el("option",{value:p,selected:c[key]===p?"selected":null},p)));
+      sel.onchange=()=>{ if(sel.value){ c[key]=sel.value; render(); } };
+      fld.append(sel);
+      const txt=el("textarea",{rows:"2",style:"width:100%;max-width:480px",placeholder:"Scrivi qui il tuo, oppure lascia il suggerimento scelto sopra"},c[key]||"");
+      txt.oninput=()=>{ c[key]=txt.value; };
+      fld.append(txt);
+      box.append(fld);
+    };
+    roleplayField("personalityTrait","Tratto caratteriale","Un'abitudine, un modo di fare, un tic che lo contraddistingue nella vita di tutti i giorni: qualcosa che gli altri noterebbero parlandogli.",PERSONALITY_TRAITS_GENERIC);
+    roleplayField("ideal","Ideale","Il principio o il credo che guida davvero le sue azioni quando conta: cosa è disposto a rischiare per difenderlo.",IDEALS_GENERIC);
+    roleplayField("bond","Legame","Una persona, un luogo o un oggetto a cui è legato in modo speciale: qualcosa che farebbe di tutto per proteggere o ritrovare.",BONDS_GENERIC);
+    roleplayField("flaw","Difetto","Una debolezza, una paura o un vizio che può metterlo nei guai o creare attrito col gruppo: rende il personaggio più umano, non più debole da giocare.",FLAWS_GENERIC);
+    return box;
+  },
+  // 4 Caratteristiche
   function(w){
     const box=el("div",{});
     box.append(el("div",{class:"section-title"},"Caratteristiche",el("span",{class:"ln"})));
@@ -9507,7 +9662,7 @@ const WIZ_STEP=[
     drawPrev();
     return box;
   },
-  // 4 Abilità
+  // 5 Abilità
   function(w){
     const cls=CLASSES[w.c.cls];
     const box=el("div",{});
@@ -9530,7 +9685,7 @@ const WIZ_STEP=[
     box.append(el("div",{class:"pointpool"},`Selezionate: ${w.pickedSkills.length}/${cls.skillN}`));
     return box;
   },
-  // 5 Equipaggiamento
+  // 6 Equipaggiamento
   function(w){
     const box=el("div",{});
     box.append(el("div",{class:"section-title"},"Equipaggiamento iniziale",el("span",{class:"ln"})));
@@ -9599,7 +9754,7 @@ const WIZ_STEP=[
     }
     return box;
   },
-  // 6 Riepilogo
+  // 7 Riepilogo
   function(w){
     const c=w.c;
     // applica scelte per anteprima
@@ -9623,6 +9778,12 @@ const WIZ_STEP=[
     box.append(ag);
     box.append(el("p",{style:"margin-top:12px"},el("b",{},"Abilità: "),[...d.skillProfs].join(", ")));
     box.append(el("p",{},el("b",{},"Talento d'origine: "),BACKGROUNDS[c.background]?.feat||"·"));
+    const align=getAlignment(c.alignmentLaw,c.alignmentMoral);
+    box.append(el("p",{},el("b",{},"Allineamento: "),align?align.name:"Nessuno"));
+    if(c.personalityTrait) box.append(el("p",{style:"font-size:13px"},el("b",{},"Tratto: "),c.personalityTrait));
+    if(c.ideal) box.append(el("p",{style:"font-size:13px"},el("b",{},"Ideale: "),c.ideal));
+    if(c.bond) box.append(el("p",{style:"font-size:13px"},el("b",{},"Legame: "),c.bond));
+    if(c.flaw) box.append(el("p",{style:"font-size:13px"},el("b",{},"Difetto: "),c.flaw));
     box.append(el("p",{class:"muted",style:"font-size:13px"},"La scheda completa con incantesimi, riposi, talenti, sottoclasse e multiclasse sarà disponibile subito dopo la creazione."));
     return box;
   }
@@ -15154,11 +15315,28 @@ async function geminiCallStayInCharacter(contents,sys,characterName){
   return r;
 }
 /* ---- System prompt ancorato alle regole + memoria + stile ---- */
+/* Riassunto compatto di allineamento e tratti da roleplay di un personaggio, pensato per essere
+   iniettato nel system prompt del narratore IA così che il tono delle sue battute/reazioni resti
+   coerente con come il giocatore ha definito il personaggio (aggiunto insieme al passo "Ruolo"
+   del wizard, 2026-09-02). */
+function roleplaySummary(ch){
+  const parts=[];
+  const align=getAlignment(ch.alignmentLaw,ch.alignmentMoral);
+  if(align) parts.push("allineamento "+align.name);
+  if(ch.personalityTrait) parts.push("tratto: "+ch.personalityTrait);
+  if(ch.ideal) parts.push("ideale: "+ch.ideal);
+  if(ch.bond) parts.push("legame: "+ch.bond);
+  if(ch.flaw) parts.push("difetto: "+ch.flaw);
+  return parts.join(" — ");
+}
 function partyBackstoryBlock(){
-  const withBio=(STATE.characters||[]).filter(ch=>ch.backstory&&ch.backstory.trim());
+  const withBio=(STATE.characters||[]).filter(ch=>(ch.backstory&&ch.backstory.trim())||roleplaySummary(ch));
   if(!withBio.length) return "";
-  return "STORIA DEI PERSONAGGI (usala per restare coerente con background, motivazioni e legami di ciascuno):\n"+
-    withBio.map(ch=>"- "+ch.name+" ("+(ch.race||"n/d")+" "+(ch.cls||"n/d")+"): "+ch.backstory.trim().slice(0,600)).join("\n");
+  return "STORIA DEI PERSONAGGI (usala per restare coerente con background, motivazioni e legami di ciascuno; rispetta anche allineamento e tratti da roleplay quando interpreti le reazioni del mondo a ciascun personaggio):\n"+
+    withBio.map(ch=>{
+      const rp=roleplaySummary(ch);
+      return "- "+ch.name+" ("+(ch.race||"n/d")+" "+(ch.cls||"n/d")+")"+(rp?" ["+rp+"]":"")+(ch.backstory&&ch.backstory.trim()?": "+ch.backstory.trim().slice(0,600):"");
+    }).join("\n");
 }
 /* Contesto compatto sui PG per gli PNG "del mondo" (bottegai, sacerdoti, cancelliere della gilda…):
    a differenza del narratore di campagna (che ha le schede intere), qui basta un riassunto per far
@@ -16451,6 +16629,7 @@ function soloDungeonSysPrompt(D,c){
   return [
 "Sei un Dungeon Master esperto di D&D 5e/2024, in italiano, che guida un'ESPLORAZIONE IN SOLITARIA (senza altri giocatori né un DM umano al tavolo) del personaggio "+(c.name||"il personaggio")+", "+(c.race||"razza ignota")+" "+(c.cls||"classe ignota")+" di livello "+(c.level||1)+".",
 (c.backstory&&c.backstory.trim())?("STORIA DEL PERSONAGGIO (usala per restare coerente con motivazioni, legami e background; riferiscitici quando è narrativamente utile):\n"+c.backstory.trim().slice(0,1200)):"",
+roleplaySummary(c)?("ALLINEAMENTO E TRATTI DA ROLEPLAY DEL PERSONAGGIO (usali per calibrare come il mondo e i PNG reagiscono a lui, e per suggerimenti in linea col personaggio quando è in difficoltà): "+roleplaySummary(c)):"",
 "REGOLE FERREE: applica solo regole ufficiali; non inventare regole. Non inventare MAI il risultato di un tiro di dado, né tuo né del giocatore: scrivilo SEMPRE tra doppie parentesi quadre in notazione dadi (es. [[1d20+5]] o [[2d6]]) e il programma lo tira davvero mostrando un pulsante cliccabile. Anche quando tocca al giocatore tirare, scrivi tu la notazione tra parentesi quadre invece di chiedergli di dirti il risultato a voce, poi attendi il click prima di risolvere.",
 "Rivolgiti direttamente al giocatore in seconda persona. Poiché è da solo, aiutalo a compensare l'assenza di un party (suggerendo con discrezione opzioni tattiche quando è in difficoltà) ma senza mai decidere le sue azioni al posto suo.",
 "Descrivi la stanza in modo vivido ma sintetico, poi elenca cosa c'è di interattivo e le uscite. Mantieni la continuità con ciò che è già accaduto. Non decidere le azioni del giocatore al posto suo.",
@@ -17557,7 +17736,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.7.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
