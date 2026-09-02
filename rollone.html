@@ -9822,7 +9822,12 @@ async function savePdfChoosingLocation(doc, fileName){
     if (window.Capacitor && RollonePrint) {
       let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
       const b64 = btoa(binary);
-      await withTimeout(RollonePrint.print({ data: b64, name: fileName.replace(/\.pdf$/i,"") }), 8000, "Stampa");
+      // FIX (2026-09-03, segnalato con video: sia la stampa che il salvataggio nativo restavano
+      // "in attesa" fino allo scadere del tempo, senza che il selettore di sistema si aprisse mai —
+      // sul dispositivo del video ci volevano quasi 30 secondi prima di arrivare al metodo
+      // alternativo. Tempi ridotti perché se il sistema operativo non risponde entro pochi secondi
+      // non risponderà nemmeno aspettando di più: meglio passare prima al metodo successivo.
+      await withTimeout(RollonePrint.print({ data: b64, name: fileName.replace(/\.pdf$/i,"") }), 5000, "Stampa");
       toast("Scegli «Salva come PDF» (o una stampante) nella finestra che si è aperta.");
       return;
     }
@@ -9852,6 +9857,32 @@ async function savePdfChoosingLocation(doc, fileName){
    6) Download standard del browser come ultima risorsa (solo fuori da Capacitor: dentro l'app
       Android questo passo non funziona mai, quindi se si arriva qui dentro Capacitor si avvisa
       onestamente l'utente invece di dichiarare un falso successo). */
+/* Ultima rete di sicurezza (2026-09-03): quando NESSUN meccanismo di salvataggio del sistema
+   operativo risponde (visto in un video: sia "Stampa/Salva con nome" nativo sia il foglio di
+   condivisione restavano bloccati), questa finestra mostra il contenuto come testo selezionabile
+   dentro l'app — non passa da nessuna API di sistema, quindi non può restare bloccata come le
+   altre. L'utente può copiarlo (pulsante, o selezione manuale) e incollarlo altrove (email, note,
+   chat) per portarlo via comunque. */
+function showCopyableTextFallback(text, fileName, label){
+  const ta=el("textarea",{readonly:"readonly",
+    style:"width:100%;min-height:220px;font-family:monospace;font-size:12px;padding:10px;background:var(--inputbg);border:1px solid var(--line2);border-radius:8px;color:var(--ink)"},
+    text);
+  const copyBtn=el("button",{class:"btn",onclick:async()=>{
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(text); }
+      else{ ta.focus(); ta.select(); document.execCommand("copy"); }
+      toast("Copiato negli appunti.");
+    }catch(e){
+      ta.focus(); ta.select();
+      try{ document.execCommand("copy"); toast("Copiato negli appunti."); }
+      catch(e2){ toast("Copia non riuscita: seleziona il testo a mano e copialo."); }
+    }
+  }}, "📋 Copia negli appunti");
+  modal(label+" — salvataggio automatico non riuscito", el("div",{},
+    el("p",{class:"muted",style:"font-size:13px;margin-bottom:10px"},
+      `Su questo dispositivo l'app non riesce ad aprire da sola la finestra di salvataggio di Android. Copia il testo qui sotto (pulsante, oppure selezionalo a mano) e incollalo dove preferisci — email, Note, chat — per portarlo al sicuro come "${fileName}".`),
+    ta, el("div",{style:"margin-top:10px"},copyBtn)));
+}
 async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
   label = label || "File";
   const blobFrom = () => new Blob([bytes], { type: mimeType });
@@ -9872,7 +9903,7 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
     if (window.Capacitor && RollonePrint && RollonePrint.saveFile) {
       let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
       const b64 = btoa(binary);
-      await withTimeout(RollonePrint.saveFile({ data: b64, fileName, mimeType }), 20000, "Salvataggio");
+      await withTimeout(RollonePrint.saveFile({ data: b64, fileName, mimeType }), 8000, "Salvataggio");
       toast(label+" salvato.");
       return;
     }
@@ -9947,8 +9978,19 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
     // altrimenti si prosegue con i metodi sottostanti
   }
   if (window.Capacitor) {
-    // Dentro l'app Android/iOS il download via tag <a> non funziona mai: meglio dirlo chiaramente
-    // che mostrare un "scaricato" falso quando in realtà non è successo nulla (il bug appena corretto).
+    // FIX (2026-09-03, segnalato con video): prima, se anche il salvataggio nativo e la
+    // condivisione fallivano entrambi (come nel video, su quel dispositivo), l'utente restava
+    // bloccato con solo un messaggio di errore e nessun modo reale di portare via i propri dati.
+    // Per i contenuti testuali (backup JSON/HTML) c'è sempre un'ultima via che non dipende da
+    // NESSUNA funzione del sistema operativo e quindi non può fallire allo stesso modo: mostrare
+    // il contenuto in una finestra con testo selezionabile/copiabile dentro l'app stessa.
+    if (/^(application\/json|text\/)/i.test(mimeType)) {
+      try{
+        const text = new TextDecoder().decode(bytes);
+        showCopyableTextFallback(text, fileName, label);
+        return;
+      }catch(e){ /* se anche questo fallisce (contenuto non testuale), si prosegue sotto */ }
+    }
     toast("Impossibile salvare "+label.toLowerCase()+" su questo dispositivo. Riprova o aggiorna l'app.");
     return;
   }
@@ -18518,7 +18560,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.2"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.3"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
