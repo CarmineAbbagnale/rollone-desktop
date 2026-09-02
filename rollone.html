@@ -5620,7 +5620,14 @@ async function dmRegiaSend(c,secretText){
       try{
         await sb.from("campaign_dm_secrets").update({regia_log:nextLog,updated_at:new Date().toISOString(),updated_by:MP_USER_ID}).eq("campaign_id",c.cloudId);
         if(MP_DMSECRETS_CACHE[c.cloudId]) MP_DMSECRETS_CACHE[c.cloudId].regia_log=nextLog;
-      }catch(e){}
+      }catch(e){
+        // BUG CORRETTO: qui l'errore veniva inghiottito in silenzio, a differenza di
+        // dmSaveMapNotes() poco sopra che avvisa sempre l'utente. La risposta della Regia IA resta
+        // comunque visibile nella chat (return resolved sotto), ma se il salvataggio del log
+        // segreto sul cloud fallisce il DM va avvisato: altrimenti da un altro dispositivo
+        // vedrebbe la cronologia della Regia incompleta senza sapere perché.
+        toast("Regia IA: risposta generata ma non salvata sul cloud ("+(e.message||e)+")");
+      }
     }else{
       const l=localDmSecrets(c); l.regiaLog=[entry,...(l.regiaLog||[])].slice(0,30); save();
     }
@@ -17960,7 +17967,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.7"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.8"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
