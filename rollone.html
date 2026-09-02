@@ -6053,19 +6053,26 @@ function viewSettings(){
   // nessun controllo partiva mai e sembrava che "l'aggiornamento non si scarica", anche quando il
   // contenuto sul server era già aggiornato. Questo pulsante forza il controllo subito, senza
   // dover indovinare lo stato dell'app.
-  const cUpd=el("div",{class:"card"});
-  cUpd.append(el("h3",{style:"color:var(--gold2)"},"🔄 Aggiornamenti"));
-  const appliedV=(()=>{ try{return localStorage.getItem("rollone-applied-version");}catch(e){return null;} })();
-  cUpd.append(el("p",{class:"muted",style:"font-size:13px"},
-    "Versione contenuti attuale: "+(appliedV?("v"+appliedV):"non rilevabile su questa piattaforma")+
-    ". L'app controlla da sola se c'è una versione più recente all'avvio e al login; usa questo pulsante per controllare subito, senza chiudere e riaprire l'app."));
-  cUpd.append(el("button",{class:"btn ghost sm",style:"margin-top:8px",onclick:()=>{
-    let triggered=false;
-    try{ if(window.__rollOneCheckForUpdate){ window.__rollOneCheckForUpdate(); triggered=true; } }catch(e){}
-    try{ if(window.electronAPI && window.electronAPI.checkForUpdates){ window.electronAPI.checkForUpdates(); triggered=true; } }catch(e){}
-    toast(triggered?"Controllo aggiornamenti in corso…":"Controllo automatico non disponibile in questa build: chiudi e riapri l'app per verificare.");
-  }},"🔄 Controlla aggiornamenti ora"));
-  wrap.append(cUpd);
+  // RIMOSSO SULLA VERSIONE WEB (2026-09-02): su Windows/Mac RollOne è ora un sito installabile,
+  // non più un'app Electron con un pacchetto scaricato una volta e mai più aggiornato da sola:
+  // il browser scarica sempre l'ultima versione pubblicata ad ogni apertura, quindi non esiste
+  // più nulla da "controllare" qui, e la card confondeva soltanto. Resta visibile solo dove ha
+  // ancora un effetto reale: dentro l'app nativa Android o una vecchia installazione Electron.
+  if (window.Capacitor || window.electronAPI) {
+    const cUpd=el("div",{class:"card"});
+    cUpd.append(el("h3",{style:"color:var(--gold2)"},"🔄 Aggiornamenti"));
+    const appliedV=(()=>{ try{return localStorage.getItem("rollone-applied-version");}catch(e){return null;} })();
+    cUpd.append(el("p",{class:"muted",style:"font-size:13px"},
+      "Versione contenuti attuale: "+(appliedV?("v"+appliedV):"non rilevabile su questa piattaforma")+
+      ". L'app controlla da sola se c'è una versione più recente all'avvio e al login; usa questo pulsante per controllare subito, senza chiudere e riaprire l'app."));
+    cUpd.append(el("button",{class:"btn ghost sm",style:"margin-top:8px",onclick:()=>{
+      let triggered=false;
+      try{ if(window.__rollOneCheckForUpdate){ window.__rollOneCheckForUpdate(); triggered=true; } }catch(e){}
+      try{ if(window.electronAPI && window.electronAPI.checkForUpdates){ window.electronAPI.checkForUpdates(); triggered=true; } }catch(e){}
+      toast(triggered?"Controllo aggiornamenti in corso…":"Controllo automatico non disponibile in questa build: chiudi e riapri l'app per verificare.");
+    }},"🔄 Controlla aggiornamenti ora"));
+    wrap.append(cUpd);
+  }
 
   const cAI=el("div",{class:"card"});
   cAI.append(el("h3",{style:"color:var(--gold2)"},"🤖 Intelligenza Artificiale"));
@@ -8521,6 +8528,53 @@ function companionRollPanel(c,d){
     el("div",{class:"section-title",style:"font-size:13px;justify-content:center"},"Lanciatore di dadi"),
     label);
   const modIn=el("input",{type:"number",value:"0",style:"width:70px"});
+  // FEATURE AGGIUNTA (2026-09-02, richiesta esplicita): prima il "Modificatore" era solo un
+  // numero da scrivere a mano — per un tiro d'attacco o una prova di abilità bisognava andare a
+  // controllare il bonus giusto sulla Scheda completa e ricopiarlo qui. Ora un menu a tendina
+  // elenca i bonus già noti del personaggio (caratteristiche, tiri salvezza e competenze in cui è
+  // competente, armi equipaggiate) e sceglierne uno precompila da solo il campo numerico, che
+  // resta comunque modificabile a mano per qualunque altro caso (bonus situazionali, ecc.).
+  const modSourceSel=el("select",{class:"companion-modsrc",style:"max-width:230px"});
+  function weaponAtkBonus(w){
+    const wd=WEAPONS[w]||STATE.customItems.find(i=>i.name===w);
+    const finesse=wd&&/Accurata|finesse/i.test(wd.props||wd.properties||"");
+    const abil=finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
+    return d.prof+d.mods[abil];
+  }
+  function buildModSourceOptions(){
+    modSourceSel.innerHTML="";
+    modSourceSel.append(el("option",{value:""},"Modificatore manuale"));
+    const ogAbil=el("optgroup",{label:"Caratteristiche"});
+    ABIL.forEach(a=>ogAbil.append(el("option",{value:"abil:"+a.k},a.name+" "+sign(d.mods[a.k]))));
+    modSourceSel.append(ogAbil);
+    if(d.saveProfs && d.saveProfs.size){
+      const ogSave=el("optgroup",{label:"Tiri salvezza"});
+      ABIL.forEach(a=>{ if(d.saveProfs.has(a.k)) ogSave.append(el("option",{value:"save:"+a.k},"Salvezza "+a.name+" "+sign(d.mods[a.k]+d.prof))); });
+      if(ogSave.children.length) modSourceSel.append(ogSave);
+    }
+    if(d.skillProfs && d.skillProfs.size){
+      const ogSkill=el("optgroup",{label:"Competenze"});
+      Object.keys(SKILLS).forEach(sk=>{ if(d.skillProfs.has(sk)) ogSkill.append(el("option",{value:"skill:"+sk},sk+" "+sign(d.mods[SKILLS[sk]]+d.prof))); });
+      if(ogSkill.children.length) modSourceSel.append(ogSkill);
+    }
+    const weapons=(c.weapons||[]);
+    if(weapons.length){
+      const ogWeap=el("optgroup",{label:"Armi (attacco)"});
+      weapons.forEach(w=>ogWeap.append(el("option",{value:"weapon:"+w},w+" "+sign(weaponAtkBonus(w)))));
+      modSourceSel.append(ogWeap);
+    }
+  }
+  buildModSourceOptions();
+  modSourceSel.onchange=()=>{
+    const v=modSourceSel.value; if(!v) return;
+    const [kind,key]=v.split(":");
+    let val=0;
+    if(kind==="abil") val=d.mods[key];
+    else if(kind==="save") val=d.mods[key]+d.prof;
+    else if(kind==="skill") val=d.mods[SKILLS[key]]+d.prof;
+    else if(kind==="weapon") val=weaponAtkBonus(key);
+    modIn.value=String(val);
+  };
   const dieOptions=[4,6,8,10,12,20,100];
   const typeEls=dieOptions.map(f=>el("span",{title:`Tira ${dieQty}d${f}`,onclick:()=>selectFaces(f)},"d"+f));
   const typeRow=el("div",{class:"diefaces"},...typeEls);
@@ -8608,7 +8662,8 @@ function companionRollPanel(c,d){
   };
   die.onclick=doTheRoll;
   panel.append(typeRow,qtyRow,
-    el("div",{class:"row",style:"justify-content:center;margin-top:10px"},
+    el("div",{class:"row",style:"justify-content:center;margin-top:10px;flex-wrap:wrap"},
+      el("label",{class:"fld",style:"max-width:230px"},el("span",{},"Applica bonus"),modSourceSel),
       el("label",{class:"fld",style:"max-width:110px"},el("span",{},"Modificatore"),modIn)),
     el("div",{style:"display:flex;gap:8px;justify-content:center;margin-top:10px"},
       el("button",{class:"btn ghost sm",onclick:()=>{document.getElementById("companionHistoryCard")?.scrollIntoView({behavior:"smooth",block:"center"});}},"Cronologia")));
@@ -17967,7 +18022,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.8"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.9"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
@@ -18289,6 +18344,32 @@ function removeDarkGift(character, giftName) {
   // funzione appena l'utente entra, così un aggiornamento consistente arriva anche a chi apre
   // l'app raramente ma fa login spesso, non solo ai 4s fissi dopo l'avvio.
   window.__rollOneCheckForUpdate = checkForUpdate;
+
+  // BUG CORRETTO (2026-09-02, secondo giro): il tasto/gesto Indietro di Android chiudeva ancora
+  // l'app invece di tornare alla schermata precedente di RollOne, nonostante initNavHistory()
+  // (vedi sopra in questo file) scrivesse già una voce di cronologia del browser ad ogni go().
+  // Causa reale: il pacchetto @capacitor/app, che sul lato nativo intercetta il tasto Indietro di
+  // sistema e lo inoltra alla pagina come evento "backButton", non era installato — senza quel
+  // plugin nessun codice nativo intercetta affatto il tasto fisico/gesto: Android chiude
+  // semplicemente l'Activity per conto suo, ancora prima che qualunque "popstate" lato JS possa
+  // mai scattare. history.pushState()/popstate da soli non bastano su Android: servono per
+  // gestire l'Indietro DENTRO al browser, non il tasto Indietro del SISTEMA. Ora si intercetta
+  // l'evento nativo e si delega alla stessa cronologia interna già pronta (history.back() fa
+  // scattare "popstate", gestito da initNavHistory()), uscendo dall'app solo quando quella
+  // cronologia è davvero esaurita.
+  try{
+    var AppPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (AppPlugin) {
+      AppPlugin.addListener("backButton", function(ev){
+        var modalRoot = document.getElementById("modalRoot");
+        var modalOpen = !!(modalRoot && modalRoot.innerHTML.trim());
+        if (modalOpen) { try{ closeModal(); }catch(e){} return; }
+        if (ev && ev.canGoBack) { try{ window.history.back(); }catch(e){ AppPlugin.exitApp(); } }
+        else { try{ AppPlugin.exitApp(); }catch(e){} }
+      });
+    }
+  }catch(e){}
+
   applyCachedUpdateIfAny().then(function(swapped){
     setTimeout(checkForUpdate, 4000);
     // Se c'è stato uno scambio, il documento nuovo dentro l'iframe avvia già da sé
@@ -18336,6 +18417,48 @@ function removeDarkGift(character, giftName) {
       bar.style.opacity = "1"; bar.style.width = clamped + "%"; pct.textContent = Math.round(clamped) + "%";
     }
   });
+})();
+</script>
+<script>
+// Backup automatico alla chiusura, SOLO sulla versione web (2026-09-02): su Windows/Mac i dati
+// vivono nel localStorage del browser legato a questo sito, che l'utente può cancellare (pulizia
+// dati di navigazione, disinstallazione del browser...) senza che RollOne possa saperlo in
+// anticipo. Su Android e su una vecchia installazione Electron i dati sono già in un'area propria
+// dell'app, quindi qui non si attiva nulla (window.Capacitor / window.electronAPI presenti).
+// Non si può intercettare in modo affidabile SOLO la chiusura effettiva della scheda (i browser
+// bloccano i download avviati durante l'evento "beforeunload" per evitare abusi pubblicitari):
+// si usano invece "il documento non è più visibile" (cambio scheda, riduzione a icona, chiusura)
+// e "la pagina sta per essere scaricata dalla memoria" insieme, cosi' il backup silenzioso parte
+// nella grande maggioranza dei casi reali. È un download diretto nella cartella Download del
+// browser, senza alcuna finestra di conferma, cosi' non richiede un gesto dell'utente proprio
+// mentre l'app si sta chiudendo (i selettori "Salva con nome" nativi lo richiedono e qui
+// fallirebbero in silenzio). Limitato a una volta ogni 5 minuti per non riempire la cartella
+// Download ad ogni cambio scheda.
+(function(){
+  try{
+    if (window.Capacitor || window.electronAPI) return;
+    var lastBackupAt = 0;
+    function silentBackupDownload(){
+      try{
+        var now = Date.now();
+        if (now - lastBackupAt < 5*60*1000) return;
+        if (typeof collectData !== "function") return;
+        var data = collectData();
+        var hasContent = data && Object.keys(data).some(function(k){ return Array.isArray(data[k]) && data[k].length>0; });
+        if (!hasContent) return; // niente da salvare (installazione vuota/di prova)
+        lastBackupAt = now;
+        var bytes = new TextEncoder().encode(JSON.stringify(data, null, 2));
+        var blob = new Blob([bytes], {type:"application/json"});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = "grimorio-backup.json";
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+      }catch(e){}
+    }
+    document.addEventListener("visibilitychange", function(){ if(document.hidden) silentBackupDownload(); });
+    window.addEventListener("pagehide", silentBackupDownload);
+  }catch(e){}
 })();
 </script>
 
