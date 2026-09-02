@@ -623,6 +623,15 @@ select option{background:var(--inputbg);color:var(--ink)}
 [data-theme="dark"] .csel-opt{color:var(--r-text-primary)}
 [data-theme="dark"] .csel-opt:hover,[data-theme="dark"] .csel-opt.hi{background:var(--r-surface-raised)}
 [data-theme="dark"] .csel-opt.sel{color:var(--r-gold-light);background:var(--r-surface-raised)}
+/* styleSelect(): rivestimento di TUTTI i <select> nativi rimasti nell'app (2026-09-02, "estendi
+   tutti"). Il <select> vero resta nel DOM (dentro .csel-wrap) ma invisibile: serve solo da fonte
+   di verità per .value/.onchange/eventuali form, non deve mai essere visto o cliccato. */
+.csel-native-hidden{position:absolute;inset:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;border:0;padding:0;margin:0}
+.csel-wrap{display:block}
+.csel-opt-disabled{opacity:.45;cursor:default;pointer-events:none}
+.csel-disabled .csel-btn{opacity:.55;cursor:default}
+.csel-optgroup-label{padding:8px 10px 3px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.csel-optgroup-label:first-child{padding-top:4px}
 input[type=checkbox]{-webkit-appearance:none;appearance:none;width:20px;height:20px;flex:0 0 auto;border-radius:5px;
   border:1px solid var(--line2);background:var(--inputbg);display:inline-grid;place-items:center;cursor:pointer;padding:0;vertical-align:middle;transition:.15s}
 input[type=checkbox]:hover{border-color:var(--amber-l)}
@@ -1039,8 +1048,19 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
   transition:transform .15s,box-shadow .2s,border-color .2s;cursor:pointer}
 .die:hover{border-color:var(--amber-l);transform:translateY(-3px) rotate(-3deg);box-shadow:0 6px 14px rgba(217,138,43,.28)}
 .die:active{transform:translateY(0) rotate(0)}
-.die.rolling{animation:dieTumble .5s cubic-bezier(.3,1.6,.4,1)}
-@keyframes dieTumble{0%{transform:scale(1) rotate(0)}30%{transform:scale(1.18) rotate(-18deg)}60%{transform:scale(.94) rotate(14deg)}100%{transform:scale(1) rotate(0)}}
+/* NUOVO (2026-09-02, "anima in 3d anche il tiro dei dadi"): stesso principio del D20 cinematico
+   sopra ma più leggero (qui possono comparire molti dadi insieme) — prospettiva sul contenitore
+   + rotazione vera su X/Y invece del solo scale+rotate piatto di prima. backface-visibility
+   nasconde il numero "specchiato" nell'istante in cui il dado è di taglio, invece di mostrarlo
+   invertito durante il volo. */
+.simple-dice-wrap{perspective:700px}
+.die.rolling{animation:dieTumble .5s cubic-bezier(.3,1.6,.4,1);backface-visibility:hidden}
+@keyframes dieTumble{
+  0%{transform:scale(1) rotateX(0) rotateY(0)}
+  30%{transform:scale(1.18) rotateX(220deg) rotateY(-160deg)}
+  60%{transform:scale(.94) rotateX(500deg) rotateY(-300deg)}
+  100%{transform:scale(1) rotateX(720deg) rotateY(-360deg)}
+}
 .roll-log{max-height:220px;overflow:auto;font-size:15px}
 .roll-log .r{padding:7px 8px;border-bottom:1px solid rgba(217,138,43,.14);animation:rollRowIn .28s cubic-bezier(.2,.7,.2,1)}
 @keyframes rollRowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
@@ -1083,34 +1103,46 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
 .dice-stage{min-height:150px;display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;
   padding:18px 10px;border-radius:14px;background:radial-gradient(120% 140% at 50% 20%,rgba(232,168,60,.08),transparent 65%),
   linear-gradient(180deg,var(--headA),var(--headB));border:1px solid var(--line)}
-.d20-cine-wrap{display:flex;gap:26px;align-items:center;justify-content:center}
-/* Dado disegnato in CSS puro (nessun asset esterno): una losanga con sfaccettature
-   simulate da gradienti, che dà un'idea di volume/peso senza essere un vero 3D. */
-.d20-3d{--d20-size:96px;width:var(--d20-size);height:var(--d20-size);position:relative;display:grid;place-items:center;
+/* NUOVO (2026-09-02, richiesta esplicita utente: "anima in 3d anche il tiro dei dadi"): prima
+   il dado ruotava solo su Z (un piatto "giro di moneta" sul tavolo, come diceva il commento
+   originale qui sotto). Ora .d20-cine-wrap ha una prospettiva vera e il dado ruota anche su X e Y
+   con preserve-3d, mostrando davvero un'altra faccia (retro) mentre gira prima di stabilizzarsi
+   fronte all'osservatore — stessa tecnica "flip card" (perspective + preserve-3d + rotateX/Y +
+   backface-visibility:hidden) di una card che si ribalta, applicata qui al dado invece che a una
+   carta. Tutto disegnato in CSS puro, nessun asset/modello 3D di terzi. */
+.d20-cine-wrap{display:flex;gap:26px;align-items:center;justify-content:center;perspective:1000px;perspective-origin:50% 35%}
+.d20-3d{--d20-size:96px;width:var(--d20-size);height:var(--d20-size);position:relative;
   transform-style:preserve-3d;filter:drop-shadow(0 10px 14px rgba(0,0,0,.45))}
-.d20-face{width:100%;height:100%;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+.d20-face{position:absolute;inset:0;width:100%;height:100%;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
   background:linear-gradient(155deg,var(--r-gold-light,#e8c88a) 0%,var(--amber,#d98a2b) 45%,var(--r-wood-dark,#5a3d1e) 100%);
   display:grid;place-items:center;font-family:"Cinzel",serif;font-weight:800;font-size:calc(var(--d20-size)*.34);
-  color:#3a2408;text-shadow:0 1px 0 rgba(255,255,255,.35);box-shadow:inset 0 0 0 2px rgba(255,255,255,.25),inset 0 -10px 18px rgba(0,0,0,.25)}
+  color:#3a2408;text-shadow:0 1px 0 rgba(255,255,255,.35);box-shadow:inset 0 0 0 2px rgba(255,255,255,.25),inset 0 -10px 18px rgba(0,0,0,.25);
+  backface-visibility:hidden}
+/* Retro del dado: stessa sagoma, un semplice sigillo invece del numero (che si vede solo a
+   lancio concluso, mai durante il volo), rivelato quando la rotazione porta la faccia col
+   numero lontano dall'osservatore — è quello che dà l'effetto di volume reale durante il tiro. */
+.d20-face-back{transform:rotateY(180deg) translateZ(.5px)}
 /* Fase 1-6: preparazione, lancio, rimbalzo, rotolamento, decelerazione, stop — tutto in
    un'unica sequenza di keyframe percentuale, così le fasi restano in ordine ed è semplice
-   ritoccarne il ritmo. */
+   ritoccarne il ritmo. Le rotazioni finali su X e Y sono multipli esatti di 360° apposta: la
+   faccia col numero deve tornare SEMPRE fronte all'osservatore all'atterraggio, qualunque sia il
+   percorso di rotazione compiuto durante il volo. */
 .d20-throwing{animation:d20CinePrep .22s ease both, d20CineThrow 1.15s cubic-bezier(.16,.85,.2,1) .22s both}
-@keyframes d20CinePrep{0%{transform:translateY(0) scale(.7);opacity:0}100%{transform:translateY(0) scale(.86);opacity:1}}
+@keyframes d20CinePrep{0%{transform:translateY(0) scale(.7) rotateX(0) rotateY(0);opacity:0}100%{transform:translateY(0) scale(.86) rotateX(0) rotateY(0);opacity:1}}
 @keyframes d20CineThrow{
-  0%{transform:translateY(-40px) scale(.9) rotate(-30deg);opacity:1}
-  10%{transform:translateY(-70px) scale(1.05) rotate(60deg)}
-  28%{transform:translateY(10px) scale(1.08) rotate(230deg)}
-  38%{transform:translateY(-18px) scale(1) rotate(310deg)}
-  50%{transform:translateY(4px) scale(1.02) rotate(430deg)}
-  60%{transform:translateY(-6px) scale(.99) rotate(500deg)}
-  70%{transform:translateY(2px) rotate(560deg)}
-  80%{transform:translateY(-2px) rotate(610deg)}
-  90%{transform:translateY(0) rotate(645deg)}
-  100%{transform:translateY(0) scale(1) rotate(660deg)}
+  0%{transform:translateY(-40px) scale(.9) rotateZ(-14deg) rotateX(0deg) rotateY(0deg);opacity:1}
+  10%{transform:translateY(-70px) scale(1.05) rotateZ(10deg) rotateX(140deg) rotateY(210deg)}
+  28%{transform:translateY(10px) scale(1.08) rotateZ(-8deg) rotateX(360deg) rotateY(500deg)}
+  38%{transform:translateY(-18px) scale(1) rotateZ(6deg) rotateX(480deg) rotateY(640deg)}
+  50%{transform:translateY(4px) scale(1.02) rotateZ(-4deg) rotateX(600deg) rotateY(760deg)}
+  60%{transform:translateY(-6px) scale(.99) rotateZ(3deg) rotateX(680deg) rotateY(860deg)}
+  70%{transform:translateY(2px) rotateZ(-2deg) rotateX(720deg) rotateY(940deg)}
+  80%{transform:translateY(-2px) rotateZ(1deg) rotateX(720deg) rotateY(1000deg)}
+  90%{transform:translateY(0) rotateZ(0deg) rotateX(720deg) rotateY(1040deg)}
+  100%{transform:translateY(0) scale(1) rotateZ(0deg) rotateX(720deg) rotateY(1080deg)}
 }
 .d20-settled{animation:d20Reveal .4s cubic-bezier(.2,.9,.3,1.3) both}
-@keyframes d20Reveal{0%{transform:scale(1.22)}60%{transform:scale(.94)}100%{transform:scale(1)}}
+@keyframes d20Reveal{0%{transform:rotateX(720deg) rotateY(1080deg) scale(1.22)}60%{transform:rotateX(720deg) rotateY(1080deg) scale(.94)}100%{transform:rotateX(720deg) rotateY(1080deg) scale(1)}}
 .d20-cine-wrap.dual .d20-3d{--d20-size:78px}
 .d20-discarded{opacity:.4;filter:grayscale(.6) drop-shadow(0 6px 10px rgba(0,0,0,.35));transform:scale(.88)}
 .d20-chosen .d20-face{box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),0 0 0 3px var(--amber) ,0 0 22px 6px rgba(232,168,60,.65)}
@@ -1264,7 +1296,7 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
   .sheet-head .avatar{width:60px;height:60px;font-size:30px}
   /* INPUT touch-friendly e senza overflow */
   input,select,textarea,button{max-width:100%;box-sizing:border-box}
-  input,select,textarea{font-size:16px}
+  input,select,textarea,.csel-btn{font-size:16px}
   /* COMBATTENTI: i controlli vanno a capo sotto la riga */
   .combatant{flex-wrap:wrap;row-gap:8px}
   .combatant > div:nth-child(2){flex:1 1 60%;min-width:140px}
@@ -1930,6 +1962,88 @@ function customSelect(items,opts={}){
   root.setItems=(newItems)=>{ norm.length=0; norm.push(...(newItems||[]).map(it=>typeof it==="string"?{value:it,label:it}:it)); renderLabel(); renderList(); };
   return root;
 }
+/* Rivestimento generico di un <select> nativo già costruito (2026-09-02, richiesta esplicita
+   utente: "estendi tutti" — tutti gli 83 punti dell'app che usavano ancora el("select",...) col
+   popup nativo del sistema). A differenza di customSelect() sopra (che COSTRUISCE un menu da zero
+   e va usato nei nuovi punti), styleSelect() prende un <select> già creato con le sue <option> e
+   ci costruisce sopra la stessa interfaccia .csel, ma lascia il <select> originale come unica
+   fonte di verità: resta nel DOM (nascosto), il suo .value/.selectedIndex/.onchange/.disabled/
+   .options restano quelli veri e continuano a funzionare esattamente come prima. Così ogni punto
+   dell'app che già legge sel.value, assegna sel.onchange=…, o passa sel.disabled=… non deve
+   essere riscritto: basta avvolgere la creazione, es. styleSelect(el("select",{...},...)). Un
+   MutationObserver tiene la lista visibile sincronizzata quando il codice aggiunge/rimuove
+   <option> dopo la creazione (pattern usato in vari punti per liste popolate più tardi). */
+function styleSelect(selectEl){
+  if(!selectEl || selectEl.tagName!=="SELECT" || selectEl.dataset.cselWrapped) return selectEl;
+  selectEl.dataset.cselWrapped="1";
+  const wrap=el("div",{class:"csel csel-wrap"});
+  const labelSpan=el("span",{class:"csel-label"});
+  const btn=el("button",{type:"button",class:"csel-btn"},labelSpan,el("span",{class:"csel-arrow"},"▾"));
+  const list=el("div",{class:"csel-list"});
+  selectEl.classList.add("csel-native-hidden");
+  wrap.append(btn,list,selectEl);
+  function renderLabel(){
+    const opt=selectEl.options[selectEl.selectedIndex];
+    labelSpan.textContent=opt?opt.textContent:"—";
+    btn.disabled=selectEl.disabled;
+    wrap.classList.toggle("csel-disabled",selectEl.disabled);
+  }
+  function close(){ wrap.classList.remove("open"); list.classList.remove("open"); document.removeEventListener("click",onDocClick,true); }
+  function onDocClick(e){ if(!wrap.contains(e.target)) close(); }
+  function open(){ if(selectEl.disabled) return; wrap.classList.add("open"); list.classList.add("open"); setTimeout(()=>document.addEventListener("click",onDocClick,true),0);
+    const cur=list.querySelector(".csel-opt.sel"); if(cur) cur.scrollIntoView({block:"nearest"}); }
+  btn.onclick=(e)=>{ e.stopPropagation(); wrap.classList.contains("open")?close():open(); };
+  // Un <optgroup> (usato ad es. nel menu "Applica bonus" del tiratore dadi del Companion, per
+  // separare Caratteristiche/Tiri salvezza/Competenze/Armi) va reso come intestazione non
+  // cliccabile sopra le sue <option>, non appiattito in una lista indistinta: selectEl.options
+  // resta la fonte per l'indice reale (serve a selectedIndex), ma qui si cammina sui figli diretti
+  // per ricostruire la stessa struttura visiva del <select> nativo.
+  function renderList(){
+    list.innerHTML="";
+    let i=0;
+    function renderOption(opt){
+      const idx=i++;
+      if(opt.hidden) return;
+      const row=el("div",{class:"csel-opt"+(idx===selectEl.selectedIndex?" sel":"")+(opt.disabled?" csel-opt-disabled":"")},opt.textContent);
+      if(!opt.disabled){
+        row.onclick=(e)=>{
+          e.stopPropagation();
+          if(selectEl.selectedIndex!==idx){ selectEl.selectedIndex=idx; selectEl.dispatchEvent(new Event("change",{bubbles:true})); }
+          renderLabel(); renderList(); close();
+        };
+      }
+      list.append(row);
+    }
+    Array.from(selectEl.children).forEach(child=>{
+      if(child.tagName==="OPTGROUP"){
+        list.append(el("div",{class:"csel-optgroup-label"},child.label||""));
+        Array.from(child.children).forEach(renderOption);
+      } else if(child.tagName==="OPTION"){
+        renderOption(child);
+      }
+    });
+  }
+  renderLabel(); renderList();
+  new MutationObserver(()=>{ renderLabel(); renderList(); }).observe(selectEl,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled","selected"]});
+  // Proxy .value/.disabled/.selectedIndex sul wrapper: nei pochissimi punti dell'app dove il
+  // codice tiene la VARIABILE del wrapper (non del <select> interno) e le assegna direttamente
+  // (es. sel.value = "x" dopo la creazione), l'assegnazione deve comunque aggiornare il <select>
+  // vero e ridisegnare il menu personalizzato.
+  Object.defineProperty(wrap,"value",{get:()=>selectEl.value,set:(v)=>{ selectEl.value=v; renderLabel(); renderList(); }});
+  Object.defineProperty(wrap,"disabled",{get:()=>selectEl.disabled,set:(v)=>{ selectEl.disabled=v; renderLabel(); }});
+  Object.defineProperty(wrap,"selectedIndex",{get:()=>selectEl.selectedIndex,set:(v)=>{ selectEl.selectedIndex=v; renderLabel(); renderList(); }});
+  Object.defineProperty(wrap,"options",{get:()=>selectEl.options});
+  // Alcuni punti dell'app creano il <select> vuoto e ci aggiungono le <option> più tardi
+  // (liste popolate in un secondo momento: mappe salvate, negozi, personaggi condivisi…). Quel
+  // codice tiene la variabile del wrapper restituito da questa funzione, non il <select> interno,
+  // quindi .append/.appendChild/.innerHTML sul wrapper devono agire sul <select> vero: il
+  // MutationObserver sopra si occupa di ridisegnare il menu personalizzato di conseguenza.
+  wrap.append=(...args)=>{ selectEl.append(...args); };
+  wrap.appendChild=(node)=>selectEl.appendChild(node);
+  Object.defineProperty(wrap,"innerHTML",{get:()=>selectEl.innerHTML,set:(v)=>{ selectEl.innerHTML=v; renderLabel(); renderList(); }});
+  wrap.select=selectEl; // accesso diretto al <select> reale, se mai servisse altrove
+  return wrap;
+}
 function toast(msg){
   const t=el("div",{class:"toast"},msg);
   $("#toastRoot").append(t);
@@ -2255,7 +2369,7 @@ function abilityEditor(c,existing){
   c.customAbilities=c.customAbilities||[];
   const name=el("input",{placeholder:"Nome dell'abilità",value:existing?existing.name:""});
   const usage=el("input",{placeholder:"Utilizzo (es. 1/riposo lungo, a volontà)",value:existing?(existing.usage||""):""});
-  const action=el("select",{},...["Azione","Azione bonus","Reazione","Passiva","Nessuna"].map(o=>el("option",{value:o,selected:existing&&existing.action===o?"selected":null},o)));
+  const action=styleSelect(el("select",{},...["Azione","Azione bonus","Reazione","Passiva","Nessuna"].map(o=>el("option",{value:o,selected:existing&&existing.action===o?"selected":null},o))));
   const desc=el("textarea",{rows:"6",placeholder:"Descrizione completa: effetto, portata, tiri, danni, durata…",style:"width:100%"},existing?(existing.desc||""):"");
   const body=el("div",{},fld("Nome",name),el("div",{class:"twocol"},fld("Utilizzo",usage),fld("Tipo di azione",action)),fld("Descrizione",desc));
   const btn=el("button",{class:"btn",onclick:()=>{
@@ -4168,7 +4282,7 @@ function horrorDivinationWidget() {
 
 function horrorGeneratorWidget() {
   const card = el("div", { class: "card" });
-  const sel = el("select", { onchange: e => { HORROR_UI_GENRE = e.target.value; } });
+  const sel = styleSelect(el("select", { onchange: e => { HORROR_UI_GENRE = e.target.value; } }));
   listHorrorGenres().forEach(g => sel.append(el("option", { value: g.key, selected: g.key === HORROR_UI_GENRE ? "" : null }, g.name)));
   card.append(el("div", { class: "section-title" }, "🛠 Generatore di Domini", el("span", { class: "ln" })),
     el("div", { style: "font-size:12px;opacity:.75;margin-bottom:8px" }, "Genera una bozza di nuovo dominio a partire da un genere horror. È solo un punto di partenza: va sempre rifinita a mano prima di considerarla definitiva."),
@@ -5972,7 +6086,7 @@ function mapPanel(c,opts){
       body.append(tools);
       const addLabel=el("input",{placeholder:"Nome pedina (es. Goblin, Aldric)",style:"max-width:220px"});
       const addColor=el("input",{type:"color",value:"#c0392b"});
-      const ctrlSel=el("select",{},el("option",{value:""},"— solo il DM la muove —"));
+      const ctrlSel=styleSelect(el("select",{},el("option",{value:""},"— solo il DM la muove —")));
       (MP_ROSTER_CACHE[c.cloudId]||[]).forEach(r=>ctrlSel.append(el("option",{value:r.playerId},r.displayName)));
       const addHidden=el("input",{type:"checkbox",id:"addTokHidden"});
       const addHiddenWrap=el("label",{style:"display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"},addHidden,"👁 Nascosta ai giocatori");
@@ -5992,7 +6106,7 @@ function mapPanel(c,opts){
           const condRow=el("div",{style:"display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:3px"});
           (t.conditions||[]).forEach(cn=>condRow.append(el("span",{class:"cond",style:"font-size:10px;cursor:pointer",
             onclick:async()=>{ const next=(t.conditions||[]).filter(x=>x!==cn); t.conditions=next; await mpSetTokenConditions(t.id,next); render(); }},cn+" ✕")));
-          const condSel=el("select",{style:"font-size:11px;padding:2px"},el("option",{value:""},"+ Icona di stato…"),...COND.map(cn=>el("option",{value:cn},cn)));
+          const condSel=styleSelect(el("select",{style:"font-size:11px;padding:2px"},el("option",{value:""},"+ Icona di stato…"),...COND.map(cn=>el("option",{value:cn},cn))));
           condSel.onchange=async()=>{
             if(!condSel.value) return;
             const next=[...(t.conditions||[])]; if(!next.includes(condSel.value)) next.push(condSel.value);
@@ -6584,7 +6698,7 @@ function viewTreasure(){
   const search=el("input",{placeholder:"Cerca un tesoro per nome…",value:TREAS.q});
   const list=el("div",{style:"margin-top:12px;display:grid;gap:6px"});
   const count=el("div",{class:"muted",style:"font-size:13px;margin-top:8px"});
-  const mk=(label,val,opts,onch)=>{ const s=el("select",{style:"padding:8px"},...opts.map(o=>el("option",{value:o,selected:o===val?"selected":null},o))); s.onchange=()=>{onch(s.value);draw();}; return el("label",{class:"fld"},el("span",{class:"muted",style:"font-size:11px"},label),s); };
+  const mk=(label,val,opts,onch)=>{ const s=styleSelect(el("select",{style:"padding:8px"},...opts.map(o=>el("option",{value:o,selected:o===val?"selected":null},o)))); s.onchange=()=>{onch(s.value);draw();}; return el("label",{class:"fld"},el("span",{class:"muted",style:"font-size:11px"},label),s); };
   const draw=()=>{
     list.innerHTML="";
     const res=TREASURE.filter(t=>t.n.toLowerCase().includes(TREAS.q.toLowerCase())
@@ -6615,7 +6729,7 @@ function viewEpic(){
   wrap.append(el("p",{class:"muted",style:"font-size:14px;line-height:1.6"},EPIC.intro));
   const names=Object.keys(EPIC.classes).sort((a,b)=>a.localeCompare(b,"it"));
   if(!EPIC.classes[EPIC_CLS]) EPIC_CLS=names[0];
-  const sel=el("select",{style:"padding:8px"},...names.map(n=>el("option",{value:n,selected:EPIC_CLS===n?"selected":null},n)));
+  const sel=styleSelect(el("select",{style:"padding:8px"},...names.map(n=>el("option",{value:n,selected:EPIC_CLS===n?"selected":null},n))));
   sel.onchange=()=>{EPIC_CLS=sel.value;render();};
   wrap.append(el("label",{class:"fld"},el("span",{class:"muted",style:"font-size:11px"},"Classe"),sel));
   const card=el("div",{class:"card"});
@@ -7078,7 +7192,7 @@ function openFeatSelector(c, opts){
     let magicSel = null;
     if(f.name === "Iniziato alla Magia"){
       const classi = ["Bardo","Chierico","Druido","Mago","Stregone","Warlock"];
-      magicSel = el("select", {}, ...classi.map(k=>el("option",{value:k}, k)));
+      magicSel = styleSelect(el("select", {}, ...classi.map(k=>el("option",{value:k}, k))));
       body.append(el("h4",{}, "Classe incantatrice"), el("label",{class:"fld"}, magicSel));
     }
     const confirmBox = el("div", {class:"feat-confirm-box hidden"});
@@ -7490,7 +7604,7 @@ function weaponMasteryModal(c,weaponName,wd){
     const targets=(STATE.combat&&STATE.combat.combatants)||[];
     if(STATE.combat&&STATE.combat.active&&targets.length){
       const cond=mastery==="Rovesciare"?"Prono":"Rallentato";
-      const sel=el("select",{},...targets.map(t=>el("option",{value:t.id},t.name)));
+      const sel=styleSelect(el("select",{},...targets.map(t=>el("option",{value:t.id},t.name))));
       body.append(el("div",{style:"display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"},
         el("span",{class:"muted",style:"font-size:12px"},"Applica «"+cond+"» a:"),sel,
         el("button",{class:"btn sm",onclick:()=>{
@@ -7600,7 +7714,9 @@ function playD20Cinematic(stage, entry, onSettled){
   const isDual=entry.rolls.length===2;
   const wrap=el("div",{class:"d20-cine-wrap"+(isDual?" dual":"")});
   const dice=entry.rolls.map((v,i)=>{
-    const d=el("div",{class:"d20-3d d20-throwing"},el("div",{class:"d20-face"},String(v)));
+    const d=el("div",{class:"d20-3d d20-throwing"},
+      el("div",{class:"d20-face"},String(v)),
+      el("div",{class:"d20-face d20-face-back"},"✦"));
     d.style.animationDelay=(i*0.08)+"s";
     return d;
   });
@@ -7720,29 +7836,29 @@ function diceWidget(){
   function buildD20Panel(){
     const wrap=el("div",{class:"dice-widget-body"});
     // Personaggio attivo
-    const charSel=el("select",{},
+    const charSel=styleSelect(el("select",{},
       el("option",{value:""},"— nessuno (solo tiro libero) —"),
-      ...STATE.characters.map(c=>el("option",{value:c.id,selected:c.id===st.charId?"selected":null},c.name||"Senza nome")));
+      ...STATE.characters.map(c=>el("option",{value:c.id,selected:c.id===st.charId?"selected":null},c.name||"Senza nome"))));
     charSel.value=st.charId||"";
     charSel.onchange=()=>{ st.charId=charSel.value; st.subKey=""; renderAutoBonus(); };
     // Tipo di tiro
-    const typeSel=el("select",{},
+    const typeSel=styleSelect(el("select",{},
       el("option",{value:"free"},"Dado libero"),
       el("option",{value:"skill"},"Abilità"),
       el("option",{value:"save"},"Tiro salvezza"),
-      el("option",{value:"attack"},"Attacco"));
+      el("option",{value:"attack"},"Attacco")));
     typeSel.value=st.rollType;
     const subSelWrap=el("div",{});
     function renderSubSel(){
       subSelWrap.innerHTML="";
       const c=activeChar();
       if(st.rollType==="skill"){
-        const sel=el("select",{},...Object.keys(SKILLS).sort().map(sk=>el("option",{value:sk},sk+" ("+SKILLS[sk].toUpperCase()+")")));
+        const sel=styleSelect(el("select",{},...Object.keys(SKILLS).sort().map(sk=>el("option",{value:sk},sk+" ("+SKILLS[sk].toUpperCase()+")"))));
         sel.value=st.subKey||Object.keys(SKILLS)[0]; st.subKey=sel.value;
         sel.onchange=()=>{st.subKey=sel.value;renderAutoBonus();};
         subSelWrap.append(el("label",{class:"fld"},el("span",{},"Abilità"),sel));
       } else if(st.rollType==="save"){
-        const sel=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
+        const sel=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
         sel.value=st.subKey||ABIL[0].k; st.subKey=sel.value;
         sel.onchange=()=>{st.subKey=sel.value;renderAutoBonus();};
         subSelWrap.append(el("label",{class:"fld"},el("span",{},"Caratteristica"),sel));
@@ -7750,7 +7866,7 @@ function diceWidget(){
         const weapons=(c&&c.weapons)||[];
         if(!weapons.length){ subSelWrap.append(el("p",{class:"muted",style:"font-size:12px"},"Il personaggio selezionato non ha armi equipaggiate.")); st.subKey=""; }
         else{
-          const sel=el("select",{},...weapons.map(w=>el("option",{value:w},w)));
+          const sel=styleSelect(el("select",{},...weapons.map(w=>el("option",{value:w},w))));
           sel.value=st.subKey||weapons[0]; st.subKey=sel.value;
           sel.onchange=()=>{st.subKey=sel.value;renderAutoBonus();};
           subSelWrap.append(el("label",{class:"fld"},el("span",{},"Arma"),sel));
@@ -7788,7 +7904,7 @@ function diceWidget(){
         el("button",{onclick:()=>{st.bonusDice.splice(i,1);renderManualChips();}},"✕"))));
     }
     const manualNumIn=el("input",{type:"number",value:"1",style:"width:64px"});
-    const bonusDieSel=el("select",{},...[4,6,8,10,12].map(f=>el("option",{value:f},"d"+f)));
+    const bonusDieSel=styleSelect(el("select",{},...[4,6,8,10,12].map(f=>el("option",{value:f},"d"+f))));
     const manualRow=el("div",{class:"row",style:"gap:8px;flex-wrap:wrap;align-items:flex-end"},
       el("label",{class:"fld"},el("span",{},"Bonus/malus numerico"),manualNumIn),
       el("button",{class:"btn ghost sm",onclick:()=>{const v=parseInt(manualNumIn.value)||0; if(!v)return;
@@ -8343,9 +8459,9 @@ function viewSheet(){
   }
   const roleField2=(key,label,pool)=>{
     roleCard.append(el("p",{style:"margin:10px 0 4px"},el("b",{},label)));
-    const sel=el("select",{style:"width:100%;max-width:480px;margin-bottom:6px"},
+    const sel=styleSelect(el("select",{style:"width:100%;max-width:480px;margin-bottom:6px"},
       el("option",{value:""},"— Scrivi il tuo, oppure scegli un suggerimento —"),
-      ...pool.map(p=>el("option",{value:p},p)));
+      ...pool.map(p=>el("option",{value:p},p))));
     sel.onchange=()=>{ if(sel.value){ c[key]=sel.value; save(); render(); } };
     roleCard.append(sel);
     const txt=el("textarea",{rows:"2",style:"width:100%;max-width:480px"},c[key]||"");
@@ -8576,8 +8692,8 @@ function viewSheet(){
     (c.conditions||[]).forEach(cn=>condWrap.append(el("span",{class:"cond",style:"margin:2px;cursor:pointer",
       onclick:()=>{c.conditions=c.conditions.filter(x=>x!==cn);save();renderConds();}},cn+" ✕")));};
   renderConds();
-  const condSel=el("select",{},el("option",{value:""},"+ Aggiungi condizione…"),
-    ...COND.map(cn=>el("option",{value:cn},cn)));
+  const condSel=styleSelect(el("select",{},el("option",{value:""},"+ Aggiungi condizione…"),
+    ...COND.map(cn=>el("option",{value:cn},cn))));
   condSel.onchange=()=>{if(condSel.value&&!c.conditions.includes(condSel.value)){c.conditions.push(condSel.value);save();renderConds();}condSel.value="";};
   const notes=el("textarea",{rows:"5",placeholder:"Appunti, background, obiettivi…"},c.notes||"");
   notes.oninput=()=>{c.notes=notes.value;save();};
@@ -8806,7 +8922,7 @@ function companionRollPanel(c,d){
   // elenca i bonus già noti del personaggio (caratteristiche, tiri salvezza e competenze in cui è
   // competente, armi equipaggiate) e sceglierne uno precompila da solo il campo numerico, che
   // resta comunque modificabile a mano per qualunque altro caso (bonus situazionali, ecc.).
-  const modSourceSel=el("select",{class:"companion-modsrc",style:"max-width:230px"});
+  const modSourceSel=styleSelect(el("select",{class:"companion-modsrc",style:"max-width:230px"}));
   function buildModSourceOptions(){
     modSourceSel.innerHTML="";
     modSourceSel.append(el("option",{value:""},"Modificatore manuale"));
@@ -9204,10 +9320,10 @@ function swapKnownSpell(c){
   const known=(c.knownSpells||[]).filter(sn=>{const s=spellObj(sn);return s&&s.lv>=1;});
   if(!known.length){toast("Non hai incantesimi conosciuti da scambiare.");return;}
   const classNames=classesOf(c).map(x=>x.cls);
-  const remSel=el("select",{},...known.sort((a,b)=>a.localeCompare(b,"it")).map(n=>el("option",{value:n},n)));
+  const remSel=styleSelect(el("select",{},...known.sort((a,b)=>a.localeCompare(b,"it")).map(n=>el("option",{value:n},n))));
   const pool=[...SPELLS,...STATE.customSpells].filter(s=>s.lv>=1 && (!s.cls || s.cls.some(cn=>classNames.includes(cn))) && (c.knownSpells||[]).indexOf(s.n)<0)
     .sort((a,b)=>a.lv-b.lv||a.n.localeCompare(b.n));
-  const addSel=el("select",{},...pool.map(s=>el("option",{value:s.n},"L"+s.lv+" · "+s.n)));
+  const addSel=styleSelect(el("select",{},...pool.map(s=>el("option",{value:s.n},"L"+s.lv+" · "+s.n))));
   const body=el("div",{},el("p",{class:"muted",style:"font-size:12px;line-height:1.5"},"Salendo di livello puoi sostituire UN incantesimo conosciuto con un altro della tua classe. Questa è l'unica volta in cui puoi cambiarlo."),
     fld("Rimuovi",remSel),fld("Impara al suo posto",addSel));
   const btn=el("button",{class:"btn",onclick:()=>{
@@ -9410,9 +9526,9 @@ function levelUp(c){
       el("button",{class:"btn ghost sm",onclick:()=>{choiceMode="feat";refreshBtns();}},"Prendi un talento"));
     body.append(pickBtns);
     // ASI pane
-    const mode=el("select",{},el("option",{value:"2"},"+2 a una caratteristica"),el("option",{value:"11"},"+1 a due caratteristiche"));
-    const a1=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
-    const a2=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
+    const mode=styleSelect(el("select",{},el("option",{value:"2"},"+2 a una caratteristica"),el("option",{value:"11"},"+1 a due caratteristiche")));
+    const a1=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
+    const a2=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
     const a2wrap=el("div",{class:"hidden"},el("label",{class:"fld"},el("span",{},"Seconda caratteristica"),a2));
     mode.onchange=()=>a2wrap.classList.toggle("hidden",mode.value!=="11");
     asiPane.append(el("p",{class:"muted",style:"font-size:13px"},"Nessuna caratteristica può superare 20."),
@@ -9801,8 +9917,8 @@ function manageEquip(c){
   // BUG FIX (2026-09-02): armature e armi qui non erano in ordine alfabetico, a
   // differenza di quasi tutto il resto dell'app — segnalato dall'utente.
   const armList=Object.keys(ARMOR).filter(a=>showAll||armorAllowed(c,a)).sort((a,b)=>a.localeCompare(b,"it"));
-  const armSel=el("select",{},...armList.map(a=>el("option",{value:a,selected:c.armor===a?"selected":null},
-    a+(ARMOR[a].str?` (For ${ARMOR[a].str})`:""))));
+  const armSel=styleSelect(el("select",{},...armList.map(a=>el("option",{value:a,selected:c.armor===a?"selected":null},
+    a+(ARMOR[a].str?` (For ${ARMOR[a].str})`:"")))));
   const shield=el("input",{type:"checkbox"}); shield.checked=c.shield;
   body.append(el("label",{class:"fld"},el("span",{},"Armatura"),armSel));
   if(ARMOR[c.armor]?.str && !strOk(c,c.armor,d.scores))
@@ -10140,9 +10256,9 @@ const WIZ_STEP=[
       const fld=el("div",{style:"margin-bottom:14px"});
       fld.append(el("p",{style:"margin:0 0 2px"},el("b",{},label)),
         el("p",{class:"muted",style:"font-size:12px;margin:0 0 6px"},hint));
-      const sel=el("select",{style:"width:100%;max-width:480px;margin-bottom:6px"},
+      const sel=styleSelect(el("select",{style:"width:100%;max-width:480px;margin-bottom:6px"},
         el("option",{value:""},"— Scrivi il tuo, oppure scegli un suggerimento —"),
-        ...pool.map(p=>el("option",{value:p,selected:c[key]===p?"selected":null},p)));
+        ...pool.map(p=>el("option",{value:p,selected:c[key]===p?"selected":null},p))));
       sel.onchange=()=>{ if(sel.value){ c[key]=sel.value; render(); } };
       fld.append(sel);
       const txt=el("textarea",{rows:"2",style:"width:100%;max-width:480px",placeholder:"Scrivi qui il tuo, oppure lascia il suggerimento scelto sopra"},c[key]||"");
@@ -10197,7 +10313,7 @@ const WIZ_STEP=[
         });
       };
       ABIL.forEach(a=>{
-        const sel=el("select",{});
+        const sel=styleSelect(el("select",{}));
         sel.onchange=()=>{ const v=parseInt(sel.value); w.rollPick[a.k]=isNaN(v)?null:v; w.c.scores[a.k]=isNaN(v)?8:v; refresh(); drawPrev(); };
         selects[a.k]=sel;
         const bonus=(w.bgAsi&&w.bgAsi[a.k])||0;
@@ -10286,8 +10402,8 @@ const WIZ_STEP=[
       // BUG FIX (2026-09-02): stessa mancanza di ordinamento alfabetico del modale
       // "Gestisci equipaggiamento" sulla scheda, qui nel wizard di creazione.
       const armList=Object.keys(ARMOR).filter(a=>w._equipShowAll||armorAllowed(w.c,a)).sort((a,b)=>a.localeCompare(b,"it"));
-      const armSel=el("select",{},...armList.map(a=>el("option",{value:a,selected:w.c.armor===a?"selected":null},
-        a+(ARMOR[a].str?` (For ${ARMOR[a].str})`:""))));
+      const armSel=styleSelect(el("select",{},...armList.map(a=>el("option",{value:a,selected:w.c.armor===a?"selected":null},
+        a+(ARMOR[a].str?` (For ${ARMOR[a].str})`:"")))));
       armSel.onchange=()=>{ w.c.armor=armSel.value; render(); };
       const shieldCb=el("input",{type:"checkbox"}); shieldCb.checked=!!w.c.shield;
       shieldCb.onchange=()=>{ w.c.shield=shieldCb.checked; render(); };
@@ -10581,9 +10697,9 @@ function openCharacterReviewModal(draft){
   const warn=el("div",{style:"padding:10px 12px;background:var(--panel2);border:1px solid var(--red);border-radius:10px;margin-bottom:14px;font-size:13px;font-weight:bold;color:var(--red)"},
     "⚠ Revisione obbligatoria: la conversione automatica dal PDF può contenere errori. Controlla e correggi ogni campo prima di aggiungere il personaggio.");
   const name=el("input",{value:draft.name||""});
-  const race=el("select",{},...Object.keys(RACES).sort((a,b)=>a.localeCompare(b,"it")).map(r=>el("option",{value:r,selected:draft.race===r?"selected":null},r)));
-  const cls=el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(c=>el("option",{value:c,selected:draft.cls===c?"selected":null},c)));
-  const bg=el("select",{},...Object.keys(BACKGROUNDS).sort((a,b)=>a.localeCompare(b,"it")).map(b=>el("option",{value:b,selected:draft.background===b?"selected":null},b)));
+  const race=styleSelect(el("select",{},...Object.keys(RACES).sort((a,b)=>a.localeCompare(b,"it")).map(r=>el("option",{value:r,selected:draft.race===r?"selected":null},r))));
+  const cls=styleSelect(el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(c=>el("option",{value:c,selected:draft.cls===c?"selected":null},c))));
+  const bg=styleSelect(el("select",{},...Object.keys(BACKGROUNDS).sort((a,b)=>a.localeCompare(b,"it")).map(b=>el("option",{value:b,selected:draft.background===b?"selected":null},b))));
   const level=el("input",{type:"number",min:"1",max:"20",value:String(draft.level||1)});
   const scoreInputs={};
   const scoreGrid=el("div",{style:"display:grid;grid-template-columns:repeat(6,1fr);gap:6px"});
@@ -10595,7 +10711,7 @@ function openCharacterReviewModal(draft){
   const draftSkills=new Set(draft.skillProfs||[]);
   skillKeys.forEach(s=>{ const cb=el("input",{type:"checkbox",checked:draftSkills.has(s)?"checked":null}); skillBoxes[s]=cb;
     skillGrid.append(el("label",{style:"display:flex;gap:6px;align-items:center;font-size:13px"},cb,s)); });
-  const armor=el("select",{},...Object.keys(ARMOR).sort((a,b)=>a.localeCompare(b,"it")).map(a=>el("option",{value:a,selected:draft.armor===a?"selected":null},a)));
+  const armor=styleSelect(el("select",{},...Object.keys(ARMOR).sort((a,b)=>a.localeCompare(b,"it")).map(a=>el("option",{value:a,selected:draft.armor===a?"selected":null},a))));
   const shield=el("input",{type:"checkbox",checked:draft.shield?"checked":null});
   const weapons=el("input",{value:(draft.weapons||[]).join(", "),placeholder:"Es. Spada lunga, Arco corto"});
   const gold=el("input",{type:"number",value:String(draft.gold||0)});
@@ -10673,7 +10789,7 @@ function addDivineOption(sel){ if(divineAvailable()) sel.append(el("option",{},"
 function divineCostPanel(){
   const wrap=el("div",{class:"hidden",style:"margin-top:8px;padding:10px;border:1px solid var(--purple,#7a4fbf);border-radius:8px"});
   wrap.append(el("p",{class:"muted",style:"font-size:12px;margin:0 0 6px"},"Gli oggetti Divini non hanno limiti di potere: nessuna formula di bilanciamento li contiene. In cambio richiedono un costo in oro enorme, pagato da un personaggio."));
-  const charSel=el("select",{},...(STATE.characters.length?STATE.characters.map(ch=>el("option",{value:ch.id},ch.name+" ("+(ch.gold||0)+" mo)")):[el("option",{value:""},"— nessun personaggio disponibile —")]));
+  const charSel=styleSelect(el("select",{},...(STATE.characters.length?STATE.characters.map(ch=>el("option",{value:ch.id},ch.name+" ("+(ch.gold||0)+" mo)")):[el("option",{value:""},"— nessun personaggio disponibile —")])));
   const cost=el("input",{type:"number",value:"100000",min:"1000"});
   wrap.append(fld("Personaggio che paga il costo",charSel),fld("Costo in oro",cost));
   return {node:wrap,
@@ -10963,10 +11079,10 @@ function forgeWeapon(){
   box.append(el("div",{class:"section-title"},"Nuova Arma",el("span",{class:"ln"})));
   const name=el("input",{placeholder:"Es. Lama del Crepuscolo"});
   const dmg=el("input",{placeholder:"Es. 2d6",value:"1d8"});
-  const type=el("select",{},...["tagliente","perforante","contundente","da fuoco","da freddo","da fulmine","radiante","necrotico","psichico","da forza"].map(t=>el("option",{},t)));
-  const cat=el("select",{},el("option",{},"Semplice"),el("option",{},"Da guerra"));
+  const type=styleSelect(el("select",{},...["tagliente","perforante","contundente","da fuoco","da freddo","da fulmine","radiante","necrotico","psichico","da forza"].map(t=>el("option",{},t))));
+  const cat=styleSelect(el("select",{},el("option",{},"Semplice"),el("option",{},"Da guerra")));
   const props=el("input",{placeholder:"Es. Accurata, leggera, magica"});
-  const rarity=el("select",{},...["Comune","Non comune","Raro","Molto raro","Leggendario","Artefatto"].map(r=>el("option",{},r)));
+  const rarity=styleSelect(el("select",{},...["Comune","Non comune","Raro","Molto raro","Leggendario","Artefatto"].map(r=>el("option",{},r))));
   addDivineOption(rarity);
   const attune=el("input",{type:"checkbox"});
   const effects=el("textarea",{rows:"3",placeholder:"Es. +2 ai tiri per colpire; 1d6 danni radianti extra contro i non morti."});
@@ -10991,10 +11107,10 @@ function forgeArmor(){
   box.append(el("div",{class:"section-title"},"Nuova Armatura / Scudo",el("span",{class:"ln"})));
   const name=el("input",{placeholder:"Es. Egida del Drago"});
   const base=el("input",{type:"number",value:"14"});
-  const atype=el("select",{},...["leggera","media","pesante","scudo"].map(t=>el("option",{},t)));
+  const atype=styleSelect(el("select",{},...["leggera","media","pesante","scudo"].map(t=>el("option",{},t))));
   const dexCap=el("input",{type:"number",value:"2"});
   const str=el("input",{type:"number",value:"0"});
-  const rarity=el("select",{},...["Comune","Non comune","Raro","Molto raro","Leggendario","Artefatto"].map(r=>el("option",{},r)));
+  const rarity=styleSelect(el("select",{},...["Comune","Non comune","Raro","Molto raro","Leggendario","Artefatto"].map(r=>el("option",{},r))));
   addDivineOption(rarity);
   const effects=el("textarea",{rows:"3",placeholder:"Es. Resistenza ai danni da fuoco; +1 ai TS contro incantesimi."});
   const dp=divineCostPanel();
@@ -11017,8 +11133,8 @@ function forgeItem(){
   const box=el("div",{});
   box.append(el("div",{class:"section-title"},"Nuovo Artefatto / Oggetto",el("span",{class:"ln"})));
   const name=el("input",{placeholder:"Es. Occhio di Vecna"});
-  const catSel=el("select",{},el("option",{},"Artefatto"),el("option",{},"Oggetto"));
-  const rarity=el("select",{},...["Comune","Non comune","Raro","Molto raro","Leggendario","Artefatto"].map(r=>el("option",{},r)));
+  const catSel=styleSelect(el("select",{},el("option",{},"Artefatto"),el("option",{},"Oggetto")));
+  const rarity=styleSelect(el("select",{},...["Comune","Non comune","Raro","Molto raro","Leggendario","Artefatto"].map(r=>el("option",{},r))));
   addDivineOption(rarity);
   const attune=el("input",{type:"checkbox"});
   const charges=el("input",{placeholder:"Es. 7 cariche, recupera 1d6+1 all'alba"});
@@ -11042,8 +11158,8 @@ function forgeSpell(){
   const box=el("div",{});
   box.append(el("div",{class:"section-title"},"Nuovo Incantesimo",el("span",{class:"ln"})));
   const n=el("input",{placeholder:"Es. Meteora Minore"});
-  const lv=el("select",{},el("option",{value:"0"},"Trucchetto"),...[1,2,3,4,5,6,7,8,9].map(l=>el("option",{value:l},"Livello "+l)));
-  const sc=el("select",{},...["Abiurazione","Ammaliamento","Divinazione","Evocazione","Illusione","Invocazione","Necromanzia","Trasmutazione"].map(s=>el("option",{},s)));
+  const lv=styleSelect(el("select",{},el("option",{value:"0"},"Trucchetto"),...[1,2,3,4,5,6,7,8,9].map(l=>el("option",{value:l},"Livello "+l))));
+  const sc=styleSelect(el("select",{},...["Abiurazione","Ammaliamento","Divinazione","Evocazione","Illusione","Invocazione","Necromanzia","Trasmutazione"].map(s=>el("option",{},s))));
   const cast=el("input",{value:"1 azione"});
   const range=el("input",{value:"18m"});
   const comp=el("input",{value:"V, S"});
@@ -11065,8 +11181,8 @@ function forgeMonster(){
   const box=el("div",{});
   box.append(el("div",{class:"section-title"},"Nuovo Mostro / Boss",el("span",{class:"ln"})));
   const n=el("input",{placeholder:"Es. Signore delle Ceneri"});
-  const type=el("select",{},...["Aberrazione","Bestia","Celestiale","Costrutto","Drago","Elementale","Fatato","Immondo","Gigante","Umanoide","Melma","Mostruosità","Non morto","Vegetale"].map(t=>el("option",{},t)));
-  const size=el("select",{},...["Minuscola","Piccola","Media","Grande","Enorme","Mastodontica"].map(s=>el("option",{value:s,selected:s==="Media"?"selected":null},s)));
+  const type=styleSelect(el("select",{},...["Aberrazione","Bestia","Celestiale","Costrutto","Drago","Elementale","Fatato","Immondo","Gigante","Umanoide","Melma","Mostruosità","Non morto","Vegetale"].map(t=>el("option",{},t))));
+  const size=styleSelect(el("select",{},...["Minuscola","Piccola","Media","Grande","Enorme","Mastodontica"].map(s=>el("option",{value:s,selected:s==="Media"?"selected":null},s))));
   const cr=el("input",{value:"5",placeholder:"Grado Sfida"});
   const ac=el("input",{type:"number",value:"15"});
   const hp=el("input",{type:"number",value:"45"});
@@ -11107,7 +11223,7 @@ function forgeSubclass(){
   const box=el("div",{});
   box.append(el("div",{class:"section-title"},"Nuova Sottoclasse",el("span",{class:"ln"})));
   const name=el("input",{placeholder:"Es. Cammino del Furore Sanguigno"});
-  const clsSel=el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(cn=>el("option",{},cn)));
+  const clsSel=styleSelect(el("select",{},...Object.keys(CLASSES).sort((a,b)=>a.localeCompare(b,"it")).map(cn=>el("option",{},cn))));
   box.append(el("div",{class:"twocol"},fld("Nome sottoclasse",name),fld("Classe",clsSel)));
   box.append(el("div",{class:"section-title",style:"margin-top:8px;font-size:14px"},"Privilegi",el("span",{class:"ln"})));
   const list=el("div",{});
@@ -11155,7 +11271,7 @@ function forgeClass(){
   box.append(el("p",{class:"muted",style:"font-size:12px;margin-top:-4px"},"Crea una classe homebrew completa, con la stessa struttura delle classi ufficiali e di quelle già aggiunte all'app. Finisce nell'archivio classi e diventa scelta possibile alla creazione di un nuovo personaggio."));
   const name=el("input",{placeholder:"Es. Custode delle Rune"});
   const concept=el("input",{placeholder:"Es. un guerriero-alchimista che fonde pozioni e lame (opzionale, descrivi solo il tema, senza citare fonti esterne)"});
-  const hd=el("select",{},...[6,8,10,12].map(h=>el("option",{value:String(h),selected:h===8?"selected":null},"d"+h)));
+  const hd=styleSelect(el("select",{},...[6,8,10,12].map(h=>el("option",{value:String(h),selected:h===8?"selected":null},"d"+h))));
   box.append(el("div",{class:"twocol"},fld("Nome classe",name),fld("Dado vita",hd)));
   box.append(fld("Concept d'ispirazione (facoltativo, per il badge 🌿 homebrew)",concept));
 
@@ -11183,8 +11299,8 @@ function forgeClass(){
     skillRow.append(el("label",{style:"display:flex;align-items:center;gap:4px;font-size:12px"},cb,s)); });
   box.append(el("div",{class:"twocol"},fld("Quante abilità a scelta",skillN),el("div",{})),fld("Elenco abilità disponibili",skillRow));
 
-  const casterType=el("select",{},...[["","Nessuna magia"],["full","Incantatore completo"],["half","Incantatore a metà"],["pact","Magia da patto (come Warlock)"],["artificer","Incantatore da artefice (1/3, ritardato)"]].map(([v,l])=>el("option",{value:v},l)));
-  const casterAbil=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
+  const casterType=styleSelect(el("select",{},...[["","Nessuna magia"],["full","Incantatore completo"],["half","Incantatore a metà"],["pact","Magia da patto (come Warlock)"],["artificer","Incantatore da artefice (1/3, ritardato)"]].map(([v,l])=>el("option",{value:v},l))));
+  const casterAbil=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
   box.append(el("div",{class:"twocol"},fld("Tipo incantatore",casterType),fld("Caratteristica da incantatore",casterAbil)));
 
   box.append(el("div",{class:"section-title",style:"margin-top:8px;font-size:14px"},"Privilegi di classe",el("span",{class:"ln"})));
@@ -11223,7 +11339,7 @@ function forgeClass(){
     if(!FORGE_CLASS_EQUIP.length)equipList.append(el("div",{class:"muted",style:"font-size:13px"},"Nessun oggetto iniziale aggiunto."));
   };
   drawEquip();
-  const ekind=el("select",{},...[["weapon","Arma"],["armor","Armatura"],["shield","Scudo"],["gear","Oggetto"],["gold","Oro (mo)"]].map(([v,l])=>el("option",{value:v},l)));
+  const ekind=styleSelect(el("select",{},...[["weapon","Arma"],["armor","Armatura"],["shield","Scudo"],["gear","Oggetto"],["gold","Oro (mo)"]].map(([v,l])=>el("option",{value:v},l))));
   const ename=el("input",{placeholder:"Nome esatto (per l'oro lascia vuoto)"});
   const eqty=el("input",{type:"number",value:"1",style:"width:70px"});
   box.append(equipList,
@@ -11594,7 +11710,7 @@ function lootRollModal(defeatedLike, title){
     );
   }},"Applica i risultati dei dadi");
   body.append(el("div",{style:"display:flex;gap:8px;align-items:flex-end"},rollBtn), lootPreview);
-  const recipientSel=el("select",{},...(STATE.characters.length?STATE.characters.map(c=>el("option",{value:c.id},c.name)):[el("option",{value:""},"— nessun personaggio —")]));
+  const recipientSel=styleSelect(el("select",{},...(STATE.characters.length?STATE.characters.map(c=>el("option",{value:c.id},c.name)):[el("option",{value:""},"— nessun personaggio —")])));
   body.append(fld("Assegna a",recipientSel));
   const assignBtn=el("button",{class:"btn",onclick:()=>{
     if(!currentLoot){toast("Inserisci prima i risultati dei dadi");return;}
@@ -11627,8 +11743,8 @@ function viewBestiary(){
   search.oninput=()=>{BEST.q=search.value;draw();};
   const mk=(label,val,opts,onch,fmt)=>el("label",{class:"fld",style:"flex:1;min-width:120px;margin:0"},
     el("span",{},label),
-    (()=>{const s=el("select",{onchange:e=>{onch(e.target.value);draw();}},
-      ...opts.map(o=>el("option",{value:o,selected:val===o?"selected":null},fmt?fmt(o):o))); return s;})());
+    (()=>{const s=styleSelect(el("select",{onchange:e=>{onch(e.target.value);draw();}},
+      ...opts.map(o=>el("option",{value:o,selected:val===o?"selected":null},fmt?fmt(o):o)))); return s;})());
   const filtersRow=el("div",{style:"display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"});
   filtersRow.append(
     mk("Tipo",BEST.type,types,v=>BEST.type=v),
@@ -11710,8 +11826,8 @@ function crToXp(cr){ if(!cr) return 0; const k=String(cr).trim(); if(CR_XP[k]!=n
 let COMP_TAB="Incantesimi";
 const COMPF={spellQ:"",spellLv:"",spellSchool:"",spellClass:"",spellSort:"lv",featQ:"",featCat:"",privQ:"",privCls:"",privType:"",itemQ:"",itemCat:"",itemRarity:""};
 function compSelect(label,val,opts,onch,onchange,fmt){
-  const s=el("select",{onchange:e=>{onch(e.target.value);onchange();}},
-    ...opts.map(o=>el("option",{value:o,selected:val===o?"selected":null},fmt?fmt(o):o)));
+  const s=styleSelect(el("select",{onchange:e=>{onch(e.target.value);onchange();}},
+    ...opts.map(o=>el("option",{value:o,selected:val===o?"selected":null},fmt?fmt(o):o))));
   return el("label",{class:"fld",style:"flex:1;min-width:110px;margin:0"},el("span",{},label),s);
 }
 function viewCompendium(){
@@ -12349,7 +12465,7 @@ function awardXpModal(cb){
   }},"Applica i risultati dei dadi");
   body.append(el("div",{style:"display:flex;gap:8px;align-items:flex-end"},rollLootBtn));
   body.append(lootPreview);
-  const recipientSel=el("select",{},...(STATE.characters.length?STATE.characters.map(c=>el("option",{value:c.id},c.name)):[el("option",{value:""},"— nessun personaggio —")]));
+  const recipientSel=styleSelect(el("select",{},...(STATE.characters.length?STATE.characters.map(c=>el("option",{value:c.id},c.name)):[el("option",{value:""},"— nessun personaggio —")])));
   body.append(fld("A chi va oggetto/materiali",recipientSel));
 
   const btn=el("button",{class:"btn",onclick:()=>{
@@ -12593,7 +12709,7 @@ function dmCombat(){
   gridCard.append(palette, toolEffect);
   // Incantesimi/effetti ad area persistenti (punto A7): forma, misura ed etichetta configurabili
   // prima di piazzarli; restano sulla griglia finche non vengono cancellati esplicitamente.
-  const areaShapeSel=el("select",{},...["cerchio","quadrato","cono","linea"].map(s=>el("option",{value:s,selected:AREA_CFG.shape===s?"selected":null},s.charAt(0).toUpperCase()+s.slice(1))));
+  const areaShapeSel=styleSelect(el("select",{},...["cerchio","quadrato","cono","linea"].map(s=>el("option",{value:s,selected:AREA_CFG.shape===s?"selected":null},s.charAt(0).toUpperCase()+s.slice(1)))));
   areaShapeSel.onchange=()=>{AREA_CFG.shape=areaShapeSel.value;};
   const areaSizeInp=el("input",{type:"number",value:String(AREA_CFG.size),min:"1",max:"20",style:"width:64px"});
   areaSizeInp.oninput=()=>{AREA_CFG.size=Math.max(1,parseInt(areaSizeInp.value)||3);};
@@ -12621,7 +12737,7 @@ function dmCombat(){
     STATE.battleMaps.push({id:uid(),name:nm,cols:bm.cols,rows:bm.rows,terrain:{...bm.terrain}});
     save(); toast("Mappa «"+nm+"» salvata."); presetName.value=""; drawPresetSel();
   }},"💾 Salva come preset");
-  const presetSel=el("select",{style:"min-width:180px"});
+  const presetSel=styleSelect(el("select",{style:"min-width:180px"}));
   const drawPresetSel=()=>{ presetSel.innerHTML="";
     presetSel.append(el("option",{value:""},"Carica una mappa salvata…"));
     STATE.battleMaps.forEach(p=>presetSel.append(el("option",{value:p.id},p.name+" ("+p.cols+"×"+p.rows+")")));
@@ -12964,7 +13080,7 @@ function dmCombat(){
             el("button",{class:"btn red sm",style:"padding:4px 8px",onclick:()=>{const v=parseInt($("#dmg-"+c.id).value)||0;c.hp=Math.max(0,c.hp-v);save();render();}},"−"),
             el("button",{class:"btn green sm",style:"padding:4px 8px",onclick:()=>{const v=parseInt($("#dmg-"+c.id).value)||0;c.hp=Math.min(c.hpMax,c.hp+v);save();render();}},"＋")),
           el("div",{style:"display:flex;gap:4px"},
-            (()=>{const s=el("select",{style:"width:110px;padding:4px;font-size:11px"},el("option",{value:""},"+ cond."),...COND.map(cn=>el("option",{},cn)));
+            (()=>{const s=styleSelect(el("select",{style:"width:110px;padding:4px;font-size:11px"},el("option",{value:""},"+ cond."),...COND.map(cn=>el("option",{},cn))));
               s.onchange=()=>{if(s.value&&!c.conditions.includes(s.value)){c.conditions.push(s.value);save();render();}};return s;})(),
             el("button",{class:"btn ghost sm",style:"padding:4px 8px",onclick:showConditionGlossary},"ℹ"),
             c.isMonster&&c.ref?el("button",{class:"btn ghost sm",style:"padding:4px 8px",onclick:()=>showStatblock(c.ref)},"📖"):"",
@@ -13436,7 +13552,7 @@ function lootRollByCrCard(){
   c.append(el("div",{class:"section-title"},"🎲 Bottino con tiro giocatore (fuori scontro)",el("span",{class:"ln"})));
   c.append(el("p",{class:"muted",style:"font-size:12px"},"Per un incontro risolto senza passare dallo Scontro tracciato (es. narrato al tavolo), o per generare bottino su misura: scegli il Grado di Sfida del nemico/i e il tiro dichiarato dai giocatori."));
   const crOpts=["0","1/8","1/4","1/2","1","2","3","4","5","6","7","8","9","10","12","14","16","18","20","22","24"];
-  const crSel=el("select",{},...crOpts.map(v=>el("option",{value:v,selected:v==="1"?"selected":null},"GS "+v)));
+  const crSel=styleSelect(el("select",{},...crOpts.map(v=>el("option",{value:v,selected:v==="1"?"selected":null},"GS "+v))));
   c.append(fld("Grado di Sfida",crSel),
     el("button",{class:"btn ghost sm",style:"margin-top:6px",onclick:()=>lootRollModal([{ref:{cr:crSel.value}}],"🎲 Bottino (GS "+crSel.value+", tiro giocatore)")},"🎲 Apri tabella bottino"));
   return c;
@@ -13558,8 +13674,8 @@ function loreNpcModal(n){
   const isNew=!n; n=n||{id:uid(),name:"",role:"",faction:"",ac:"",hp:"",atk:"",spells:"",equip:"",desc:""};
   const name=el("input",{value:n.name,placeholder:"Nome del PNG"});
   const role=el("input",{value:n.role,placeholder:"Ruolo (es. locandiere, spia, capitano della guardia…)"});
-  const facSel=el("select",{},el("option",{value:""},"— nessuna fazione —"),
-    ...(STATE.lore.factions||[]).map(f=>el("option",{value:f.id,selected:f.id===n.faction},f.name)));
+  const facSel=styleSelect(el("select",{},el("option",{value:""},"— nessuna fazione —"),
+    ...(STATE.lore.factions||[]).map(f=>el("option",{value:f.id,selected:f.id===n.faction},f.name))));
   const ac=el("input",{value:n.ac,placeholder:"CA",style:"width:100%"});
   const hp=el("input",{value:n.hp,placeholder:"PF",style:"width:100%"});
   const atk=el("input",{value:n.atk,placeholder:"Attacchi (es. Spada corta +4, 1d6+2 taglienti)"});
@@ -13608,7 +13724,7 @@ function loreFactionModal(f){
   const isNew=!f; f=f||{id:uid(),name:"",goal:"",disposition:"Sconosciuta",desc:""};
   const name=el("input",{value:f.name,placeholder:"Nome della fazione"});
   const goal=el("input",{value:f.goal,placeholder:"Obiettivo principale"});
-  const disp=el("select",{},...LORE_DISPOSITIONS.map(d=>el("option",{value:d,selected:d===f.disposition},d)));
+  const disp=styleSelect(el("select",{},...LORE_DISPOSITIONS.map(d=>el("option",{value:d,selected:d===f.disposition},d))));
   const desc=el("textarea",{style:"width:100%;min-height:110px",placeholder:"Storia, metodi, rivalità… Usa @Nome per collegare un PNG membro."});
   desc.value=f.desc;
   const body=el("div",{},fld("Nome",name),fld("Obiettivo",goal),fld("Disposizione verso il party",disp),fld("Descrizione",desc));
@@ -13654,11 +13770,11 @@ function loreQuestsPanel(){
 function loreQuestModal(q){
   const isNew=!q; q=q||{id:uid(),title:"",type:"Secondaria",status:"Disponibile",parentId:"",desc:"",reward:""};
   const title=el("input",{value:q.title,placeholder:"Titolo della missione"});
-  const type=el("select",{},...["Principale","Secondaria"].map(t=>el("option",{value:t,selected:t===q.type},t)));
-  const status=el("select",{},...LORE_QUEST_STATUSES.map(s=>el("option",{value:s,selected:s===q.status},s)));
+  const type=styleSelect(el("select",{},...["Principale","Secondaria"].map(t=>el("option",{value:t,selected:t===q.type},t))));
+  const status=styleSelect(el("select",{},...LORE_QUEST_STATUSES.map(s=>el("option",{value:s,selected:s===q.status},s))));
   const parentOpts=(STATE.lore.quests||[]).filter(x=>x.id!==q.id);
-  const parent=el("select",{},el("option",{value:""},"— nessuna (missione radice) —"),
-    ...parentOpts.map(x=>el("option",{value:x.id,selected:x.id===q.parentId},x.title||"Senza titolo")));
+  const parent=styleSelect(el("select",{},el("option",{value:""},"— nessuna (missione radice) —"),
+    ...parentOpts.map(x=>el("option",{value:x.id,selected:x.id===q.parentId},x.title||"Senza titolo"))));
   const reward=el("input",{value:q.reward,placeholder:"Ricompensa (facoltativo)"});
   const desc=el("textarea",{style:"width:100%;min-height:110px",placeholder:"Cosa deve fare il party… Usa @Nome o #Fazione per collegare PNG e fazioni coinvolte."});
   desc.value=q.desc;
@@ -13861,8 +13977,8 @@ function wmViewer(m){
 }
 function wmHotspotModal(m,h,isNew){
   const label=el("input",{value:h.label||"",placeholder:"Nome del punto (es. Porta della città, Taverna del Cinghiale)"});
-  const targetSel=el("select",{}, el("option",{value:""},"— nessun collegamento (solo un'annotazione) —"),
-    ...wmMaps().filter(x=>x.id!==m.id).map(x=>el("option",{value:x.id,selected:x.id===h.targetId},x.name)));
+  const targetSel=styleSelect(el("select",{}, el("option",{value:""},"— nessun collegamento (solo un'annotazione) —"),
+    ...wmMaps().filter(x=>x.id!==m.id).map(x=>el("option",{value:x.id,selected:x.id===h.targetId},x.name))));
   const note=el("textarea",{style:"width:100%;min-height:70px",placeholder:"Nota facoltativa (visibile solo a te)"});
   note.value=h.note||"";
   const body=el("div",{},fld("Nome",label),fld("Collega a",targetSel),fld("Nota",note));
@@ -14029,7 +14145,7 @@ function viewShops(){
   gen.append(el("div",{class:"section-title"},"🏪 Genera nuovo negozio",el("span",{class:"ln"})));
   gen.append(el("p",{class:"muted",style:"font-size:13px;line-height:1.6"},
     "Genera una bottega completa di proprietario, descrizione, inventario, eventuali oggetti rari e un possibile incarico. Tutto resta salvato per le sessioni future e i PG possono parlare con il PNG proprietario tramite l'IA."));
-  const sel=el("select",{});
+  const sel=styleSelect(el("select",{}));
   SHOP_TYPES.forEach(t=>sel.append(el("option",{value:t.key},t.icon+" "+t.name)));
   sel.value=SHOP_VIEW.typeKey;
   sel.onchange=()=>{SHOP_VIEW.typeKey=sel.value;};
@@ -14408,7 +14524,7 @@ function settlementDetailView(s){
   linkedShops.forEach(sh=>shopsCard.append(el("div",{class:"list-line",style:"cursor:pointer",onclick:()=>{ DM_TAB="Negozi"; SHOP_VIEW={mode:"detail",id:sh.id,typeKey:sh.typeKey}; render(); }},
     el("span",{},sh.icon+" "+sh.name+" — "+sh.typeName+" (gestita da "+sh.owner.name+")"),
     el("span",{class:"muted",style:"font-size:11px"},"apri ›"))));
-  const shopSel=el("select",{style:"margin-top:8px"}); SHOP_TYPES.forEach(t=>shopSel.append(el("option",{value:t.key},t.icon+" "+t.name)));
+  const shopSel=styleSelect(el("select",{style:"margin-top:8px"})); SHOP_TYPES.forEach(t=>shopSel.append(el("option",{value:t.key},t.icon+" "+t.name)));
   shopsCard.append(el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"},
     shopSel, el("button",{class:"btn ghost sm",onclick:()=>{
       const ns=genShop(shopSel.value); STATE.shops=STATE.shops||[]; STATE.shops.unshift(ns);
@@ -15051,9 +15167,9 @@ function resolveFeatChoices(c,fe,after){
   const body=el("div",{});
   if(spec.type==="asi"){
     body.append(el("p",{class:"muted",style:"font-size:13px"},"Distribuisci l'aumento: +2 a una caratteristica oppure +1 a due (max 20)."));
-    const mSel=el("select",{},el("option",{value:"2"},"+2 a una caratteristica"),el("option",{value:"11"},"+1 a due caratteristiche"));
-    const a1=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
-    const a2=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
+    const mSel=styleSelect(el("select",{},el("option",{value:"2"},"+2 a una caratteristica"),el("option",{value:"11"},"+1 a due caratteristiche")));
+    const a1=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
+    const a2=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
     const a2w=el("div",{class:"hidden"},el("label",{class:"fld"},el("span",{},"Seconda caratteristica"),a2));
     mSel.onchange=()=>a2w.classList.toggle("hidden",mSel.value!=="11");
     body.append(el("div",{class:"row"},el("label",{class:"fld"},el("span",{},"Tipo"),mSel),el("label",{class:"fld"},el("span",{},"Caratteristica"),a1),a2w));
@@ -15071,7 +15187,7 @@ function resolveFeatChoices(c,fe,after){
     body.append(el("p",{class:"muted",style:"font-size:13px"},`Scegli ${spec.num} competenze di abilità (dalla lista di riferimento).`),info,grid);
     modal("Abile: scegli le abilità", body, el("button",{class:"btn",onclick:()=>{closeModal();render();after&&after();}},"Fatto"));
   } else if(spec.type==="save"){
-    const a1=el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name)));
+    const a1=styleSelect(el("select",{},...ABIL.map(a=>el("option",{value:a.k},a.name))));
     body.append(el("p",{class:"muted",style:"font-size:13px"},"Resiliente: +1 a una caratteristica e competenza nei suoi tiri salvezza."),
       el("label",{class:"fld"},el("span",{},"Caratteristica"),a1));
     modal("Resiliente", body, el("button",{class:"btn",onclick:()=>{fe.asi={[a1.value]:1};fe.save=a1.value;save();closeModal();render();after&&after();}},"Conferma"));
@@ -15238,7 +15354,7 @@ function manageMulticlass(c){
   const eligible=candidates.filter(x=>x.eligible).map(x=>x.key);
   const ineligible=candidates.filter(x=>!x.eligible).map(x=>x.key);
   const isHbCls=cn=>HOMEBREW_CLASSES.includes(cn);
-  const sel=el("select",{},el("option",{value:""},"aggiungi una classe…"),...eligible.map(cn=>el("option",{value:cn},(isHbCls(cn)?"🌿 ":"")+cn)));
+  const sel=styleSelect(el("select",{},el("option",{value:""},"aggiungi una classe…"),...eligible.map(cn=>el("option",{value:cn},(isHbCls(cn)?"🌿 ":"")+cn))));
   const addBtn=el("button",{class:"btn sm",onclick:()=>{
     if(!sel.value)return;
     if(!meetsMulticlassReq(c,sel.value)){toast("Non hai le caratteristiche minime richieste per multiclassare in "+sel.value+".");return;}
@@ -15272,9 +15388,9 @@ function viewClasses(){
   const allCn=Object.keys(CLASSES);
   const official=allCn.filter(cn=>!HOMEBREW_CLASSES.includes(cn)).sort((a,b)=>a.localeCompare(b,"it"));
   const homebrew=allCn.filter(cn=>HOMEBREW_CLASSES.includes(cn)).sort((a,b)=>a.localeCompare(b,"it"));
-  const dd=el("select",{style:"font-size:15px;padding:8px 10px;max-width:360px"},
+  const dd=styleSelect(el("select",{style:"font-size:15px;padding:8px 10px;max-width:360px"},
     el("optgroup",{label:"Classi ufficiali"},...official.map(cn=>el("option",{value:cn,selected:cur===cn?"selected":null},cn))),
-    homebrew.length?el("optgroup",{label:"🌿 Classi homebrew"},...homebrew.map(cn=>el("option",{value:cn,selected:cur===cn?"selected":null},cn))):"");
+    homebrew.length?el("optgroup",{label:"🌿 Classi homebrew"},...homebrew.map(cn=>el("option",{value:cn,selected:cur===cn?"selected":null},cn))):""));
   dd.onchange=()=>{STATE.classView=dd.value;render();};
   wrap.append(el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px"},
     el("label",{class:"fld",style:"margin:0;flex:0 0 auto"},el("span",{},"Scegli classe"),dd)));
@@ -16068,14 +16184,14 @@ function aiSettingsBody(){
   // Libera scelta del provider IA (2026-08-07): nessuna chiave incorporata, nessun servizio
   // imposto. L'utente sceglie indirizzo (Base URL), chiave e modello di QUALSIASI provider
   // compatibile col formato "chat completions" stile OpenAI.
-  const providerSel=el("select",{},
+  const providerSel=styleSelect(el("select",{},
     el("option",{value:"https://openrouter.ai/api/v1/chat/completions"},"OpenRouter (tantissimi modelli con una chiave sola)"),
     el("option",{value:"https://api.openai.com/v1/chat/completions"},"OpenAI"),
     el("option",{value:"https://api.deepseek.com/v1/chat/completions"},"DeepSeek"),
     el("option",{value:"https://api.groq.com/openai/v1/chat/completions"},"Groq"),
     el("option",{value:"https://api.together.xyz/v1/chat/completions"},"Together AI"),
     el("option",{value:"https://api.mistral.ai/v1/chat/completions"},"Mistral"),
-    el("option",{value:"__custom__"},"Altro / server personalizzato (inserisci l'indirizzo sotto)"));
+    el("option",{value:"__custom__"},"Altro / server personalizzato (inserisci l'indirizzo sotto)")));
   const knownUrls=["https://openrouter.ai/api/v1/chat/completions","https://api.openai.com/v1/chat/completions","https://api.deepseek.com/v1/chat/completions","https://api.groq.com/openai/v1/chat/completions","https://api.together.xyz/v1/chat/completions","https://api.mistral.ai/v1/chat/completions"];
   providerSel.value=knownUrls.includes(STATE.ai.baseUrl)?STATE.ai.baseUrl:"__custom__";
   const urlInput=el("input",{value:STATE.ai.baseUrl||DEFAULT_AI_BASE_URL,placeholder:"https://…/v1/chat/completions",style:"font-family:monospace;font-size:12px"});
@@ -16123,8 +16239,8 @@ function newCampaignModal(){
   const level=el("input",{type:"number",value:"3",min:"1",max:"20"});
   const pgs=el("input",{type:"number",value:"4",min:"1",max:"8"});
   const theme=el("input",{placeholder:"es. horror gotico nelle paludi, intrigo in città, dungeon nanico perduto"});
-  const tone=el("select",{},...["epico","cupo/horror","avventuroso","umoristico","investigativo","politico"].map(t=>el("option",{},t)));
-  const length=el("select",{},...["one-shot (una serata)","breve (3-5 sessioni)","media (campagna)"].map(t=>el("option",{},t)));
+  const tone=styleSelect(el("select",{},...["epico","cupo/horror","avventuroso","umoristico","investigativo","politico"].map(t=>el("option",{},t))));
+  const length=styleSelect(el("select",{},...["one-shot (una serata)","breve (3-5 sessioni)","media (campagna)"].map(t=>el("option",{},t))));
   const body=el("div",{},
     el("div",{class:"twocol"},fld("Livello party",level),fld("Numero PG",pgs)),
     fld("Tema / ambientazione",theme),
@@ -16170,7 +16286,7 @@ function fromScratchCampaignModal(){
   const goal=el("textarea",{rows:"3",placeholder:"Obiettivo finale della campagna: cosa devono ottenere/fermare/scoprire i personaggi, come potrebbe concludersi…"});
   const level=el("input",{type:"number",value:"3",min:"1",max:"20"});
   const pgs=el("input",{type:"number",value:"4",min:"1",max:"8"});
-  const tone=el("select",{},...["epico","cupo/horror","avventuroso","umoristico","investigativo","politico"].map(t=>el("option",{},t)));
+  const tone=styleSelect(el("select",{},...["epico","cupo/horror","avventuroso","umoristico","investigativo","politico"].map(t=>el("option",{},t))));
   const preview=el("div",{style:"margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;font-size:12px;line-height:1.55;min-height:24px"},
     el("span",{class:"muted"},"Scrivi ambientazione, lore e obiettivo: l'IA elaborerà una bozza di PNG, luoghi e ganci in background, man mano, senza bloccarti."));
   let draftData=null, busy=false, lastRunText="", cooldownUntil=0, debounceT=null;
@@ -16427,7 +16543,7 @@ function bastionModal(c){
   if(avail.length){
     const buildCard=el("div",{style:"margin-top:14px"});
     buildCard.append(el("div",{class:"section-title",style:"font-size:13px"},"Costruisci una stanza",el("span",{class:"ln"})));
-    const payerSel=el("select",{},...STATE.characters.map(ch=>el("option",{value:ch.id},ch.name+" ("+(ch.gold||0)+" mo)")));
+    const payerSel=styleSelect(el("select",{},...STATE.characters.map(ch=>el("option",{value:ch.id},ch.name+" ("+(ch.gold||0)+" mo)"))));
     if(STATE.characters.length) buildCard.append(el("div",{style:"margin-bottom:8px"},el("label",{class:"fld"},el("span",{},"Paga:"),payerSel)));
     avail.forEach(r=>buildCard.append(el("div",{class:"list-line",style:"align-items:flex-start"},
       el("span",{},el("b",{},r.name),el("span",{class:"muted",style:"font-size:11px;display:block"},r.d)),
@@ -16560,7 +16676,7 @@ function viewTavolo(){
     wrap.append(el("div",{class:"card"},el("p",{class:"muted",style:"font-size:13px;line-height:1.6"},"Non fai ancora parte di nessuna campagna condivisa. Chiedi al DM di invitarti (se avete già giocato insieme) oppure unisciti con il codice che ti dà.")));
     return wrap;
   }
-  const sel=el("select",{});
+  const sel=styleSelect(el("select",{}));
   shared.forEach(c=>sel.append(el("option",{value:c.id,selected:c.id===STATE.activeCampaign?"":null},(c.mpRole==="dm"?"🛡 ":"🎲 ")+c.name)));
   if(!shared.find(c=>c.id===STATE.activeCampaign)) STATE.activeCampaign=shared[0].id;
   sel.value=STATE.activeCampaign;
@@ -16581,7 +16697,7 @@ function viewTavolo(){
     if(!STATE.characters.length){
       bindCard.append(el("p",{class:"muted",style:"font-size:13px"},"Non hai ancora nessun personaggio. Creane uno dalla scheda «Personaggi», poi torna qui per portarlo al tavolo."));
     }else{
-      const charSel=el("select",{},...STATE.characters.map(ch=>el("option",{value:ch.id},ch.name||"(senza nome)")));
+      const charSel=styleSelect(el("select",{},...STATE.characters.map(ch=>el("option",{value:ch.id},ch.name||"(senza nome)"))));
       bindCard.append(el("p",{class:"muted",style:"font-size:12px"},"Scegli con quale personaggio giochi in questa campagna:"));
       bindCard.append(el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"},charSel,
         el("button",{class:"btn",onclick:()=>mpBindCharacter(c,charSel.value)},"Scegli")));
@@ -17403,10 +17519,10 @@ async function dungeonLearnStyle(D){
 
 /* ---- UI ---- */
 function dungeonSetup(){
-  const known=el("select",{},el("option",{value:""},"— Generazione libera —"),...KNOWN_DUNGEONS.map(k=>el("option",{value:k.key},k.name+" ("+k.levelRange+")")));
+  const known=styleSelect(el("select",{},el("option",{value:""},"— Generazione libera —"),...KNOWN_DUNGEONS.map(k=>el("option",{value:k.key},k.name+" ("+k.levelRange+")"))));
   const name=el("input",{placeholder:"Nome del dungeon (facoltativo)"});
-  const type=el("select",{},...DUNGEON_TYPES.map(t=>el("option",{value:t.key},t.name)));
-  const motif=el("select",{},...DUNGEON_MOTIFS.map(m=>el("option",{value:m.key},m.name)));
+  const type=styleSelect(el("select",{},...DUNGEON_TYPES.map(t=>el("option",{value:t.key},t.name))));
+  const motif=styleSelect(el("select",{},...DUNGEON_MOTIFS.map(m=>el("option",{value:m.key},m.name))));
   const gsMin=el("input",{type:"number",value:"1",min:"0",max:"24"});
   const gsMax=el("input",{type:"number",value:"3",min:"0",max:"24"});
   const gsBoss=el("input",{type:"number",value:"5",min:"0",max:"30"});
@@ -18056,7 +18172,7 @@ function soloDungeonSetup(c){
   let selTier=Math.min(dp.unlockedTier,DUNGEON_TIERS.length);
   // Solo i dungeon conosciuti compatibili col Tier già sbloccato sono selezionabili: gli altri
   // restano visibili ma bloccati, per non offrire liberamente contenuti di livello troppo alto.
-  const known=el("select",{});
+  const known=styleSelect(el("select",{}));
   const rebuildKnownOptions=()=>{
     known.innerHTML="";
     known.append(el("option",{value:""},"— Generazione libera —"));
@@ -18068,8 +18184,8 @@ function soloDungeonSetup(c){
   };
   rebuildKnownOptions();
   const name=el("input",{placeholder:"Nome del dungeon (facoltativo)"});
-  const type=el("select",{},...DUNGEON_TYPES.map(t=>el("option",{value:t.key},t.name)));
-  const motif=el("select",{},...DUNGEON_MOTIFS.map(m=>el("option",{value:m.key},m.name)));
+  const type=styleSelect(el("select",{},...DUNGEON_TYPES.map(t=>el("option",{value:t.key},t.name))));
+  const motif=styleSelect(el("select",{},...DUNGEON_MOTIFS.map(m=>el("option",{value:m.key},m.name))));
   const rooms=el("input",{type:"number",value:"6",min:"3",max:"14"});
   const floors=el("input",{type:"number",value:"1",min:"1",max:"3"});
   const loreBox=el("div",{class:"muted",style:"font-size:12px;line-height:1.5;margin:6px 0;display:none;border-left:2px solid var(--gold);padding-left:8px"});
@@ -18201,7 +18317,7 @@ function viewExplore(){
     return wrap;
   }
   if(!EXPLORE_CHAR || !STATE.characters.some(c=>c.id===EXPLORE_CHAR)) EXPLORE_CHAR=STATE.characters[0].id;
-  const sel=el("select",{},...STATE.characters.map(c=>el("option",{value:c.id,selected:c.id===EXPLORE_CHAR?"selected":null},c.name+" (liv. "+c.level+")")));
+  const sel=styleSelect(el("select",{},...STATE.characters.map(c=>el("option",{value:c.id,selected:c.id===EXPLORE_CHAR?"selected":null},c.name+" (liv. "+c.level+")"))));
   sel.addEventListener("change",()=>{EXPLORE_CHAR=sel.value;render();});
   wrap.append(el("div",{class:"card"},fld("Personaggio",sel)));
   const c=STATE.characters.find(x=>x.id===EXPLORE_CHAR);
@@ -18328,7 +18444,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.1"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
