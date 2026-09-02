@@ -5044,15 +5044,26 @@ async function mpSyncAccountOnLogin(){
     if(!data){
       // Nessun dato cloud per questo account: questo dispositivo diventa il punto di partenza.
       await mpPushAccountState(true);
-    }else if(neverSyncedHere && localHasContent){
+    }else if(!localHasContent){
+      // BUG CORRETTO (2026-09-02): questo dispositivo non ha NULLA in locale (caso tipico: app
+      // appena reinstallata dopo una disinstallazione, che cancella tutto lo storage locale) e il
+      // cloud invece ha dati. Prima di questa correzione si finiva nel ramo sotto, che considerava
+      // "mai sincronizzato qui" + "hash locale diverso dall'ultimo noto" (sempre vero su un
+      // dispositivo vuoto, visto che STATE.mp.lastSyncedHash non esiste ancora) come "ho modifiche
+      // locali da inviare", e quindi SOVRASCRIVEVA IL CLOUD CON LO STATO VUOTO, cancellando anche
+      // la copia sul server. Se in locale non c'è nulla di valore da perdere, il cloud è sempre la
+      // fonte più affidabile: lo si scarica direttamente, senza nemmeno chiedere.
+      mpApplyCloudAccountState(data);
+    }else if(neverSyncedHere){
       accountSyncConflictModal(data);
     }else{
-      // Questo dispositivo ha già sincronizzato in passato: prima di applicare i dati del cloud,
-      // verifica se nel frattempo sono state fatte modifiche locali non ancora inviate (es. un
-      // interruttore attivato in Impostazioni subito prima di chiudere l'app, con il debounce di
-      // invio non ancora scattato). In tal caso quelle modifiche vanno inviate al cloud, MAI
-      // scartate in silenzio sovrascrivendole con una copia cloud più vecchia. Solo se i dati
-      // locali coincidono già con l'ultima sincronizzazione nota è sicuro scaricare il cloud.
+      // Questo dispositivo ha già sincronizzato in passato e ha contenuti locali: prima di
+      // applicare i dati del cloud, verifica se nel frattempo sono state fatte modifiche locali non
+      // ancora inviate (es. un interruttore attivato in Impostazioni subito prima di chiudere
+      // l'app, con il debounce di invio non ancora scattato). In tal caso quelle modifiche vanno
+      // inviate al cloud, MAI scartate in silenzio sovrascrivendole con una copia cloud più
+      // vecchia. Solo se i dati locali coincidono già con l'ultima sincronizzazione nota è sicuro
+      // scaricare il cloud.
       const localJson=JSON.stringify(mpSanitizeAccountStateForCloud());
       const localHash=mpHashStr(localJson);
       if(!STATE.mp.lastSyncedHash || localHash!==STATE.mp.lastSyncedHash){
@@ -9240,38 +9251,46 @@ function exportCharacterPdf(c){
    fallback in ordine di preferenza (vedi commento su exportCharacterPdf per i dettagli). */
 async function savePdfChoosingLocation(doc, fileName){
   const bytes = new Uint8Array(doc.output("arraybuffer"));
+  // Su Android il PDF passa dal framework di stampa nativo (RollonePrint, plugin Capacitor
+  // custom aggiunto in v1.8.4): è lo stesso meccanismo di sistema di "Stampa" con cui l'utente
+  // può scegliere "Salva come PDF" o una stampante vera configurata sul telefono. Non richiede
+  // alcun permesso di archiviazione e non dipende dal foglio Condividi, quindi bypassa del tutto
+  // i problemi di salvataggio su disco incontrati con Filesystem+Share. Se il plugin non è
+  // disponibile (build più vecchia, o piattaforma diversa da Android) si ricade sul metodo
+  // precedente basato su Filesystem/Share/download del browser.
+  try{
+    const RollonePrint = window.Capacitor?.Plugins?.RollonePrint;
+    if (window.Capacitor && RollonePrint) {
+      let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
+      const b64 = btoa(binary);
+      await RollonePrint.print({ data: b64, name: fileName.replace(/\.pdf$/i,"") });
+      toast("Scegli «Salva come PDF» (o una stampante) nella finestra che si è aperta.");
+      return;
+    }
+  }catch(e){
+    toast("Stampa non riuscita: "+((e&&(e.message||e.errorMessage))||String(e)||"errore sconosciuto")+". Provo con il salvataggio classico.");
+  }
   await saveBytesChoosingLocation(bytes, fileName, "application/pdf", "PDF");
 }
-/* Helper generico di salvataggio, usato sia per l'export PDF della scheda personaggio sia per i
-   backup dati in Impostazioni (JSON/HTML): un file può arrivare da più punti dell'app, ma il modo
-   di salvarlo davvero sul dispositivo dell'utente deve essere unico e affidabile ovunque.
-   REGOLA DA QUI IN AVANTI (2026-08-29, richiesta esplicita): niente più build fisiche solo per
-   inseguire bug come questo — ogni fallback qui sotto deve funzionare con un aggiornamento dei
-   SOLI contenuti (questo file HTML), senza richiedere di reinstallare l'app. Per questo l'ordine
-   di preferenza su Android usa SOLO plugin nativi che sono già compilati nelle build già installate
-   dagli utenti (Filesystem+Share, presenti dalla 1.2.6 in poi), non il nuovo plugin SaveFile
-   (che esiste solo nella build 1.2.7 fisica e quindi non aiuta chi non la reinstalla).
+/* Helper generico di salvataggio, usato sia per l'export PDF della scheda personaggio (come
+   fallback, vedi savePdfChoosingLocation) sia per i backup dati in Impostazioni (JSON/HTML).
+   STORIA (per chi tocca questa funzione in futuro): fino alla v1.8.3 si tentava Filesystem+Share
+   (scrittura in cache + foglio Condividi), ma su alcuni dispositivi continuava a fallire
+   nonostante più correzioni (case DOCUMENTS, poi Directory.CACHE). Dalla v1.8.4 il metodo
+   primario su Android è il plugin nativo custom RollonePrint.saveFile(), che apre il selettore
+   di sistema "Salva con nome" (Storage Access Framework): l'utente sceglie lui la cartella
+   (Download, Drive, ecc.), Android scrive il file lì senza bisogno di alcun permesso di
+   archiviazione — nessuna congettura su cartelle o permessi, è lo stesso meccanismo del "Salva
+   con nome" di un programma desktop. Richiede una build nativa (non è un aggiornamento di soli
+   contenuti); i fallback sotto restano per compatibilità con build più vecchie o altre piattaforme.
    Ordine di preferenza:
    1) Windows/macOS (Electron): ponte preload.js → processo main (dialog.showSaveDialog reale).
-      BUG CORRETTO (2026-08-28): window.showSaveFilePicker() sembrava la soluzione più semplice ma
-      in Electron non è affidabile (issue note electron/electron#33648, #23440: finestra "Salva con
-      nome" che scrive un file vuoto, o funzione non disponibile) — da qui i salvataggi che
-      "sembravano riuscire" ma non producevano nulla. Il processo main è l'unico modo affidabile.
-   2) Android (Capacitor): plugin ufficiale Filesystem (già presente in ogni build installata dalla
-      1.2.6) che scrive in directory "Documents" (cartella pubblica, visibile da altre app — non
-      "Cache" come nel bug precedente, che è privata e invisibile) seguito subito da Share.share(),
-      che apre il foglio di condivisione nativo di Android da cui l'utente sceglie DAVVERO dove
-      salvare (Download, Drive, Files, ecc.). BUG CORRETTO (2026-08-29 v2): la versione precedente
-      di questa funzione controllava solo un plugin nativo nuovo (SaveFile) che, non essendo
-      presente nell'app già installata dagli utenti, veniva saltato senza errori — la funzione
-      precipitava silenziosamente fino al download via tag <a>, che sulla WebView di Android non fa
-      assolutamente nulla (nessun errore, nessun messaggio, nessun file: esattamente il sintomo
-      "clicco e non succede niente" confermato da un video di test). Questo plugin invece esiste già
-      su tutti i telefoni con l'app installata, quindi funziona SUBITO con il solo aggiornamento dei
-      contenuti, senza dover ricreare e reinstallare l'APK.
-   3) Browser desktop generico: window.showSaveFilePicker(), se disponibile.
-   4) Web Share API standard (navigator.share), per contesti mobile non-Capacitor.
-   5) Download standard del browser come ultima risorsa (solo fuori da Capacitor: dentro l'app
+   2) Android (Capacitor) build ≥1.8.4: RollonePrint.saveFile() (Storage Access Framework, vedi sopra).
+   3) Android (Capacitor) build più vecchie senza il plugin: Filesystem (directory CACHE) +
+      Share.share(), che apre il foglio di condivisione nativo da cui scegliere "File"/"Drive"/ecc.
+   4) Browser desktop generico: window.showSaveFilePicker(), se disponibile.
+   5) Web Share API standard (navigator.share), per contesti mobile non-Capacitor.
+   6) Download standard del browser come ultima risorsa (solo fuori da Capacitor: dentro l'app
       Android questo passo non funziona mai, quindi se si arriva qui dentro Capacitor si avvisa
       onestamente l'utente invece di dichiarare un falso successo). */
 async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
@@ -9286,15 +9305,23 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
     }
   }catch(e){ /* se il ponte Electron non è disponibile in questa build, si prosegue con i metodi sottostanti */ }
   try{
-    const SaveFile = window.Capacitor?.Plugins?.SaveFile;
-    if (window.Capacitor && SaveFile) {
+    // Selettore di sistema "Salva con nome" (Storage Access Framework, plugin nativo
+    // RollonePrint aggiunto in v1.8.4): l'utente sceglie lui la cartella (Download, Drive,
+    // ecc.), Android scrive il file lì senza bisogno di alcun permesso di archiviazione.
+    // Sostituisce Filesystem+Share, che su alcuni dispositivi continuava a fallire.
+    const RollonePrint = window.Capacitor?.Plugins?.RollonePrint;
+    if (window.Capacitor && RollonePrint && RollonePrint.saveFile) {
       let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
       const b64 = btoa(binary);
-      await SaveFile.saveToDownloads({ data: b64, fileName, mimeType });
-      toast(label+" salvato in Download.");
+      await RollonePrint.saveFile({ data: b64, fileName, mimeType });
+      toast(label+" salvato.");
       return;
     }
-  }catch(e){ /* plugin nativo non disponibile (build vecchia): si prosegue sotto con Filesystem+Share, già presente ovunque */ }
+  }catch(e){
+    const msg=(e&&(e.message||e.errorMessage))||String(e)||"";
+    if(/annullat/i.test(msg)) return; // l'utente ha chiuso il selettore "Salva con nome": nessun errore da mostrare
+    toast("Salvataggio non riuscito: "+(msg||"errore sconosciuto")+". Provo con il metodo alternativo.");
+  }
   const Filesystem = window.Capacitor?.Plugins?.Filesystem;
   const Share = window.Capacitor?.Plugins?.Share;
   if (window.Capacitor && Filesystem) {
@@ -17922,7 +17949,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.3"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.6"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
@@ -17934,8 +17961,20 @@ function removeDarkGift(character, giftName) {
     // sola). Usare solo la costante come riferimento avrebbe fatto ripartire lo swap
     // ad ogni caricamento della pagina appena aggiornata, in un loop infinito che si
     // vedeva come uno sfarfallio continuo dello schermo.
-    try { return localStorage.getItem(APPLIED_VERSION_KEY) || ROLLONE_CONTENT_VERSION; }
-    catch(e){ return ROLLONE_CONTENT_VERSION; }
+    // BUG CORRETTO (2026-09-02): questo valore salvato sopravvive a un aggiornamento
+    // dell'APK nativo installato SOPRA quello esistente (non cancella localStorage, solo
+    // una disinstallazione lo fa). Se sul dispositivo era rimasta salvata una versione
+    // (es. "1.8.3", da un self-update fatto tempo fa) e poi si installa un nuovo APK
+    // nativo che integra contenuti più recenti (es. "1.8.4"), questa funzione tornava
+    // "1.8.3" — la versione VECCHIA salvata — ignorando che il pacchetto appena installato
+    // è oggettivamente più nuovo. Risultato: la scheda Impostazioni mostrava una versione
+    // indietro rispetto a quella davvero in esecuzione. Corretto usando sempre la più
+    // recente tra le due, e riallineando il valore salvato quando il pacchetto nativo la
+    // supera.
+    var stored; try { stored = localStorage.getItem(APPLIED_VERSION_KEY); } catch(e){ stored = null; }
+    if (!stored) return ROLLONE_CONTENT_VERSION;
+    if (cmpVersions(ROLLONE_CONTENT_VERSION, stored) > 0){ setAppliedVersion(ROLLONE_CONTENT_VERSION); return ROLLONE_CONTENT_VERSION; }
+    return stored;
   }
   function setAppliedVersion(v){
     try { localStorage.setItem(APPLIED_VERSION_KEY, v); } catch(e){}
