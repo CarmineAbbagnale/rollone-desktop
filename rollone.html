@@ -18560,7 +18560,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.3"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.4"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
@@ -18802,6 +18802,20 @@ function removeDarkGift(character, giftName) {
     try{
       if(!manifest || !manifest.sha256 || manifest.version!==getAppliedVersion()) return; // si esprime solo a parità di versione: se si è indietro, ci pensa già l'aggiornamento normale
       if(!window.crypto || !window.crypto.subtle) return;
+      // FIX (2026-09-03, segnalato dall'utente con screenshot: falso allarme su un APK ufficiale
+      // appena installato, con lo sha256 verificato manualmente identico byte per byte a quello
+      // pubblicato). Dentro l'app Android/iOS (Capacitor) questo ri-fetch di location.href passa
+      // dal server web locale interno di Capacitor, che può restituire contenuto leggermente
+      // diverso da quello effettivamente impacchettato nell'APK (a seconda di come la WebView serve
+      // la pagina) — non è affidabile per un confronto byte-per-byte, e qui produceva un falso
+      // positivo su una copia ufficiale, corretta e regolarmente firmata. Sull'app nativa la
+      // manomissione è comunque già rilevata da Android stesso, a livello di sistema operativo:
+      // un APK modificato non ha più la firma originale, quindi non può aggiornare l'installazione
+      // esistente né, se scaricato da una fonte non ufficiale, sembrare "la stessa app" a chi lo
+      // installa senza controllare. Il controllo qui sotto resta attivo solo per la versione web
+      // (sito), dove serve davvero: chiunque potrebbe ospitare una copia modificata su un altro
+      // dominio, e lì il fetch della pagina è affidabile perché passa da un vero server HTTP.
+      if(window.Capacitor) return;
       var res = await fetch(location.href, { cache: "no-store" });
       if(!res.ok) return;
       var buf = await res.arrayBuffer();
