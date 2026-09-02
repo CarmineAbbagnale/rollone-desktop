@@ -7155,6 +7155,18 @@ function rollForChar(c,faces,count,modv){
   if(hadAdv){ c.pendingAdvantage=false; save(); toast("✨ Vantaggio da Ispirazione Eroica applicato ("+r.sum+") ed esaurito."); }
   return r;
 }
+/* BUG FIX (2026-09-02): i tiri dalla scheda personaggio (caratteristiche, TS, abilità, attacchi)
+   mostravano nel toast solo il totale finale (es. "Forza: 16"), senza il dado né il modificatore.
+   Più giocatori l'hanno segnalato come "esce un numero a caso" perché il risultato, da solo, non è
+   distinguibile da un numero casuale: non si vede né il d20 né perché si arriva a quel totale.
+   rollBreakdown() mostra invece il dado tirato (entrambi in caso di vantaggio/svantaggio, con quello
+   scelto) e il modificatore applicato, così il tiro resta trasparente e verificabile dal giocatore. */
+function rollBreakdown(r){
+  const twoRolls=r.adv && r.rolls && r.rolls.length===2;
+  const kept=twoRolls ? (r.adv>0?Math.max(r.rolls[0],r.rolls[1]):Math.min(r.rolls[0],r.rolls[1])) : r.rolls[0];
+  const dieTxt=twoRolls ? `🎲${r.rolls[0]}/${r.rolls[1]}→${kept}` : `🎲${kept}`;
+  return `${dieTxt} ${sign(r.modv)} = ${r.sum}`;
+}
 /* =========================================================================
    MAESTRIE DELLE ARMI (D&D 2024) — sintesi non letterale (parafrasi originale,
    non testo ufficiale copiato) delle proprietà di maestria del Player's
@@ -7837,7 +7849,55 @@ function renderSidebarProfile(){
   box.append(bar);
   box.append(el("div",{class:"sb-xp-lbl"},xp?((xp.needed-xp.remaining)+" / "+xp.needed+" PE"):"Livello massimo"));
 }
-function go(view,extra){ STATE.view=view; if(extra)Object.assign(STATE,extra); persist(); closeModal(); render(); }
+function go(view,extra){
+  STATE.view=view; if(extra)Object.assign(STATE,extra); persist(); closeModal(); render();
+  pushNavHistory(view);
+}
+/* =========================================================================
+   BUG FIX (2026-09-02): "il pulsante back chiude l'app" / "non scorre tra le
+   pagine". RollOne è una single-page app: cambiava vista solo aggiornando
+   STATE.view via go(), senza mai scrivere nulla nella cronologia del browser
+   (history). Su Android, sia il tasto/gesto Indietro di sistema sia la
+   gesture di scorrimento dal bordo chiamano di norma webView.goBack(): se la
+   WebView non ha cronologia (il nostro caso, prima di questo fix), il
+   comportamento di default è chiudere subito l'app invece di tornare alla
+   schermata precedente di RollOne — esattamente il sintomo segnalato da più
+   giocatori. La correzione: ad ogni go() si scrive una voce nella cronologia
+   (history.pushState); un listener su "popstate" intercetta l'Indietro di
+   sistema e lo gestisce internamente (chiude un eventuale modale aperto,
+   altrimenti torna alla vista precedente di RollOne) invece di lasciare che
+   sia la WebView a decidere. Solo quando la cronologia interna di RollOne è
+   esaurita (siamo alla prima schermata) l'Indietro torna a comportarsi come
+   in qualunque altra app e chiude/minimizza l'app: è il comportamento
+   corretto, non un altro bug.
+   ========================================================================= */
+let NAV_HISTORY_READY=false;
+function initNavHistory(){
+  if(NAV_HISTORY_READY) return; NAV_HISTORY_READY=true;
+  try{ history.replaceState({rollone:true,view:STATE.view||"home"},"",location.href); }catch(e){}
+  window.addEventListener("popstate",(ev)=>{
+    const modalRoot=$("#modalRoot");
+    const modalOpen=!!(modalRoot && modalRoot.innerHTML.trim());
+    if(modalOpen){
+      // L'Indietro ha "consumato" una voce di cronologia per chiudere il modale: la
+      // ripristiniamo subito, così la cronologia interna resta intatta e il prossimo
+      // Indietro tornerà correttamente alla vista precedente invece di uscire dall'app.
+      closeModal();
+      try{ history.pushState({rollone:true,view:STATE.view||"home"},"",location.href); }catch(e){}
+      return;
+    }
+    const st=ev.state;
+    if(st && st.rollone && st.view){
+      STATE.view=st.view; persist(); render();
+    }
+    // altrimenti: cronologia interna esaurita, si lascia il comportamento di sistema
+    // (chiusura/minimizzazione dell'app), come in qualunque altra app Android.
+  });
+}
+function pushNavHistory(view){
+  if(!NAV_HISTORY_READY) return; // history non ancora inizializzata (avvio in corso)
+  try{ history.pushState({rollone:true,view:view},"",location.href); }catch(e){}
+}
 function wizardInProgress(){ const w=STATE.wizard; return !!(w && (w.step>0 || (w.c && (w.c.name||w.c.race||w.c.cls||w.c.background)))); }
 function resumeWizard(){ if(STATE.wizard) go("wizard"); else startWizard(); }
 
@@ -8002,7 +8062,7 @@ function viewSheet(){
   abilCard.append(el("div",{class:"section-title"},"Caratteristiche",el("span",{class:"ln"})));
   const ag=el("div",{class:"abil-grid"});
   ABIL.forEach(a=>{
-    ag.append(el("div",{class:"abil",onclick:()=>{const r=rollForChar(c,20,1,d.mods[a.k]);toast(`${a.name}: ${r.sum}`);}},
+    ag.append(el("div",{class:"abil",onclick:()=>{const r=rollForChar(c,20,1,d.mods[a.k]);toast(`${a.name}: ${rollBreakdown(r)}`);}},
       el("div",{class:"name"},a.name.slice(0,3).toUpperCase()),
       el("div",{class:"mod"},sign(d.mods[a.k])),
       el("div",{class:"score"},d.scores[a.k])));
@@ -8066,7 +8126,7 @@ function viewSheet(){
   tsCard.append(el("div",{class:"section-title"},"Tiri Salvezza",el("span",{class:"ln"})));
   ABIL.forEach(a=>{
     const isP=d.saveProfs.has(a.k); const bonus=d.mods[a.k]+(isP?d.prof:0);
-    tsCard.append(el("div",{class:"list-line",style:"cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,bonus);toast(`TS ${a.name}: ${r.sum}`);}},
+    tsCard.append(el("div",{class:"list-line",style:"cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,bonus);toast(`TS ${a.name}: ${rollBreakdown(r)}`);}},
       el("span",{},el("span",{class:"prof-dot"+(isP?" on":"")}),a.name),
       el("b",{style:"color:var(--gold2)"},sign(bonus))));
   });
@@ -8080,7 +8140,7 @@ function viewSheet(){
     skCard.append(el("div",{class:"list-line"},
       el("span",{style:"cursor:pointer",onclick:()=>showSkillInfo(sk)},el("span",{class:"prof-dot"+(isP?" on":"")}),sk,
         el("span",{class:"muted",style:"font-size:11px"},` (${ab.toUpperCase()})`),el("span",{class:"muted",style:"font-size:11px"}," ⓘ")),
-      el("b",{style:"color:var(--gold2);cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,bonus);toast(`${sk}: ${r.sum}`);}},sign(bonus))));
+      el("b",{style:"color:var(--gold2);cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,bonus);toast(`${sk}: ${rollBreakdown(r)}`);}},sign(bonus))));
   });
   cols.append(skCard);
   // Feature (dettaglio SRD, cliccabili), per ogni classe (multiclasse)
@@ -8174,11 +8234,11 @@ function viewSheet(){
     const atk=d.prof+d.mods[abil];
     const masteryName=wd&&wd.mastery;
     eqCard.append(el("div",{class:"list-line"},
-      el("span",{style:"cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${r.sum}`);}},
+      el("span",{style:"cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${rollBreakdown(r)}`);}},
         "⚔ "+w, wd?el("span",{class:"muted",style:"font-size:11px"},` ${wd.dmg||wd.damage||""}`):"",
         masteryName?el("span",{class:"muted",style:"font-size:11px;cursor:pointer;text-decoration:underline dotted",
           onclick:(e)=>{ e.stopPropagation(); weaponMasteryModal(c,w,wd); }}," · Maestria: "+masteryName):""),
-      el("b",{style:"color:var(--gold2);cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${r.sum}`);}},sign(atk))));
+      el("b",{style:"color:var(--gold2);cursor:pointer",onclick:()=>{const r=rollForChar(c,20,1,atk);toast(`${w}: colpo ${rollBreakdown(r)}`);}},sign(atk))));
   });
   eqCard.append(el("button",{class:"btn ghost sm",style:"margin-top:10px",onclick:()=>manageEquip(c)},"Gestisci equipaggiamento"));
   eq.append(eqCard);
@@ -8529,7 +8589,7 @@ function companionResourcesPanel(c,d){
       const abil=finesse?(d.mods.des>=d.mods.for?"des":"for"):(/distanza|Munizioni|arco|balestra/i.test((wd?.props||"")+w)?"des":"for");
       const atk=d.prof+d.mods[abil];
       weaponsBox.append(el("div",{class:"list-line",style:"cursor:pointer",onclick:()=>{
-        const r=rollForChar(c,20,1,atk); toast(`${w}: colpo ${r.sum}`); renderRollHistory();}},
+        const r=rollForChar(c,20,1,atk); toast(`${w}: colpo ${rollBreakdown(r)}`); renderRollHistory();}},
         el("span",{},"⚔ "+w,wd?el("span",{class:"muted",style:"font-size:11px"},` ${wd.dmg||wd.damage||""}`):""),
         el("span",{class:"muted",style:"font-size:11px"},"colpo "+sign(atk))));
     });
@@ -14788,6 +14848,7 @@ applyTextScale();
 // il proprio processo main.js, il web non ha alcun aggiornamento automatico) l'avvio resta
 // immediato, come prima.
 function bootApp(){
+  initNavHistory();
   authGate().then(render);
   // Se il dispositivo era offline al primissimo avvio (nessun login mai completato) ed è stato
   // scelto "continua offline", ritenta un accesso silenzioso appena torna la connessione: se una
@@ -17736,7 +17797,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.1"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
