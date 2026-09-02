@@ -9295,32 +9295,42 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
       return;
     }
   }catch(e){ /* plugin nativo non disponibile (build vecchia): si prosegue sotto con Filesystem+Share, già presente ovunque */ }
-  try{
-    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
-    const Share = window.Capacitor?.Plugins?.Share;
-    if (window.Capacitor && Filesystem) {
+  const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+  const Share = window.Capacitor?.Plugins?.Share;
+  if (window.Capacitor && Filesystem) {
+    try{
       let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
       const b64 = btoa(binary);
-      // BUG FIX (2026-09-02): il valore passato come "directory" deve corrispondere ESATTAMENTE
-      // (maiuscole comprese) alla stringa che il plugin nativo Filesystem si aspetta per l'enum
-      // Directory — "DOCUMENTS", non "Documents" (vedi @capacitor/filesystem/dist/esm/
-      // definitions.d.ts: Directory.Documents = "DOCUMENTS"). Con "Documents" il plugin nativo
-      // Android non riconosce la cartella e la chiamata fallisce silenziosamente: l'eccezione
-      // veniva assorbita dal catch qui sotto e la funzione precipitava nei fallback successivi,
-      // nessuno dei quali funziona realmente dentro l'app installata (WebView Android) — risultato:
-      // né l'export PDF né l'export dati (Impostazioni), che passano entrambi da questa stessa
-      // funzione condivisa, riuscivano davvero a salvare sul dispositivo. Confermato dal test
-      // diretto sull'app installata.
-      const res = await Filesystem.writeFile({ path: fileName, data: b64, directory: "DOCUMENTS" });
+      // BUG FIX (2026-09-02 v2): il tentativo precedente (v1) correggeva solo il refuso
+      // "Documents"→"DOCUMENTS", ma non risolveva davvero: su Android, Directory.Documents
+      // (cartella esterna "pubblica" dell'app) richiede il permesso WRITE_EXTERNAL_STORAGE su
+      // Android 10 e precedenti — permesso MAI dichiarato in AndroidManifest.xml in nessuna build
+      // di RollOne finora pubblicata. Il risultato pratico, confermato da un test diretto: il
+      // salvataggio falliva ancora, e per giunta anche la condivisione (che prima almeno apriva)
+      // ha smesso di funzionare, segno che la scrittura falliva ancora prima. La cartella CACHE
+      // dell'app, invece, non richiede MAI alcun permesso su nessuna versione di Android (è privata
+      // e sempre accessibile) ed è comunque coperta dal FileProvider dichiarato in
+      // res/xml/file_paths.xml (<cache-path path="."/>), quindi Share.share() può comunque
+      // generare un content:// URI valido e aprire il foglio di condivisione nativo, da cui scegliere
+      // "File"/"Drive"/ecc. per salvare davvero il file dove si preferisce (incluso Download).
+      const res = await Filesystem.writeFile({ path: fileName, data: b64, directory: "CACHE" });
       if (Share && res && res.uri) {
         await Share.share({ title: fileName, url: res.uri, dialogTitle: "Salva "+label.toLowerCase() });
-        toast("Scegli dove salvare "+label.toLowerCase()+".");
-      } else {
-        toast(label+" salvato in Documenti.");
+        toast("Scegli «File» (o «Drive») e poi «Download» per salvarlo lì.");
+        return;
       }
+      toast(label+" pronto, ma la condivisione non è disponibile su questo dispositivo.");
+      return;
+    }catch(e){
+      // BUG FIX (2026-09-02 v2): prima l'errore veniva assorbito in silenzio e la funzione
+      // precipitava in fallback che dentro l'app Android non funzionano comunque (confermato dai
+      // bug precedenti) — risultato: nessun modo di capire perché stesse fallendo davvero. Ora
+      // l'errore vero viene mostrato, così un prossimo test reale dice subito la causa esatta
+      // invece di un generico "non funziona".
+      toast("Salvataggio non riuscito: "+((e&&(e.message||e.errorMessage))||String(e)||"errore sconosciuto")+". Segnala questo messaggio così posso correggerlo.");
       return;
     }
-  }catch(e){ /* plugin non disponibile in questo contesto (es. build molto vecchia): si prosegue sotto */ }
+  }
   try{
     if (typeof window.showSaveFilePicker === "function") {
       const handle = await window.showSaveFilePicker({
@@ -17912,7 +17922,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.2"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.3"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
