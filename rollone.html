@@ -8039,7 +8039,7 @@ function viewSheet(){
         el("button",{class:"btn",onclick:()=>levelUp(c)},"⬆ Sali "+c.cls),
         el("button",{class:"btn ghost sm",onclick:()=>manageMulticlass(c)},"⎇ Multiclasse"),
         el("button",{class:"btn ghost sm",onclick:()=>editBasics(c)},"✎ Modifica"),
-        el("button",{class:"btn ghost sm",onclick:()=>exportCharacterPdf(c)},"⬇ Scarica PDF"),
+        el("button",{class:"btn ghost sm",onclick:()=>exportCharacterPdf(c)},"🖨 Stampa scheda"),
         el("button",{class:"btn ghost sm",onclick:()=>go("home")},"← Indietro"))));
   wrap.append(head);
   wrap.append(characterProgressionTimeline(c, d.totalLevel));
@@ -9249,6 +9249,17 @@ function exportCharacterPdf(c){
 }
 /* Salva un documento jsPDF lasciando scegliere all'utente dove metterlo, con più livelli di
    fallback in ordine di preferenza (vedi commento su exportCharacterPdf per i dettagli). */
+/* Argina il rischio più insidioso di un plugin nativo: che una chiamata non vada né a buon fine
+   né in errore, restando sospesa per sempre (Promise che non si risolve mai). In quel caso, senza
+   questa rete di sicurezza, l'utente vedrebbe "clicco e non succede niente" all'infinito, perché il
+   codice sotto non arriverebbe mai al ripiego funzionante. Con questo timeout, dopo pochi secondi
+   si passa comunque al metodo alternativo, anche se la chiamata nativa resta bloccata. */
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error((label||"Operazione")+" non ha risposto in tempo")), ms))
+  ]);
+}
 async function savePdfChoosingLocation(doc, fileName){
   const bytes = new Uint8Array(doc.output("arraybuffer"));
   // Su Android il PDF passa dal framework di stampa nativo (RollonePrint, plugin Capacitor
@@ -9256,14 +9267,14 @@ async function savePdfChoosingLocation(doc, fileName){
   // può scegliere "Salva come PDF" o una stampante vera configurata sul telefono. Non richiede
   // alcun permesso di archiviazione e non dipende dal foglio Condividi, quindi bypassa del tutto
   // i problemi di salvataggio su disco incontrati con Filesystem+Share. Se il plugin non è
-  // disponibile (build più vecchia, o piattaforma diversa da Android) si ricade sul metodo
-  // precedente basato su Filesystem/Share/download del browser.
+  // disponibile (build più vecchia, o piattaforma diversa da Android), o non risponde entro pochi
+  // secondi (vedi withTimeout sopra), si ricade sul metodo precedente Filesystem/Share/download.
   try{
     const RollonePrint = window.Capacitor?.Plugins?.RollonePrint;
     if (window.Capacitor && RollonePrint) {
       let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
       const b64 = btoa(binary);
-      await RollonePrint.print({ data: b64, name: fileName.replace(/\.pdf$/i,"") });
+      await withTimeout(RollonePrint.print({ data: b64, name: fileName.replace(/\.pdf$/i,"") }), 8000, "Stampa");
       toast("Scegli «Salva come PDF» (o una stampante) nella finestra che si è aperta.");
       return;
     }
@@ -9313,7 +9324,7 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
     if (window.Capacitor && RollonePrint && RollonePrint.saveFile) {
       let binary=""; for (let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
       const b64 = btoa(binary);
-      await RollonePrint.saveFile({ data: b64, fileName, mimeType });
+      await withTimeout(RollonePrint.saveFile({ data: b64, fileName, mimeType }), 20000, "Salvataggio");
       toast(label+" salvato.");
       return;
     }
@@ -17949,7 +17960,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.8.6"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.8.7"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
