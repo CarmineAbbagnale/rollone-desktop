@@ -611,9 +611,21 @@ select option{background:var(--inputbg);color:var(--ink)}
 .csel-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .csel-arrow{flex:none;opacity:.7;transition:transform .15s}
 .csel.open .csel-arrow{transform:rotate(180deg)}
-.csel-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;max-height:280px;overflow-y:auto;
+.csel-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:var(--rpg-z-dropdown);max-height:280px;overflow-y:auto;
   background:var(--inputbg);border:1px solid var(--line2);border-radius:10px;box-shadow:var(--shadow);
   padding:4px;display:none}
+/* BUG FIX (2026-09-02, segnalato dall'utente con screenshot: la lista di un menu apparso in un
+   punto profondo del DOM veniva coperta a metà dai pulsanti "Indietro/Avanti" del wizard, che
+   apparivano SOPRA la lista invece che sotto). Causa reale: la regola ".card > *{position:
+   relative;z-index:1}" (poco più sotto) rende ogni figlio diretto di .card un proprio contesto di
+   stacking isolato — perciò lo z-index della lista, per quanto alto, non riusciva mai a "uscire"
+   dal contesto del proprio contenitore e a salire sopra un contenitore fratello successivo (i
+   pulsanti di navigazione), qualunque fosse il suo z-index interno: è un limite strutturale del
+   CSS (stacking context), non risolvibile alzando solo lo z-index della lista stessa. Soluzione:
+   quando la lista si apre, viene spostata temporaneamente come figlia diretta di <body> ("portale"),
+   posizionata "fixed" sulle coordinate reali del pulsante — così non dipende più da nessun
+   antenato ed è sempre sopra al resto della pagina. Vedi cselOpenPortal/cselClosePortal. */
+.csel-list.csel-portal{position:fixed;right:auto}
 .csel-list.open{display:block}
 .csel-opt{padding:9px 10px;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink)}
 .csel-opt:hover,.csel-opt.hi{background:var(--chipbg)}
@@ -846,6 +858,10 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
 .companion-wrap{display:flex;flex-direction:column;gap:20px}
 .companion-grid{display:grid;grid-template-columns:300px 1fr 340px;gap:20px;align-items:start}
 @media (max-width:1100px){.companion-grid{grid-template-columns:1fr}}
+/* Colonna centrale del grid sopra: lanciatore di dadi + cronologia tiri impilati insieme, così la
+   cronologia resta sempre subito sotto al lanciatore sia su desktop (3 colonne affiancate) sia su
+   mobile (colonne impilate) — richiesta esplicita dell'utente (2026-09-02). */
+.companion-rollcol{display:flex;flex-direction:column;gap:20px}
 .companion-card{position:relative}
 .companion-card::before{content:"";position:absolute;inset:6px;border:1px solid rgba(232,168,60,.14);border-radius:8px;pointer-events:none}
 [data-theme="dark"] .companion-card::before{border-color:rgba(232,168,60,.16)}
@@ -1061,7 +1077,12 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
   60%{transform:scale(.94) rotateX(500deg) rotateY(-300deg)}
   100%{transform:scale(1) rotateX(720deg) rotateY(-360deg)}
 }
-.roll-log{max-height:220px;overflow:auto;font-size:15px}
+/* FIX (2026-09-02, segnalato dall'utente: "non voglio vedere quelle barre di scorrimento") — prima
+   questo riquadro aveva un'altezza fissa con scroll proprio, creando una seconda barra di
+   scorrimento (stessa livrea dorata di quella della pagina) proprio accanto a quella della pagina:
+   confusionario, soprattutto su mobile dove le due barre finivano quasi sovrapposte. Ora scorre
+   con la pagina come il resto del contenuto — un'unica barra, quella della pagina. */
+.roll-log{font-size:15px}
 .roll-log .r{padding:7px 8px;border-bottom:1px solid rgba(217,138,43,.14);animation:rollRowIn .28s cubic-bezier(.2,.7,.2,1)}
 @keyframes rollRowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
 .crit{color:var(--amber);font-weight:700}
@@ -1933,6 +1954,46 @@ const rollDie = f => 1+Math.floor(Math.random()*f);
    onChange(value), placeholder, items:[{value,label,sub?}] o array di stringhe}. Il valore
    corrente si legge/scrive con root.value, come su un vero <select>, per restare intercambiabile
    nei punti dove già si usa `sel.value` altrove nel codice. */
+/* Helper condivisi da customSelect() e styleSelect() qui sotto: aprono la lista di un menu .csel
+   "in portale" fuori dal DOM locale, vedi commento su .csel-list.csel-portal più in alto nel CSS. */
+function cselPositionPortal(btn,list){
+  const r=btn.getBoundingClientRect();
+  const vh=window.innerHeight;
+  const spaceBelow=vh-r.bottom-8, spaceAbove=r.top-8;
+  const openUp = spaceBelow<160 && spaceAbove>spaceBelow;
+  list.style.left=Math.max(4,r.left)+"px";
+  list.style.width=r.width+"px";
+  if(openUp){
+    list.style.top=""; list.style.bottom=(vh-r.top+4)+"px";
+    list.style.maxHeight=Math.max(120,Math.min(280,spaceAbove))+"px";
+  }else{
+    list.style.bottom=""; list.style.top=(r.bottom+4)+"px";
+    list.style.maxHeight=Math.max(120,Math.min(280,spaceBelow))+"px";
+  }
+}
+function cselOpenPortal(btn,list){
+  if(!list._cselHomeParent){ list._cselHomeParent=list.parentNode; list._cselHomeNext=list.nextSibling; }
+  document.body.appendChild(list);
+  list.classList.add("csel-portal");
+  cselPositionPortal(btn,list);
+  const reposition=()=>cselPositionPortal(btn,list);
+  list._cselReposition=reposition;
+  window.addEventListener("scroll",reposition,true);
+  window.addEventListener("resize",reposition);
+}
+function cselClosePortal(list){
+  if(list._cselReposition){
+    window.removeEventListener("scroll",list._cselReposition,true);
+    window.removeEventListener("resize",list._cselReposition);
+    list._cselReposition=null;
+  }
+  list.classList.remove("csel-portal");
+  list.style.left=list.style.top=list.style.bottom=list.style.width=list.style.maxHeight="";
+  if(list._cselHomeParent){
+    if(list._cselHomeNext&&list._cselHomeNext.parentNode===list._cselHomeParent) list._cselHomeParent.insertBefore(list,list._cselHomeNext);
+    else list._cselHomeParent.appendChild(list);
+  }
+}
 function customSelect(items,opts={}){
   const norm=(items||[]).map(it=>typeof it==="string"?{value:it,label:it}:it);
   let value=opts.value!==undefined&&opts.value!==null?String(opts.value):"";
@@ -1943,9 +2004,10 @@ function customSelect(items,opts={}){
   root.append(btn,list);
   function itemFor(v){ return norm.find(it=>String(it.value)===String(v)); }
   function renderLabel(){ const it=itemFor(value); labelSpan.textContent=it?it.label:(opts.placeholder||"Scegli…"); }
-  function close(){ root.classList.remove("open"); list.classList.remove("open"); document.removeEventListener("click",onDocClick,true); }
-  function onDocClick(e){ if(!root.contains(e.target)) close(); }
+  function close(){ root.classList.remove("open"); list.classList.remove("open"); document.removeEventListener("click",onDocClick,true); cselClosePortal(list); }
+  function onDocClick(e){ if(!root.contains(e.target)&&!list.contains(e.target)) close(); }
   function open(){ root.classList.add("open"); list.classList.add("open"); setTimeout(()=>document.addEventListener("click",onDocClick,true),0);
+    cselOpenPortal(btn,list);
     const sel=list.querySelector(".csel-opt.sel"); if(sel) sel.scrollIntoView({block:"nearest"}); }
   btn.onclick=(e)=>{ e.stopPropagation(); root.classList.contains("open")?close():open(); };
   function renderList(){
@@ -1988,9 +2050,10 @@ function styleSelect(selectEl){
     btn.disabled=selectEl.disabled;
     wrap.classList.toggle("csel-disabled",selectEl.disabled);
   }
-  function close(){ wrap.classList.remove("open"); list.classList.remove("open"); document.removeEventListener("click",onDocClick,true); }
-  function onDocClick(e){ if(!wrap.contains(e.target)) close(); }
+  function close(){ wrap.classList.remove("open"); list.classList.remove("open"); document.removeEventListener("click",onDocClick,true); cselClosePortal(list); }
+  function onDocClick(e){ if(!wrap.contains(e.target)&&!list.contains(e.target)) close(); }
   function open(){ if(selectEl.disabled) return; wrap.classList.add("open"); list.classList.add("open"); setTimeout(()=>document.addEventListener("click",onDocClick,true),0);
+    cselOpenPortal(btn,list);
     const cur=list.querySelector(".csel-opt.sel"); if(cur) cur.scrollIntoView({block:"nearest"}); }
   btn.onclick=(e)=>{ e.stopPropagation(); wrap.classList.contains("open")?close():open(); };
   // Un <optgroup> (usato ad es. nel menu "Applica bonus" del tiratore dadi del Companion, per
@@ -8166,6 +8229,12 @@ function render(){
   if(STATE.mode==="player" && STATE.view==="dmscreen") STATE.view="home";
   if(STATE.view==="explore") STATE.view="home";
   applyModeVisibility();
+  // Pulizia di sicurezza: una lista di menu "in portale" (vedi cselOpenPortal) è agganciata
+  // direttamente a <body>, quindi il successivo app.innerHTML="" qui sotto non la rimuoverebbe
+  // da sola se l'utente cambia schermata mentre un menu è ancora aperto — resterebbe un menu
+  // fantasma sopra la nuova vista. La vista che sta per essere ricostruita da zero comunque non
+  // ne ha più bisogno.
+  document.querySelectorAll(".csel-list.csel-portal").forEach(l=>l.remove());
   const app=$("#app"); app.innerHTML="";
   const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
   const _cr=document.getElementById("crumb"); if(_cr)_cr.textContent=VIEW_NAMES[STATE.view]||"";
@@ -9257,12 +9326,11 @@ function companionDashboard(c){
   wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
     el("h2",{style:"margin:0;color:var(--gold2)"},"RPG Companion"),
     el("button",{class:"btn ghost sm",onclick:()=>go("sheet",{current:c.id})},"← Scheda completa")));
-  const grid=el("div",{class:"companion-grid"},
-    companionCharPanel(c,d),
-    companionRollPanel(c,d),
-    companionResourcesPanel(c,d));
-  wrap.append(grid);
-  wrap.append(companionModuleRow(c));
+  // FIX (2026-09-02): la "Cronologia tiri" completa stava in fondo alla pagina, dopo la riga
+  // dei moduli — l'utente doveva scorrere tutta la dashboard per vederla, mentre il senso naturale
+  // è vederla subito sotto al lanciatore. Ora vive nella stessa colonna del pannello di tiro,
+  // impilata subito sotto di esso (invece che come colonna a parte del grid), così resta adiacente
+  // al lanciatore sia su desktop (3 colonne) sia su mobile (colonne impilate).
   const histCard=el("div",{class:"card",id:"companionHistoryCard"});
   histCard.append(el("div",{class:"section-title",style:"font-size:14px"},"Cronologia tiri",el("span",{class:"ln"}),
     el("button",{class:"btn ghost sm",onclick:()=>{ROLL_LOG=[];renderRollHistory();}},"Pulisci")));
@@ -9281,7 +9349,13 @@ function companionDashboard(c){
   }};
   renderRollHistory();
   histCard.append(log);
-  wrap.append(histCard);
+  const rollCol=el("div",{class:"companion-rollcol"},companionRollPanel(c,d),histCard);
+  const grid=el("div",{class:"companion-grid"},
+    companionCharPanel(c,d),
+    rollCol,
+    companionResourcesPanel(c,d));
+  wrap.append(grid);
+  wrap.append(companionModuleRow(c));
   return wrap;
 }
 
@@ -18444,7 +18518,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.1"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.2"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
