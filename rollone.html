@@ -9930,9 +9930,16 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
       // res/xml/file_paths.xml (<cache-path path="."/>), quindi Share.share() può comunque
       // generare un content:// URI valido e aprire il foglio di condivisione nativo, da cui scegliere
       // "File"/"Drive"/ecc. per salvare davvero il file dove si preferisce (incluso Download).
-      const res = await Filesystem.writeFile({ path: fileName, data: b64, directory: "CACHE" });
+      // FIX (2026-09-03 v3, segnalato di nuovo dopo la 1.9.4: "stesso problema risolto con la
+      // 1.8.9 si è ripresentato"): questi due passaggi non erano avvolti in withTimeout come i
+      // due tentativi precedenti (RollonePrint.print/saveFile). Se il dispositivo si comporta con
+      // Filesystem/Share come si comportava con RollonePrint (foglio di sistema che non si apre
+      // mai, Promise che resta sospesa), qui non c'era alcun limite di tempo: l'attesa poteva
+      // essere indefinita, riproducendo esattamente il blocco già visto. Ora anche questi due
+      // passaggi hanno un tetto massimo, così l'attesa totale resta comunque limitata.
+      const res = await withTimeout(Filesystem.writeFile({ path: fileName, data: b64, directory: "CACHE" }), 8000, "Salvataggio (cache)");
       if (Share && res && res.uri) {
-        await Share.share({ title: fileName, url: res.uri, dialogTitle: "Salva "+label.toLowerCase() });
+        await withTimeout(Share.share({ title: fileName, url: res.uri, dialogTitle: "Salva "+label.toLowerCase() }), 8000, "Condivisione");
         toast("Scegli «File» (o «Drive») e poi «Download» per salvarlo lì.");
         return;
       }
@@ -9991,7 +9998,16 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
         return;
       }catch(e){ /* se anche questo fallisce (contenuto non testuale), si prosegue sotto */ }
     }
-    toast("Impossibile salvare "+label.toLowerCase()+" su questo dispositivo. Riprova o aggiorna l'app.");
+    // FIX (2026-09-03 v3): se si arriva fin qui, TUTTI i meccanismi di sistema per salvare (stampa
+    // nativa, salvataggio con selettore, condivisione) hanno fallito o sono scaduti sullo stesso
+    // dispositivo. La causa più comune di questo pattern specifico su Android (finestre di sistema
+    // di un'app che non si aprono mai, come se l'app fosse "congelata" in background) sono le
+    // ottimizzazioni batteria aggressive di alcuni produttori (Xiaomi/MIUI, Huawei, Oppo, Samsung):
+    // il messaggio lo segnala esplicitamente invece di lasciare solo "riprova", perché è l'unica
+    // pista concreta verificabile dall'utente stesso senza accesso ai log del dispositivo.
+    showDismissable("Salvataggio non riuscito",
+      "Il "+label.toLowerCase()+" non è riuscito a salvarsi su questo dispositivo dopo aver provato tutti i metodi disponibili. Su alcuni telefoni (Xiaomi/MIUI, Huawei, Oppo, Samsung) questo succede quando il risparmio energetico impedisce a RollOne di aprire le finestre di sistema in background: prova a impostare «Nessuna restrizione» (o «Consentito in background») per RollOne in Impostazioni → Batteria → Ottimizzazione batteria per app, poi riprova.",
+      "Ho capito");
     return;
   }
   try{
@@ -18560,7 +18576,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.4"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.5"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
@@ -18816,6 +18832,16 @@ function removeDarkGift(character, giftName) {
       // (sito), dove serve davvero: chiunque potrebbe ospitare una copia modificata su un altro
       // dominio, e lì il fetch della pagina è affidabile perché passa da un vero server HTTP.
       if(window.Capacitor) return;
+      // FIX (2026-09-03 v2): il primo tentativo sopra (window.Capacitor) non bastava perché
+      // l'aggiornamento SENZA reinstallare l'APK (quello proposto dentro l'app stessa, vedi
+      // applyViaIframe più sopra) fa ripartire l'app dentro un <iframe> creato al volo: lì
+      // window.Capacitor non esiste (il ponte nativo lo inietta solo nella pagina caricata
+      // davvero da Android, non in un iframe creato via JS), quindi il controllo qui sotto
+      // ripartiva comunque — e per di più location.href dentro un iframe con contenuto caricato
+      // via srcdoc non è un vero URL scaricabile, rendendo il confronto ancora meno affidabile.
+      // Questo secondo controllo individua "sono dentro un iframe, non nella pagina principale"
+      // in modo indipendente da Capacitor, quindi copre anche questo caso.
+      if(window !== window.top) return;
       var res = await fetch(location.href, { cache: "no-store" });
       if(!res.ok) return;
       var buf = await res.arrayBuffer();
