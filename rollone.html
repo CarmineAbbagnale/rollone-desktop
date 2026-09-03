@@ -4578,8 +4578,17 @@ const SAVEKEY = "grimorio_dnd_v1";
    1 modello "universale" di fallback finale). "openrouter/free" (il quarto, universale) esiste
    davvero ed è stato mantenuto come richiesto: instrada automaticamente verso QUALUNQUE modello
    gratuito disponibile in quel momento. */
-const DEFAULT_AI_BASE_URL="https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_AI_KEY="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";
+// RIPROGETTAZIONE (2026-09-03): prima qui c'era una vera chiave OpenRouter incorporata nel codice
+// (DEFAULT_AI_KEY), usata come preimpostazione "gratis". Il codice è pubblico (repo GitHub
+// pubblico, APK Android decompilabile, sorgente della PWA scaricabile dal browser), quindi quella
+// chiave era visibile a chiunque — è già successo che una chiave incorporata così venisse trovata e
+// prosciugata (vedi LEGACY_FREE_KEY_HASHES sotto). La preimpostazione "gratis" ora passa da
+// ai-proxy, una Edge Function Supabase che tiene la chiave vera SOLO lato server (mai nel client) e
+// applica un limite di richieste per IP: nessuna chiave da mandare da qui per usarla.
+const DEFAULT_AI_BASE_URL="https://kvllupuinykufjxgtgsw.supabase.co/functions/v1/ai-proxy";
+// Endpoint diretto OpenRouter: resta disponibile come opzione in Impostazioni AI per chi vuole
+// usare una propria chiave (BYOK), invariato rispetto a prima.
+const OPENROUTER_DIRECT_URL="https://openrouter.ai/api/v1/chat/completions";
 // Catena di modelli gratuiti per il salto automatico (punto 2-3 della richiesta): se il modello in
 // uso restituisce un errore "riprovabile" (429 rate-limit, 402 credito/quota, timeout, 5xx, o 404
 // modello non trovato), geminiCall() passa DA SOLO al successivo di questa lista, senza mostrare
@@ -4593,14 +4602,34 @@ const DEFAULT_AI_KEY="sk-or-v1-b4d36e35dc8ba7cbd8ceab38a26c5ae0b722035b098ec2dcd
    tenuto come terzo tentativo di riserva; openrouter/free resta l'ultimo fallback universale (sceglie
    da solo un modello gratuito disponibile quando anche gli altri tre sono momentaneamente sovraccarichi). */
 const AI_FREE_FALLBACK_MODELS=["google/gemma-4-26b-a4b-it:free","nvidia/nemotron-3-nano-30b-a3b:free","openai/gpt-oss-20b:free","openrouter/free"];
-// Solo per riconoscere ed eliminare, nei salvataggi vecchi, la chiave incorporata precedente (quella
-// rimasta senza credito): non è più usata per nessuna chiamata reale, serve solo al
-// confronto in loadState() per sostituirla con la nuova preimpostazione.
-const OLD_EMBEDDED_KEY="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";
+// Riconosce, nei salvataggi vecchi, una delle due chiavi che in passato erano incorporate nel
+// codice (quella "esaurita" di prima, e quella sostituita oggi passando dietro ad ai-proxy — vedi
+// commento su DEFAULT_AI_BASE_URL), per migrare automaticamente chi le aveva alla nuova
+// preimpostazione "gratis" senza chiave. Sono hash SHA-256, non le chiavi stesse: niente di
+// riutilizzabile resta nel codice, servono solo per il confronto in isLegacyFreeKey() qui sotto.
+const LEGACY_FREE_KEY_HASHES=["b63bd42855818d741fd46523010a15b582641ca300c3e73f40fa56180f413261","99669621f8e5872bac04675247d869065a8fa1c01d8e113be558753802ce391a"];
+async function isLegacyFreeKey(key){
+  if(!key || !window.crypto || !window.crypto.subtle) return false;
+  try{
+    const buf=await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+    const hex=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    return LEGACY_FREE_KEY_HASHES.includes(hex);
+  }catch(e){ return false; }
+}
+// Migra in-place un oggetto {baseUrl,key,model,enabled} di uno stato salvato: se la chiave era una
+// delle due vecchie incorporate, passa alla nuova preimpostazione gratis (ai-proxy, nessuna chiave)
+// invece di lasciare nel salvataggio una chiave ormai inutile o l'endpoint diretto senza chiave
+// valida (che darebbe un 401 confuso all'utente al primo tentativo).
+async function migrateLegacyFreeKey(aiState){
+  if(!aiState) return;
+  if(await isLegacyFreeKey(aiState.key)){
+    aiState.key=""; aiState.baseUrl=DEFAULT_AI_BASE_URL; aiState.model=AI_FREE_FALLBACK_MODELS[0]; aiState.enabled=true;
+  }
+}
 const AI_MODEL_SUGGESTIONS=[...AI_FREE_FALLBACK_MODELS,"google/gemini-2.5-flash","anthropic/claude-sonnet-4.5","openai/gpt-4o-mini","deepseek/deepseek-chat-v3.1","gpt-4o-mini","gpt-4o","claude-sonnet-4-5","gemini-2.5-flash","deepseek-chat","llama3.1"];
 let STATE = { characters:[], customItems:[], customMonsters:[], customSpells:[], customSubclasses:[], customClasses:[], customHorrorDomains:[],
   combat:{combatants:[], round:1, turn:0, active:false, log:[]}, dmNotes:"", view:"home", current:null, wizard:null,
-  ai:{key:DEFAULT_AI_KEY, baseUrl:DEFAULT_AI_BASE_URL, model:AI_FREE_FALLBACK_MODELS[0], enabled:true}, campaigns:[], activeCampaign:null, completedCampaigns:[], aiPrefs:{style:"", homebrewNotes:"", proofread:true, variety:true},
+  ai:{key:"", baseUrl:DEFAULT_AI_BASE_URL, model:AI_FREE_FALLBACK_MODELS[0], enabled:true}, campaigns:[], activeCampaign:null, completedCampaigns:[], aiPrefs:{style:"", homebrewNotes:"", proofread:true, variety:true},
   dungeon:null, dungeonPrefs:{}, savedGens:[], theme:{mode:"dark", accent:"#d98a2b", textScale:1}, mode:null, divineUnlocked:false,
   battleMaps:[], shops:[], settlements:[], guild:null,
   // Griglia tattica 2D: era disattivata di default (richiesta del 2026-08-07), ma da quando è
@@ -4742,11 +4771,14 @@ function loadState(){
       // nuova preimpostazione incorporata; se l'utente ha già scelto un proprio provider/chiave,
       // quello resta intatto (libera scelta sempre rispettata, la preimpostazione è solo il punto
       // di partenza "di fabbrica").
+      // La chiave resta vuota di default: la preimpostazione "gratis" (DEFAULT_AI_BASE_URL, il
+      // proxy ai-proxy) non ne richiede una lato client, la chiave serve solo per chi sceglie un
+      // proprio provider/chiave (BYOK) in Impostazioni AI.
       ai:{
-        key:(d.ai&&d.ai.key)?d.ai.key:DEFAULT_AI_KEY,
+        key:(d.ai&&d.ai.key)?d.ai.key:"",
         baseUrl:(d.ai&&d.ai.baseUrl)?d.ai.baseUrl:DEFAULT_AI_BASE_URL,
         model:(d.ai&&d.ai.model)?d.ai.model:AI_FREE_FALLBACK_MODELS[0],
-        enabled:(d.ai&&d.ai.key)?!!d.ai.enabled:true
+        enabled:true
       },
       campaigns:d.campaigns||[],activeCampaign:d.activeCampaign||null,completedCampaigns:d.completedCampaigns||[],
       aiPrefs:Object.assign({style:"",homebrewNotes:"",proofread:true,variety:true},d.aiPrefs||{}),wizard:d.wizard||null,
@@ -4771,9 +4803,12 @@ function loadState(){
       // automatico al prossimo avvio.
       mode:null});
       if(!STATE.mp.deviceId) STATE.mp.deviceId=uid()+uid();
-      // La vecchia chiave OpenRouter incorporata (senza credito, versione precedente)
-      // viene sostituita con la nuova preimpostazione se trovata in un salvataggio più vecchio.
-      if(STATE.ai.key===OLD_EMBEDDED_KEY){ STATE.ai.key=DEFAULT_AI_KEY; STATE.ai.model=AI_FREE_FALLBACK_MODELS[0]; STATE.ai.enabled=true; }
+      // Una delle vecchie chiavi OpenRouter incorporate (versioni precedenti) viene sostituita con
+      // la nuova preimpostazione gratis se trovata in un salvataggio più vecchio (vedi
+      // migrateLegacyFreeKey sopra). Asincrona per l'hashing, ma non blocca l'avvio: nessuna
+      // chiamata IA reale può partire prima che l'utente interagisca con l'app, quindi la breve
+      // finestra prima che la promise si risolva non ha alcun effetto pratico.
+      migrateLegacyFreeKey(STATE.ai);
       if(!STATE.ai.baseUrl) STATE.ai.baseUrl=DEFAULT_AI_BASE_URL;
       // Ricostruisce le classi homebrew salvate (CLASSES/CLASS_DETAIL/ecc. sono costanti globali in
       // memoria, non fanno parte di STATE: vanno rigenerate ad ogni avvio dai record salvati).
@@ -6230,12 +6265,12 @@ function importJSON(file){
     // dell'utente rispettata); se il backup non ne aveva, si usa la preimpostazione incorporata.
     if(d.ai){
       STATE.ai={
-        key:d.ai.key||DEFAULT_AI_KEY,
+        key:d.ai.key||"",
         baseUrl:d.ai.baseUrl||DEFAULT_AI_BASE_URL,
         model:d.ai.model||AI_FREE_FALLBACK_MODELS[0],
-        enabled:d.ai.key?!!d.ai.enabled:true
+        enabled:true
       };
-      if(STATE.ai.key===OLD_EMBEDDED_KEY){ STATE.ai.key=DEFAULT_AI_KEY; STATE.ai.model=AI_FREE_FALLBACK_MODELS[0]; STATE.ai.enabled=true; }
+      migrateLegacyFreeKey(STATE.ai);
     }
     if(d.campaigns)STATE.campaigns=d.campaigns;
     if(d.activeCampaign!==undefined)STATE.activeCampaign=d.activeCampaign;
@@ -6541,7 +6576,11 @@ function viewSettings(){
       // Stessa via d'uscita usata altrove nell'app per aprire un link esterno dal WebView
       // (Capacitor Android intercetta window.open su un URL http/https e lo apre nel
       // browser di sistema anziché dentro la WebView a finestra singola dell'app).
-      try{ window.open("https://carmineabbagnale.github.io/rollone-desktop/privacy.html","_blank","noopener"); }catch(e){}
+      // BUG FIX (2026-09-03, trovato durante la migrazione del sito da Netlify): questo link
+      // puntava a un file "privacy.html" sotto il repo rollone-desktop, che non è mai esistito
+      // (quel repo contiene solo rollone.html e version.json) — il pulsante dava un 404. Corretto
+      // per puntare alla vera pagina Privacy Policy del sito, ora ospitata su GitHub Pages.
+      try{ window.open("https://carmineabbagnale.github.io/rollone-site/privacy-policy/","_blank","noopener"); }catch(e){}
     }},"📄 Privacy Policy")));
 
   cPriv.append(el("div",{style:sub+";margin-top:14px"},el("b",{},"Sicurezza dei dati")));
@@ -15655,7 +15694,14 @@ if(!window.Capacitor) bootApp();
 "use strict";
 let AI_BUSY=false;
 
-function aiReady(){ return !!(STATE.ai && STATE.ai.key && STATE.ai.baseUrl && STATE.ai.model); }
+// La preimpostazione "gratis" (DEFAULT_AI_BASE_URL, il proxy ai-proxy) non richiede una chiave
+// lato client: è pronta anche con STATE.ai.key vuota. Qualsiasi altro provider (BYOK, scelto
+// dall'utente in Impostazioni AI) resta come prima: serve sempre una chiave.
+function usesFreeProxy(baseUrl){ return baseUrl===DEFAULT_AI_BASE_URL; }
+function aiReady(){
+  if(!STATE.ai || !STATE.ai.baseUrl || !STATE.ai.model) return false;
+  return usesFreeProxy(STATE.ai.baseUrl) || !!STATE.ai.key;
+}
 
 /* ---- Client generico per endpoint "chat completions" stile OpenAI ----
    Il nome della funzione (geminiCall) e la sua firma (contents in formato "Gemini": array di
@@ -15706,11 +15752,16 @@ async function geminiCallOnce(model, messages, jsonMode, maxTokens, timeoutMs){
   let res;
   const ctrl=new AbortController();
   const timeoutId=setTimeout(()=>ctrl.abort(),timeoutMs);
-  const headers={ "Content-Type":"application/json", "Authorization":"Bearer "+STATE.ai.key };
+  const headers={ "Content-Type":"application/json" };
+  // Con la preimpostazione gratis (ai-proxy) non si manda alcuna chiave: la tiene solo il server,
+  // vedi commento su DEFAULT_AI_BASE_URL. Con un provider proprio (BYOK) la chiave la manda il
+  // client come prima.
+  if(!usesFreeProxy(url)) headers["Authorization"]="Bearer "+STATE.ai.key;
   // Header extra riconosciuti solo da OpenRouter (attribuzione app): li mando solo se il provider
-  // scelto è davvero OpenRouter, per non rischiare che un altro servizio (es. un server locale) li
+  // scelto è davvero OpenRouter diretto (BYOK) — con ai-proxy li aggiunge già il server nella
+  // chiamata verso OpenRouter — per non rischiare che un altro servizio (es. un server locale) li
   // rifiuti in fase di CORS preflight.
-  if(/openrouter\.ai/i.test(url)){ headers["HTTP-Referer"]="https://extraordinary-pixie-e34ae3.netlify.app"; headers["X-Title"]="RollOne"; }
+  if(!usesFreeProxy(url) && /openrouter\.ai/i.test(url)){ headers["HTTP-Referer"]="https://carmineabbagnale.github.io/rollone-site/"; headers["X-Title"]="RollOne"; }
   try{
     res=await fetch(url,{method:"POST",headers,body:JSON.stringify(body),signal:ctrl.signal});
   }catch(e){
@@ -15769,7 +15820,9 @@ async function geminiCall(contents, systemInstruction, jsonMode, maxTokens){
     const text=(c.parts||[]).map(p=>p.text||"").join("");
     messages.push({role:c.role==="model"?"assistant":"user", content:text});
   });
-  const isOpenRouter=/openrouter\.ai/i.test(STATE.ai.baseUrl||"");
+  // La catena di modelli gratuiti vale sia per OpenRouter diretto (BYOK) sia per la preimpostazione
+  // gratis ai-proxy, che verso OpenRouter ci passa comunque (solo con la chiave tenuta sul server).
+  const isOpenRouter=usesFreeProxy(STATE.ai.baseUrl)||/openrouter\.ai/i.test(STATE.ai.baseUrl||"");
   const candidates=isOpenRouter
     ? [STATE.ai.model, ...AI_FREE_FALLBACK_MODELS].filter((m,i,arr)=>m && arr.indexOf(m)===i)
     : [STATE.ai.model];
@@ -16313,31 +16366,41 @@ async function structureCampaign(name,rawText){
 /* ---- UI: impostazioni AI ---- */
 function aiSettingsBody(){
   const box=el("div",{});
-  // Libera scelta del provider IA (2026-08-07): nessuna chiave incorporata, nessun servizio
-  // imposto. L'utente sceglie indirizzo (Base URL), chiave e modello di QUALSIASI provider
-  // compatibile col formato "chat completions" stile OpenAI.
+  // Libera scelta del provider IA (2026-08-07, riprogettato 2026-09-03): la preimpostazione
+  // "gratis" ora passa da ai-proxy (Supabase), che tiene la vera chiave OpenRouter solo lato
+  // server e applica un limite di richieste giornaliero — niente da inserire per usarla. Chi vuole
+  // uso illimitato o un altro provider può comunque scegliere OpenRouter/OpenAI/ecc. con una
+  // propria chiave, come prima: quella resta salvata solo su questo dispositivo/profilo.
   const providerSel=styleSelect(el("select",{},
-    el("option",{value:"https://openrouter.ai/api/v1/chat/completions"},"OpenRouter (tantissimi modelli con una chiave sola)"),
+    el("option",{value:DEFAULT_AI_BASE_URL},"RollOne gratis (nessuna chiave, con limite giornaliero)"),
+    el("option",{value:OPENROUTER_DIRECT_URL},"OpenRouter con una tua chiave (tantissimi modelli, nessun limite di RollOne)"),
     el("option",{value:"https://api.openai.com/v1/chat/completions"},"OpenAI"),
     el("option",{value:"https://api.deepseek.com/v1/chat/completions"},"DeepSeek"),
     el("option",{value:"https://api.groq.com/openai/v1/chat/completions"},"Groq"),
     el("option",{value:"https://api.together.xyz/v1/chat/completions"},"Together AI"),
     el("option",{value:"https://api.mistral.ai/v1/chat/completions"},"Mistral"),
     el("option",{value:"__custom__"},"Altro / server personalizzato (inserisci l'indirizzo sotto)")));
-  const knownUrls=["https://openrouter.ai/api/v1/chat/completions","https://api.openai.com/v1/chat/completions","https://api.deepseek.com/v1/chat/completions","https://api.groq.com/openai/v1/chat/completions","https://api.together.xyz/v1/chat/completions","https://api.mistral.ai/v1/chat/completions"];
+  const knownUrls=[DEFAULT_AI_BASE_URL,OPENROUTER_DIRECT_URL,"https://api.openai.com/v1/chat/completions","https://api.deepseek.com/v1/chat/completions","https://api.groq.com/openai/v1/chat/completions","https://api.together.xyz/v1/chat/completions","https://api.mistral.ai/v1/chat/completions"];
   providerSel.value=knownUrls.includes(STATE.ai.baseUrl)?STATE.ai.baseUrl:"__custom__";
   const urlInput=el("input",{value:STATE.ai.baseUrl||DEFAULT_AI_BASE_URL,placeholder:"https://…/v1/chat/completions",style:"font-family:monospace;font-size:12px"});
   urlInput.style.display=providerSel.value==="__custom__"?"":"none";
+  const keyInput=el("input",{value:STATE.ai.key||"",placeholder:"Incolla qui la tua chiave API…",style:"font-family:monospace;font-size:12px"});
+  function refreshKeyRow(){
+    const free=usesFreeProxy(providerSel.value==="__custom__"?urlInput.value.trim():providerSel.value);
+    keyInput.disabled=free;
+    keyInput.placeholder=free?"Non serve: la preimpostazione gratis non richiede una chiave":"Incolla qui la tua chiave API…";
+  }
   providerSel.onchange=()=>{
     if(providerSel.value==="__custom__"){ urlInput.style.display=""; }
     else{ urlInput.style.display="none"; urlInput.value=providerSel.value; }
+    refreshKeyRow();
   };
-  const keyInput=el("input",{value:STATE.ai.key||"",placeholder:"Incolla qui la tua chiave API…",style:"font-family:monospace;font-size:12px"});
+  refreshKeyRow();
   const modelInput=el("input",{value:STATE.ai.model||"",placeholder:"Es. google/gemini-2.5-flash, gpt-4o-mini, claude-sonnet-4-5…",list:"aiModelSuggestions"});
   const dl=el("datalist",{id:"aiModelSuggestions"},...AI_MODEL_SUGGESTIONS.map(m=>el("option",{value:m})));
   const status=el("div",{class:"muted",style:"font-size:12px;margin-top:8px"});
   box.append(
-    el("p",{class:"muted",style:"font-size:13px;line-height:1.5"},"L'app NON include nessuna chiave predefinita: scegli liberamente qualunque provider IA compatibile con il formato «chat completions» (praticamente tutti). La chiave resta salvata solo su questo dispositivo/profilo, non viene condivisa né sovrascritta."),
+    el("p",{class:"muted",style:"font-size:13px;line-height:1.5"},"Di serie la Regia IA usa il servizio gratuito di RollOne (nessuna chiave da inserire, con un limite di richieste al giorno per dispositivo). Per un uso senza limiti scegli un provider con una tua chiave: resta salvata solo su questo dispositivo/profilo, non viene condivisa né sovrascritta."),
     fld("Provider",providerSel),
     fld("Indirizzo (Base URL)",urlInput),
     fld("Chiave API",keyInput),
@@ -16347,10 +16410,10 @@ function aiSettingsBody(){
   );
   function currentUrl(){ return (providerSel.value==="__custom__"?urlInput.value:providerSel.value).trim()||DEFAULT_AI_BASE_URL; }
   function currentModel(){ return modelInput.value.trim(); }
-  function currentKey(){ return keyInput.value.trim(); }
+  function currentKey(){ return usesFreeProxy(currentUrl())?"":keyInput.value.trim(); }
   const testBtn=el("button",{class:"btn ghost sm",onclick:async()=>{
     STATE.ai.baseUrl=currentUrl(); STATE.ai.model=currentModel(); STATE.ai.key=currentKey(); save();
-    if(!STATE.ai.key){ status.innerHTML="⚠ Inserisci una chiave API prima di provare la connessione."; return; }
+    if(!usesFreeProxy(STATE.ai.baseUrl) && !STATE.ai.key){ status.innerHTML="⚠ Inserisci una chiave API prima di provare la connessione."; return; }
     if(!STATE.ai.model){ status.innerHTML="⚠ Inserisci il nome del modello prima di provare la connessione."; return; }
     status.textContent="Verifico la connessione…"; testBtn.disabled=true;
     try{ const r=await geminiPing(); status.innerHTML="✅ Connesso. Risposta modello: "+esc(r||"(vuota)"); STATE.ai.enabled=true; save(); }
@@ -18576,7 +18639,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.5"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.6"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
