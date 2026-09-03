@@ -18639,7 +18639,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.6"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.7"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
@@ -18894,6 +18894,20 @@ function removeDarkGift(character, giftName) {
       // installa senza controllare. Il controllo qui sotto resta attivo solo per la versione web
       // (sito), dove serve davvero: chiunque potrebbe ospitare una copia modificata su un altro
       // dominio, e lì il fetch della pagina è affidabile perché passa da un vero server HTTP.
+      // FIX (2026-09-03 v3, segnalato di nuovo dopo la 1.9.6 con screenshot su un'installazione
+      // Android ufficiale appena aggiornata): il controllo "window.Capacitor" qui sotto dipende
+      // dal ponte nativo che Capacitor inietta in modo ASINCRONO dopo il caricamento della pagina.
+      // checkForUpdate() parte 4 secondi dopo il boot (vedi setTimeout più in basso), tempo che di
+      // norma basta — ma su dispositivi più lenti, o rallentati proprio dalle stesse restrizioni
+      // di risparmio energetico aggressive già viste per il salvataggio (Xiaomi/MIUI, Huawei, Oppo,
+      // Samsung), l'iniezione del ponte può arrivare dopo quei 4 secondi: a quel punto
+      // window.Capacitor risultava ancora undefined, il controllo proseguiva come se fosse il sito
+      // web, e il ri-fetch di location.href dentro la WebView produceva un falso positivo. La
+      // WebView nativa Android di Capacitor serve sempre i contenuti da https://localhost (nessuna
+      // configurazione di dominio personalizzato in capacitor.config.json): questo è vero fin dal
+      // primo istante di esecuzione, senza dover aspettare alcun ponte JS, quindi è un modo
+      // affidabile per riconoscere l'app nativa indipendentemente da eventuali ritardi.
+      if(location.protocol==="https:" && location.hostname==="localhost") return;
       if(window.Capacitor) return;
       // FIX (2026-09-03 v2): il primo tentativo sopra (window.Capacitor) non bastava perché
       // l'aggiornamento SENZA reinstallare l'APK (quello proposto dentro l'app stessa, vedi
