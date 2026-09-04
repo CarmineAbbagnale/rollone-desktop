@@ -1,5 +1,10 @@
 {
-  "version": "1.10.1",
+  "version": "1.10.2",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "17dd2bc54e17f8acafcda161c288e284eb22aa4a396bd4882bf9a6fdf07ce62b"
+  "sha256": "22862bf2bc7bf6038551542cdc1cd434e951e876aa0cdabbae222e882bce07a8",
+  "apk": {
+    "minVersionName": "1.10.2",
+    "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
+    "notice": "Corretto un bug che rompeva la schermata quando si ingrandiscono i caratteri (Accessibilità Android). La correzione tocca il motore nativo dell'app: serve scaricare e installare di nuovo l'APK."
+  }
 }
