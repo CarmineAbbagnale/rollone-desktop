@@ -4840,7 +4840,12 @@ const MP_SUPABASE_KEY="sb_publishable_X2CpVGgtcBJeMwr74h1jzA_RUamz1hE";
 // Pagina di conferma account / recupero password (ospitata separatamente, RollOne è un singolo
 // file offline e non ha un proprio indirizzo web): ci arriva l'email di Supabase quando il
 // giocatore si registra o richiede "password dimenticata".
-const MP_AUTH_REDIRECT="https://extraordinary-pixie-e34ae3.netlify.app";
+// FIX (2026-09-04, segnalato dai giocatori al tavolo): puntava a un vecchio sito Netlify
+// (extraordinary-pixie-e34ae3) rimosso durante la pulizia dell'account Netlify del 1 settembre,
+// pensando fosse un sito abbandonato — non lo era. Spostata sul sito ufficiale attuale, con una
+// pagina dedicata che gestisce sia la conferma registrazione sia l'impostazione di una nuova
+// password per "password dimenticata".
+const MP_AUTH_REDIRECT="https://carmineabbagnale.github.io/rollone-site/account/";
 let MP_CLIENT=null, MP_USER_ID=null, MP_USER_EMAIL=null, MP_READY=false, MP_INIT_PROMISE=null;
 let MP_CHANNEL=null, MP_CHANNEL_CAMPAIGN_ID=null;
 const MP_PUSH_TIMERS={}; // cloudId -> setTimeout handle (debounce)
@@ -18639,7 +18644,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.7"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.8"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
