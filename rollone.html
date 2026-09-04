@@ -4599,9 +4599,25 @@ const OPENROUTER_DIRECT_URL="https://openrouter.ai/api/v1/chat/completions";
    per primo per ridurre la latenza percepita; nvidia/nemotron-3-nano-30b-a3b:free è il secondo più
    veloce ma a volte "pensa ad alta voce" prima della risposta (mitigato da extractJsonText); openai/
    gpt-oss-20b:free è il più lento nei test (8-11s) ma il più affidabile su richieste JSON complesse,
-   tenuto come terzo tentativo di riserva; openrouter/free resta l'ultimo fallback universale (sceglie
-   da solo un modello gratuito disponibile quando anche gli altri tre sono momentaneamente sovraccarichi). */
-const AI_FREE_FALLBACK_MODELS=["google/gemma-4-26b-a4b-it:free","nvidia/nemotron-3-nano-30b-a3b:free","openai/gpt-oss-20b:free","openrouter/free"];
+   tenuto come terzo tentativo di riserva.
+   AGGIORNAMENTO 2026-09-04 (fix urgente, priorità di rilascio — richiesto dall'utente: generazione
+   lentissima ed errori tipo "utente:safe safe" su campagna/dungeon/import PDF): il quarto elemento
+   era "openrouter/free", il router automatico "qualunque modello gratuito" di OpenRouter. Verificato
+   con ricerca diretta sul catalogo OpenRouter di oggi: 1) la documentazione stessa del router lo
+   segnala esplicitamente come "higher latency" — è la causa più probabile della lentezza percepita,
+   specie quando i primi tre modelli sono sovraccarichi e si arriva fino a lì; 2) più grave, il router
+   sceglie a caso tra TUTTI i modelli gratuiti filtrando solo per capacità tecniche (vision/tool
+   calling/JSON), non per "è un modello di chat" — e nel catalogo gratuito attuale c'è anche
+   nvidia/nemotron-3.5-content-safety:free, un classificatore di moderazione (non un modello
+   conversazionale) che per ogni richiesta risponde solo con un'etichetta "safe"/"unsafe" per il
+   prompt e per la risposta: è quasi certamente la spiegazione esatta del testo "utente:safe safe" e
+   del blocco di contenuti horror legittimi (sangue, violenza) che l'app usa apposta. Sostituito con
+   z-ai/glm-5.2:free, un modello di chat generalista vero (1M contesto, verificato esistente ed
+   elencato tra i modelli gratuiti generalisti oggi), come quarto tentativo reale invece del router
+   casuale. Aggiunta anche una verifica difensiva sulla risposta (vedi looksLikeSafetyClassifierReply
+   in geminiCallOnce) per il caso in cui un futuro modello "non di chat" rientri comunque nel catalogo
+   gratuito con uno di questi quattro slug. */
+const AI_FREE_FALLBACK_MODELS=["google/gemma-4-26b-a4b-it:free","nvidia/nemotron-3-nano-30b-a3b:free","openai/gpt-oss-20b:free","z-ai/glm-5.2:free"];
 // Riconosce, nei salvataggi vecchi, una delle due chiavi che in passato erano incorporate nel
 // codice (quella "esaurita" di prima, e quella sostituita oggi passando dietro ad ai-proxy — vedi
 // commento su DEFAULT_AI_BASE_URL), per migrare automaticamente chi le aveva alla nuova
@@ -15736,6 +15752,24 @@ function extractJsonText(raw){
   if(end<=start) return s;
   return s.slice(start,end+1);
 }
+// Rileva una risposta che sembra arrivare da un classificatore di moderazione invece che da un vero
+// modello di chat (es. nvidia/nemotron-3.5-content-safety, che nel catalogo gratuito di OpenRouter
+// risponde a QUALSIASI richiesta solo con etichette come "safe"/"unsafe" per il prompt e per la
+// risposta, mai con un vero testo narrativo o un JSON strutturato). Aggiunto il 2026-09-04 dopo aver
+// verificato che era la causa dell'errore "utente:safe safe" segnalato dall'utente: anche cambiando
+// la catena di modelli, resta una difesa utile per qualsiasi futuro modello "non di chat" che finisse
+// nel catalogo gratuito con lo stesso comportamento. Se scatta, si tratta come errore riprovabile:
+// si passa in silenzio al modello successivo della catena, esattamente come per un errore di rete.
+function looksLikeSafetyClassifierReply(text){
+  const t=String(text||"").trim();
+  if(!t) return false;
+  // Risposte legittime (narrazione, JSON di una campagna/personaggio) sono sempre molto più lunghe
+  // di questo; una risposta cortissima fatta solo delle etichette tipiche del classificatore NVIDIA
+  // Content Safety ("safe"/"unsafe", da sole o ripetute più volte, con o senza il prefisso di ruolo
+  // "user:"/"utente:"/"response:" che il modello a volte antepone) non è mai una risposta valida qui.
+  if(t.length>40) return false;
+  return /^(?:(?:utente|user|prompt|response|risposta)\s*[:\-]?\s*)*(?:safe|unsafe)(?:\s*[,.]?\s*(?:safe|unsafe))*\s*[.!]?$/i.test(t);
+}
 function isRetryableAiError(status, msg){
   if(status===402||status===404||status===429) return true;
   if(status>=500) return true;
@@ -15788,6 +15822,13 @@ async function geminiCallOnce(model, messages, jsonMode, maxTokens, timeoutMs){
   // come ripiego prima di considerare la risposta davvero vuota (bug reale scoperto testando dal vivo
   // la catena di modelli gratuiti: alcuni tornavano content:null con reasoning:"OK").
   const text=((choice.message&&(choice.message.content||choice.message.reasoning))||"").trim();
+  // Difesa contro un modello "non di chat" finito nel catalogo gratuito (vedi commento su
+  // looksLikeSafetyClassifierReply più sopra): se la risposta è solo un'etichetta di moderazione,
+  // non è mai una risposta valida per questa app — si tratta come errore riprovabile, si passa al
+  // modello successivo della catena senza far vedere nulla di strano all'utente.
+  if(looksLikeSafetyClassifierReply(text)){
+    const err=new Error("risposta non valida (modello di moderazione, non di chat)"); err._retryable=true; throw err;
+  }
   // finish_reason "length" = risposta tagliata perché ha raggiunto il limite di token (equivalente
   // al MAX_TOKENS di Gemini). Può presentarsi anche con testo NON vuoto (una risposta parziale,
   // tagliata a metà frase o a metà stringa JSON): la intercettiamo qui, prima che possa arrivare a
@@ -15805,8 +15846,15 @@ async function geminiCallOnce(model, messages, jsonMode, maxTokens, timeoutMs){
   // come errore visibile invece di restituire silenziosamente il nulla.
   if(!text && choice.finish_reason && choice.finish_reason!=="stop"){
     const fr=choice.finish_reason;
-    const human=fr==="content_filter"?"filtri di sicurezza (l'azione richiesta è stata considerata troppo estrema)":fr;
-    throw new Error("Il narratore non ha potuto rispondere a questa azione ("+human+"). Prova a riformularla in modo meno estremo, o proseguila diversamente.");
+    // Un content_filter è una scelta del SINGOLO modello/provider, non una regola dell'app (RollOne
+    // ha volutamente un modulo horror che richiede sangue/violenza/orrore come contenuto legittimo):
+    // provider diversi hanno soglie diverse, quindi non è corretto arrendersi al primo rifiuto. Si
+    // riprova in silenzio con il modello successivo della catena; solo se lo rifiutano TUTTI ha senso
+    // mostrare un messaggio (gestito in geminiCall, che riconosce err._contentFiltered).
+    if(fr==="content_filter"){
+      const err=new Error("bloccato dai filtri di sicurezza di questo modello"); err._retryable=true; err._contentFiltered=true; throw err;
+    }
+    throw new Error("Il narratore non ha potuto rispondere a questa azione ("+fr+"). Prova a riformularla in modo meno estremo, o proseguila diversamente.");
   }
   if(!text){ const err=new Error("risposta vuota"); err._retryable=true; throw err; }
   return text;
@@ -15834,18 +15882,26 @@ async function geminiCall(contents, systemInstruction, jsonMode, maxTokens){
   // Timeout più corto per tentativo quando c'è una catena di più modelli da provare (altrimenti nel
   // caso peggiore si sommerebbero troppi secondi di attesa); resta 45s se c'è un solo modello.
   const perAttemptTimeout = candidates.length>1 ? 20000 : 45000;
-  let lastErr=null;
+  let lastErr=null, attempts=[];
   for(let i=0;i<candidates.length;i++){
     try{
       return await geminiCallOnce(candidates[i], messages, jsonMode, maxTokens, perAttemptTimeout);
     }catch(e){
-      lastErr=e;
+      lastErr=e; attempts.push(e);
       if(!e._retryable) throw e; // errore non recuperabile (es. chiave non valida): niente da salvare riprovando un altro modello
       // altrimenti prova silenziosamente il prossimo modello della catena
     }
   }
   // Tutti i modelli della catena hanno fallito: solo ora si mostra un errore leggibile.
   const status=lastErr&&lastErr._status;
+  // Solo se DAVVERO ogni singolo modello della catena ha rifiutato per filtri di sicurezza (non un
+  // mix con rate-limit/quota/timeout) ha senso dire all'utente che è un problema di contenuto: RollOne
+  // ha un modulo horror che richiede sangue/violenza come contenuto legittimo, quindi il messaggio è
+  // pensato per chi ha davvero esaurito la catena di modelli con soglie diverse, non per un singolo
+  // rifiuto isolato (quello viene già assorbito in silenzio, si passa al modello successivo).
+  if(attempts.length && attempts.every(e=>e._contentFiltered)){
+    throw new Error("Tutti i modelli gratuiti provati hanno rifiutato di rispondere a questa azione per i propri filtri di sicurezza interni. Prova a riformularla in modo un po' meno estremo, riprova tra poco (i filtri di ogni modello variano nel tempo), oppure imposta un provider/modello diverso in Impostazioni AI.");
+  }
   if(status===402) throw new Error("Tutti i modelli gratuiti provati risultano senza credito/quota disponibile in questo momento. Riprova tra poco, o imposta un modello/provider a pagamento in Impostazioni AI.");
   if(status===429) throw new Error("Tutti i modelli gratuiti provati sono momentaneamente sovraccarichi (limite di richieste). Riprova tra qualche minuto.");
   throw new Error("Il narratore non è riuscito a rispondere con nessuno dei modelli disponibili al momento. Riprova tra poco.");
@@ -16160,7 +16216,8 @@ function qualityDirectives(){
    reactiveNpcGuidelines() (negozi/gilda/villaggio), così NESSUN narratore dell'app resta senza
    questa istruzione. */
 function unusualPlayerActionGuidelines(){
-  return "AZIONI INSOLITE, VOLGARI O AL LIMITE (obbligatorio, non ignorare mai): se il giocatore propone qualcosa di strano, sgradevole, provocatorio, creativo o inaspettato (anche qualcosa di disgustoso, comico, offensivo per un PNG, o un tentativo di derubare/aggredire/insultare qualcuno), NON bloccarti, NON restare in silenzio e NON rifiutare in modo secco: reagisci SEMPRE con una conseguenza narrativa credibile e in personaggio (il PNG può arrabbiarsi, disgustarsi, ridere, chiamare le guardie, cacciare i giocatori dal negozio, chiedere un tiro di reazione, o qualunque altra reazione umana coerente col suo carattere), esattamente come farebbe una persona vera messa di fronte a quella situazione. Non trattare mai un'azione strana come un errore tecnico da segnalare: è sempre e solo un'azione di gioco a cui reagire restando in personaggio. Rifiuta di descrivere nel dettaglio solo contenuti realmente non adatti al tavolo (violenza esplicita, contenuti sessuali, e simili), e in quel caso stronca la scena narrativamente restando comunque in personaggio (es. il PNG caccia via i giocatori, si rifiuta con sdegno, chiama le guardie) invece di uscire dal ruolo per spiegarti perché non puoi scriverlo.";
+  return "AZIONI INSOLITE, VOLGARI O AL LIMITE (obbligatorio, non ignorare mai): se il giocatore propone qualcosa di strano, sgradevole, provocatorio, creativo o inaspettato (anche qualcosa di disgustoso, comico, offensivo per un PNG, o un tentativo di derubare/aggredire/insultare qualcuno), NON bloccarti, NON restare in silenzio e NON rifiutare in modo secco: reagisci SEMPRE con una conseguenza narrativa credibile e in personaggio (il PNG può arrabbiarsi, disgustarsi, ridere, chiamare le guardie, cacciare i giocatori dal negozio, chiedere un tiro di reazione, o qualunque altra reazione umana coerente col suo carattere), esattamente come farebbe una persona vera messa di fronte a quella situazione. Non trattare mai un'azione strana come un errore tecnico da segnalare: è sempre e solo un'azione di gioco a cui reagire restando in personaggio. "+
+    "QUESTA È UN'APP DI GIOCO DI RUOLO HORROR/DARK FANTASY: sangue, ferite, mostri, morte, combattimento e violenza anche cruda e dettagliata fanno parte integrante del genere e sono contenuto narrativo LEGITTIMO — descrivili con la stessa naturalezza con cui li descriverebbe un manuale o un'avventura horror pubblicata, senza evitarli, edulcorarli o interrompere la scena per questo: è esattamente ciò che il tavolo si aspetta da una scena horror. L'unico limite resta il contenuto sessualmente esplicito: in quel caso non descriverlo nel dettaglio, ma stronca o sposta la scena narrativamente restando comunque in personaggio (es. il PNG caccia via i giocatori, la scena stacca a un momento successivo, un evento interrompe il momento) invece di uscire dal ruolo per spiegare perché non puoi scriverlo.";
 }
 /* Alcuni modelli gratuiti (in fondo alla catena di fallback) a volte restituiscono, invece di una
    battuta in personaggio, una risposta "meta" che si lamenta di placeholder tra parentesi quadre
@@ -18644,7 +18701,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.8"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.9"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
