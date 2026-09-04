@@ -1908,6 +1908,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     <div class="nav-chapter">Avventura</div>
     <button class="nav-item" data-view="explore"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6 6-2z"/></svg></span><span class="label">Esplora Dungeon</span></button>
     <button class="nav-item" data-view="tavolo"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="9" r="2"/><path d="M8.5 15c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg></span><span class="label">Tavolo</span></button>
+    <button class="nav-item" data-view="community"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="2.6"/><circle cx="17" cy="10.5" r="2.2"/><path d="M3.5 19c.6-3 2.4-4.6 4.5-4.6s3.9 1.6 4.5 4.6"/><path d="M13.8 19c.4-2.2 1.7-3.4 3.2-3.4s2.8 1.2 3.2 3.4"/></svg></span><span class="label">Community</span></button>
     <button class="nav-item" data-view="dmscreen"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4-1v13l-4 1V6z"/><path d="M8 5l4 1v12l-4-1"/><path d="M12 6l4-1v13l-4 1"/><path d="M16 5l4 1v12l-4-1"/></svg></span><span class="label">Schermo DM</span></button>
     <div class="nav-divider"></div>
     <div class="nav-chapter">Archivi</div>
@@ -5110,6 +5111,10 @@ async function mpSignOut(){
   mpUnsubscribeCampaign();
   mpUnsubscribeAccountState();
   mpUnsubscribeAccountDevices();
+  communityUnsubscribeGlobalChat();
+  communityUnsubscribeFriendChat();
+  COMMUNITY_ACTIVE_FRIEND=null; COMMUNITY_FRIENDS_CACHE.loaded=false; COMMUNITY_FRIENDS_CACHE.list=[];
+  GLOBAL_CHAT_CACHE.loaded=false; GLOBAL_CHAT_CACHE.msgs=[];
   clearTimeout(ACCOUNT_SYNC_PUSH_TIMER);
   if(ACCOUNT_HEARTBEAT_TIMER){ clearInterval(ACCOUNT_HEARTBEAT_TIMER); ACCOUNT_HEARTBEAT_TIMER=null; }
   MP_DEVICE_EJECTED=false; ACCOUNT_SYNC_LAST_PUSHED_JSON=null;
@@ -5992,6 +5997,311 @@ function mpChatPanel(c){
   const sendBtn=el("button",{class:"vtt-btn primary",onclick:sendIt},"Invia");
   wrap.append(el("div",{style:"display:flex;gap:6px;align-items:flex-end;margin-top:6px"},input,sendBtn));
   setTimeout(()=>{ scroll.scrollTop=scroll.scrollHeight; },30);
+  return wrap;
+}
+
+/* =========================================================================
+   COMMUNITY — lobby pubblica + amici con richieste esplicite (4/9/2026,
+   richiesta esplicita di Carmine: "due canali distinti con la possibilità
+   di essere invitati, con richieste di amicizia, lista amici", in una
+   scheda dedicata di navigazione). Distinta dagli "amici" auto-derivati
+   dalle campagne condivise (mpListFriends/amiciModal/mpInviteModal, che
+   restano invariati e continuano a servire l'invito rapido a una
+   campagna): qui l'amicizia richiede un consenso esplicito, una richiesta
+   inviata per email e accettata dal destinatario, con una chat privata
+   dedicata. Tabelle: global_chat_messages, friend_requests,
+   friend_chat_messages (vedi migration 008_community_social.sql).
+   Richiede login (MP_USER_ID): senza account non c'è nulla da mostrare.
+   ========================================================================= */
+
+/* ---- Cache nomi giocatori: stesso pattern di mpFetchRoster, per non fare
+   una query players per ogni singolo messaggio/riga mostrata. ---- */
+const COMMUNITY_NAME_CACHE={}; // playerId -> display_name
+async function communityResolveNames(ids){
+  const sb=mpClient(); if(!sb) return;
+  const missing=[...new Set(ids)].filter(id=>id&&!(id in COMMUNITY_NAME_CACHE));
+  if(!missing.length) return;
+  try{
+    const {data,error}=await sb.from("players").select("id,display_name").in("id",missing);
+    if(error) throw error;
+    (data||[]).forEach(p=>{ COMMUNITY_NAME_CACHE[p.id]=p.display_name||"?"; });
+  }catch(e){}
+}
+function communityName(id){ return COMMUNITY_NAME_CACHE[id]||(id===MP_USER_ID?(STATE.mp.playerName||"Tu"):"…"); }
+
+/* ---- Canale 1: Lobby pubblica, visibile/scrivibile da chiunque abbia un
+   account RollOne (parametro esplicito: "chat globale dei giocatori che
+   sono loggati"). Rate-limitata lato server (trigger global_chat_rate_limit,
+   1 messaggio ogni 2s per mittente) contro lo spam, essendo il canale più
+   esposto (nessun filtro di appartenenza a una campagna). ---- */
+const GLOBAL_CHAT_CACHE={loaded:false,msgs:[]};
+let GLOBAL_CHAT_CHANNEL=null;
+async function communityFetchGlobalChat(){
+  const sb=mpClient(); if(!sb) return [];
+  try{
+    const {data,error}=await sb.from("global_chat_messages").select("*").order("created_at",{ascending:false}).limit(50);
+    if(error) throw error;
+    const msgs=(data||[]).slice().reverse();
+    GLOBAL_CHAT_CACHE.msgs=msgs; GLOBAL_CHAT_CACHE.loaded=true;
+    await communityResolveNames(msgs.map(m=>m.sender_id));
+    return msgs;
+  }catch(e){ GLOBAL_CHAT_CACHE.loaded=true; return GLOBAL_CHAT_CACHE.msgs; }
+}
+function communitySubscribeGlobalChat(){
+  const sb=mpClient(); if(!sb||GLOBAL_CHAT_CHANNEL) return;
+  GLOBAL_CHAT_CHANNEL=sb.channel("global-chat")
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"global_chat_messages"},payload=>{
+      const log=GLOBAL_CHAT_CACHE.msgs;
+      if(!log.find(m=>m.id===payload.new.id)){
+        log.push(payload.new); if(log.length>200) log.shift();
+        communityResolveNames([payload.new.sender_id]).then(()=>{ if(STATE.view==="community") render(); });
+      }
+    })
+    .subscribe();
+}
+function communityUnsubscribeGlobalChat(){
+  if(GLOBAL_CHAT_CHANNEL){ try{ GLOBAL_CHAT_CHANNEL.unsubscribe(); }catch(e){} GLOBAL_CHAT_CHANNEL=null; }
+}
+async function communitySendGlobalChat(text){
+  const sb=mpClient(); if(!sb||!MP_USER_ID){ toast("Accedi per scrivere nella lobby."); return; }
+  const clean=(text||"").trim(); if(!clean) return;
+  const row={sender_id:MP_USER_ID, text:clean.slice(0,500)};
+  try{
+    const {data,error}=await sb.from("global_chat_messages").insert(row).select().single();
+    if(error) throw error;
+    const log=GLOBAL_CHAT_CACHE.msgs; log.push(data); if(log.length>200) log.shift();
+    render();
+  }catch(e){
+    const msg=(e.message||"").includes("troppo_veloce")
+      ? "Aspetta un momento prima di scrivere di nuovo: un messaggio ogni 2 secondi."
+      : "Messaggio non inviato: "+(e.message||e);
+    toast(msg);
+  }
+}
+function communityLobbyPanel(){
+  const wrap=el("div",{class:"card"});
+  wrap.append(el("div",{class:"section-title",style:"font-size:13px"},"💬 Lobby pubblica",el("span",{class:"ln"})));
+  wrap.append(el("p",{class:"muted",style:"font-size:12px"},"Visibile a chiunque abbia un account RollOne e sia collegato: usala per trovare compagni di gioco, non per la campagna (quella ha la sua chat dedicata al Tavolo)."));
+  const scroll=el("div",{class:"vtt-chat-log"});
+  if(!GLOBAL_CHAT_CACHE.loaded){
+    scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Carico la lobby…"));
+    communityFetchGlobalChat().then(()=>{ communitySubscribeGlobalChat(); render(); });
+  } else {
+    communitySubscribeGlobalChat();
+    if(!GLOBAL_CHAT_CACHE.msgs.length) scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Nessun messaggio ancora: scrivi il primo."));
+    GLOBAL_CHAT_CACHE.msgs.forEach(m=>{
+      const mine=m.sender_id===MP_USER_ID;
+      scroll.append(el("div",{class:"vtt-msg "+(mine?"me":"them")},
+        mine?null:el("div",{class:"who"},communityName(m.sender_id)),
+        m.text));
+    });
+  }
+  wrap.append(scroll);
+  if(!MP_USER_ID){
+    wrap.append(el("p",{class:"muted",style:"font-size:12px;margin-top:6px"},"Accedi (Impostazioni) per partecipare alla lobby."));
+  } else {
+    const input=el("textarea",{rows:"1",placeholder:"Scrivi nella lobby…",style:"width:100%;resize:none"});
+    const sendIt=()=>{ const v=input.value; if(!v.trim()) return; input.value=""; communitySendGlobalChat(v); };
+    input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendIt(); } });
+    const sendBtn=el("button",{class:"vtt-btn primary",onclick:sendIt},"Invia");
+    wrap.append(el("div",{style:"display:flex;gap:6px;align-items:flex-end;margin-top:6px"},input,sendBtn));
+  }
+  setTimeout(()=>{ scroll.scrollTop=scroll.scrollHeight; },30);
+  return wrap;
+}
+
+/* ---- Canale 2: Amici con richiesta/accettazione esplicita + chat privata
+   1:1. Le RPC (send_friend_request_by_email, respond_friend_request,
+   list_friends) sono SECURITY DEFINER lato server: stesso schema di
+   sicurezza già usato per invite_player_to_campaign_by_email, dato che
+   "players" non ha una colonna email (vive solo in auth.users). ---- */
+async function communityListFriends(){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return [];
+  try{
+    const {data,error}=await sb.rpc("list_friends");
+    if(error) throw error;
+    return data||[];
+  }catch(e){ toast("Errore amici: "+(e.message||e)); return []; }
+}
+async function communitySendFriendRequest(email){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return false;
+  email=(email||"").trim(); if(!email){ toast("Scrivi l'email di chi vuoi aggiungere."); return false; }
+  try{
+    const {data,error}=await sb.rpc("send_friend_request_by_email",{p_email:email});
+    if(error) throw error;
+    const name=(data&&data[0]&&data[0].receiver_display_name)||"Giocatore";
+    toast("Richiesta inviata a "+name+".");
+    return true;
+  }catch(e){
+    const msg=(e.message||"");
+    const testo = msg.includes("unknown_email") ? "Nessun account RollOne registrato con questa email."
+      : msg.includes("cannot_invite_self") ? "Non puoi inviare una richiesta a te stesso."
+      : msg.includes("request_already_sent") ? "Hai già una richiesta in sospeso verso questa persona."
+      : msg.includes("already_friends") ? "Siete già amici."
+      : "Errore richiesta amicizia: "+(msg||e);
+    toast(testo);
+    return false;
+  }
+}
+async function communityRespondFriendRequest(requestId,accept){
+  const sb=mpClient(); if(!sb) return false;
+  try{
+    const {error}=await sb.rpc("respond_friend_request",{p_request_id:requestId,p_accept:accept});
+    if(error) throw error;
+    toast(accept?"Richiesta accettata.":"Richiesta rifiutata.");
+    return true;
+  }catch(e){ toast("Errore: "+(e.message||e)); return false; }
+}
+
+const FRIEND_CHAT_CACHE={}; // friendPlayerId -> messaggi (dal più vecchio al più nuovo)
+let FRIEND_CHAT_CHANNEL=null, FRIEND_CHAT_CHANNEL_WITH=null;
+let COMMUNITY_ACTIVE_FRIEND=null; // playerId della chat privata aperta, o null (mostra solo la lista)
+async function communityFetchFriendChat(friendId){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return [];
+  try{
+    const {data,error}=await sb.from("friend_chat_messages").select("*")
+      .or(`and(sender_id.eq.${MP_USER_ID},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${MP_USER_ID})`)
+      .order("created_at",{ascending:false}).limit(50);
+    if(error) throw error;
+    const msgs=(data||[]).slice().reverse();
+    FRIEND_CHAT_CACHE[friendId]=msgs;
+    return msgs;
+  }catch(e){ return FRIEND_CHAT_CACHE[friendId]||[]; }
+}
+function communitySubscribeFriendChat(friendId){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return;
+  if(FRIEND_CHAT_CHANNEL_WITH===friendId) return;
+  communityUnsubscribeFriendChat();
+  FRIEND_CHAT_CHANNEL=sb.channel("friend-chat:"+[MP_USER_ID,friendId].sort().join(":"))
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"friend_chat_messages",filter:"sender_id=eq."+friendId},payload=>{
+      if(payload.new.receiver_id!==MP_USER_ID) return;
+      const log=FRIEND_CHAT_CACHE[friendId]=(FRIEND_CHAT_CACHE[friendId]||[]);
+      if(!log.find(m=>m.id===payload.new.id)){ log.push(payload.new); if(log.length>200) log.shift(); }
+      if(STATE.view==="community"&&COMMUNITY_ACTIVE_FRIEND===friendId) render();
+    })
+    .subscribe();
+  FRIEND_CHAT_CHANNEL_WITH=friendId;
+}
+function communityUnsubscribeFriendChat(){
+  if(FRIEND_CHAT_CHANNEL){ try{ FRIEND_CHAT_CHANNEL.unsubscribe(); }catch(e){} FRIEND_CHAT_CHANNEL=null; FRIEND_CHAT_CHANNEL_WITH=null; }
+}
+async function communitySendFriendChat(friendId,text){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return;
+  const clean=(text||"").trim(); if(!clean) return;
+  const row={sender_id:MP_USER_ID, receiver_id:friendId, text:clean.slice(0,2000)};
+  try{
+    const {data,error}=await sb.from("friend_chat_messages").insert(row).select().single();
+    if(error) throw error;
+    const log=FRIEND_CHAT_CACHE[friendId]=(FRIEND_CHAT_CACHE[friendId]||[]);
+    log.push(data); if(log.length>200) log.shift();
+    render();
+  }catch(e){ toast("Messaggio non inviato: "+(e.message||e)); }
+}
+function communityFriendChatPanel(friendId,friendName){
+  const wrap=el("div",{});
+  wrap.append(el("div",{style:"display:flex;align-items:center;gap:8px;margin-bottom:6px"},
+    el("button",{class:"btn ghost sm",onclick:()=>{ COMMUNITY_ACTIVE_FRIEND=null; communityUnsubscribeFriendChat(); render(); }},"← Amici"),
+    el("b",{},friendName)));
+  const scroll=el("div",{class:"vtt-chat-log"});
+  const log=FRIEND_CHAT_CACHE[friendId];
+  if(log===undefined){
+    scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Carico la chat…"));
+    communityFetchFriendChat(friendId).then(()=>{ communitySubscribeFriendChat(friendId); render(); });
+  } else {
+    communitySubscribeFriendChat(friendId);
+    if(!log.length) scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Nessun messaggio ancora: scrivi il primo."));
+    log.forEach(m=>{
+      const mine=m.sender_id===MP_USER_ID;
+      scroll.append(el("div",{class:"vtt-msg "+(mine?"me":"them")},
+        mine?null:el("div",{class:"who"},friendName),
+        m.text));
+    });
+  }
+  wrap.append(scroll);
+  const input=el("textarea",{rows:"1",placeholder:"Scrivi a "+friendName+"…",style:"width:100%;resize:none"});
+  const sendIt=()=>{ const v=input.value; if(!v.trim()) return; input.value=""; communitySendFriendChat(friendId,v); };
+  input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendIt(); } });
+  const sendBtn=el("button",{class:"vtt-btn primary",onclick:sendIt},"Invia");
+  wrap.append(el("div",{style:"display:flex;gap:6px;align-items:flex-end;margin-top:6px"},input,sendBtn));
+  setTimeout(()=>{ scroll.scrollTop=scroll.scrollHeight; },30);
+  return wrap;
+}
+const COMMUNITY_FRIENDS_CACHE={loaded:false,list:[]};
+async function communityLoadFriendsIfNeeded(){
+  if(COMMUNITY_FRIENDS_CACHE.loaded) return COMMUNITY_FRIENDS_CACHE.list;
+  const list=await communityListFriends();
+  COMMUNITY_FRIENDS_CACHE.list=list; COMMUNITY_FRIENDS_CACHE.loaded=true;
+  return list;
+}
+function communityFriendsPanel(){
+  const wrap=el("div",{class:"card"});
+  wrap.append(el("div",{class:"section-title",style:"font-size:13px"},"🤝 Amici",el("span",{class:"ln"})));
+  wrap.append(el("p",{class:"muted",style:"font-size:12px"},"Richiedi l'amicizia per email: una volta accettata, avete una chat privata dedicata, distinta da quella del tavolo."));
+  const emailIn=el("input",{type:"email",placeholder:"email@esempio.it",style:"min-width:200px"});
+  const emailBtn=el("button",{class:"btn ghost sm",onclick:async(e)=>{
+    const btn=e.target; btn.disabled=true; const prev=btn.textContent; btn.textContent="…";
+    const ok=await communitySendFriendRequest(emailIn.value);
+    if(ok){ emailIn.value=""; COMMUNITY_FRIENDS_CACHE.loaded=false; render(); }
+    btn.disabled=false; btn.textContent=prev;
+  }},"Invia richiesta");
+  wrap.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"},emailIn,emailBtn));
+
+  const list=el("div",{style:"display:flex;flex-direction:column;gap:6px"});
+  wrap.append(list);
+  if(!COMMUNITY_FRIENDS_CACHE.loaded){
+    list.append(el("div",{class:"muted",style:"font-size:12px"},"Carico…"));
+    communityLoadFriendsIfNeeded().then(async(rows)=>{ await communityResolveNames(rows.map(r=>r.player_id)); render(); });
+  } else {
+    const rows=COMMUNITY_FRIENDS_CACHE.list;
+    const incoming=rows.filter(r=>r.relation==="incoming_request");
+    const outgoing=rows.filter(r=>r.relation==="outgoing_request");
+    const friends=rows.filter(r=>r.relation==="friend");
+    if(incoming.length){
+      list.append(el("div",{class:"muted",style:"font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:2px"},"Richieste ricevute"));
+      incoming.forEach(r=>{
+        list.append(el("div",{class:"list-line"},
+          el("span",{},r.display_name||"?"),
+          el("div",{style:"display:flex;gap:6px"},
+            el("button",{class:"btn ghost sm",onclick:async()=>{ const ok=await communityRespondFriendRequest(r.request_id,true); if(ok){ COMMUNITY_FRIENDS_CACHE.loaded=false; render(); } }},"✓ Accetta"),
+            el("button",{class:"btn ghost sm",onclick:async()=>{ const ok=await communityRespondFriendRequest(r.request_id,false); if(ok){ COMMUNITY_FRIENDS_CACHE.loaded=false; render(); } }},"✕ Rifiuta"))));
+      });
+    }
+    if(outgoing.length){
+      list.append(el("div",{class:"muted",style:"font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:8px"},"Richieste inviate"));
+      outgoing.forEach(r=>{
+        list.append(el("div",{class:"list-line"},el("span",{},r.display_name||"?"),el("span",{class:"muted",style:"font-size:12px"},"in attesa…")));
+      });
+    }
+    list.append(el("div",{class:"muted",style:"font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:8px"},"I tuoi amici"));
+    if(!friends.length){ list.append(el("div",{class:"muted",style:"font-size:12px"},"Nessun amico ancora: invia una richiesta per email qui sopra.")); }
+    friends.forEach(f=>{
+      const pd=mpPresenceDot(mpIsOnline(f.player_id),mpPresenceStatus(f.player_id));
+      const dot=el("span",{title:pd.label,style:"display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:"+pd.color});
+      list.append(el("div",{class:"list-line"},
+        el("span",{},dot,f.display_name||"?"),
+        el("button",{class:"btn ghost sm",onclick:()=>{ COMMUNITY_ACTIVE_FRIEND=f.player_id; render(); }},"💬 Scrivi")));
+    });
+  }
+  return wrap;
+}
+function viewCommunity(){
+  const wrap=el("div",{class:"view"});
+  wrap.append(el("h2",{},"🌐 Community"));
+  if(!MP_USER_ID){
+    wrap.append(el("div",{class:"card"},el("p",{class:"muted"},"Accedi da Impostazioni per usare la lobby pubblica e il pannello amici.")));
+    return wrap;
+  }
+  wrap.append(communityLobbyPanel());
+  if(COMMUNITY_ACTIVE_FRIEND){
+    const friendRow=(COMMUNITY_FRIENDS_CACHE.list||[]).find(r=>r.player_id===COMMUNITY_ACTIVE_FRIEND);
+    const friendCard=el("div",{class:"card",style:"margin-top:14px"});
+    friendCard.append(communityFriendChatPanel(COMMUNITY_ACTIVE_FRIEND, (friendRow&&friendRow.display_name)||communityName(COMMUNITY_ACTIVE_FRIEND)));
+    wrap.append(friendCard);
+  } else {
+    const friendsCard=communityFriendsPanel();
+    friendsCard.style.marginTop="14px";
+    wrap.append(friendsCard);
+  }
   return wrap;
 }
 
@@ -9367,7 +9677,7 @@ function render(){
   // ne ha più bisogno.
   document.querySelectorAll(".csel-list.csel-portal").forEach(l=>l.remove());
   const app=$("#app"); app.innerHTML="";
-  const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
+  const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",community:"Community",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni"};
   const _cr=document.getElementById("crumb"); if(_cr)_cr.textContent=VIEW_NAMES[STATE.view]||"";
   // Anche qui: se il personaggio attivo ha dati che mandano in errore derived() (es. una classe
   // forgiata/homebrew salvata in modo incompleto), non deve poter bloccare TUTTO render() prima
@@ -9398,6 +9708,7 @@ function render(){
       case "explore": node=viewExplore(); break;
       case "dmscreen": node=viewDMScreen(); break;
       case "tavolo": node=aiFeatureGate("tavoloEnabled","Tavolo",viewTavolo); break;
+      case "community": node=viewCommunity(); break;
       case "compendium": node=viewCompendium(); break;
       case "classes": node=viewClasses(); break;
       case "settings": node=viewSettings(); break;
@@ -19816,7 +20127,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.10.2"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.11.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
