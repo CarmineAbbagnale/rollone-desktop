@@ -15,6 +15,15 @@ try{ if(window.electronAPI) document.documentElement.classList.add("platform-des
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&display=swap');
+/* 2026-09-04: bug segnalato da Carmine, "quando si ingrandiscono i caratteri la schermata non
+   si adatta al dispositivo" — su Android il WebView applica di default la "dimensione carattere"
+   di sistema (Impostazioni > Accessibilità) ingrandendo il testo senza far ricalcolare il layout
+   a contenitori/toolbar/card a larghezza fissa, causando testo tagliato o traboccante. L'app ha
+   già un proprio controllo di scala testo (STATE.theme.textScale, vedi narrFont()), quindi qui
+   blocchiamo lo scaling automatico del WebView: il testo resta leggibile allo zoom che l'utente
+   sceglie dentro l'app, il layout non si rompe più per lo zoom di sistema. Lato Android va
+   affiancata da WebSettings.setTextZoom(100) in MainActivity.java (richiede nuova build APK).*/
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* =======================================================================
    GRIMORIO DEL MAESTRO, Tema chiaro "Pergamena luminosa" (BG3 light)
    ======================================================================= */
@@ -19807,7 +19816,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.10.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.10.1"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
