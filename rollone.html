@@ -10011,8 +10011,18 @@ async function saveBytesChoosingLocation(bytes, fileName, mimeType, label){
       // bug precedenti) — risultato: nessun modo di capire perché stesse fallendo davvero. Ora
       // l'errore vero viene mostrato, così un prossimo test reale dice subito la causa esatta
       // invece di un generico "non funziona".
-      toast("Salvataggio non riuscito: "+((e&&(e.message||e.errorMessage))||String(e)||"errore sconosciuto")+". Segnala questo messaggio così posso correggerlo.");
-      return;
+      // BUG FIX (2026-09-04, segnalato da Carmine: "il sistema di esportazione fixato nella 1.8.9
+      // si è rotto di nuovo, salvataggio scaduto (timeout) e poi il file non si salva in nessun
+      // modo"): questo `return` interrompeva la funzione qui, PRIMA di arrivare al fallback
+      // "che non può fallire" scritto apposta per questo scenario (vedi FIX 2026-09-03 v3 più
+      // sotto, il modulo di testo copiabile per i backup JSON/HTML). Risultato pratico: se sia
+      // RollonePrint SIA Filesystem/Share fallivano entrambi sullo stesso dispositivo (esattamente
+      // il caso batteria/MIUI che quel fallback era pensato per coprire), l'utente vedeva solo
+      // questo messaggio di errore e non arrivava mai al testo copiabile — il fallback "garantito"
+      // era in realtà irraggiungibile da questo punto del codice. Tolto il `return`: ora l'errore
+      // resta visibile come avviso (utile per capire la causa), ma l'esecuzione prosegue verso gli
+      // altri tentativi (selettore file, condivisione testo) e infine verso il fallback garantito.
+      toast("Salvataggio non riuscito: "+((e&&(e.message||e.errorMessage))||String(e)||"errore sconosciuto")+". Provo con un metodo alternativo.");
     }
   }
   try{
@@ -18701,7 +18711,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.9.9"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.9.10"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
