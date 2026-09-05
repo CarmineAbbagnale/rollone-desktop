@@ -4626,8 +4626,22 @@ const OPENROUTER_DIRECT_URL="https://openrouter.ai/api/v1/chat/completions";
    elencato tra i modelli gratuiti generalisti oggi), come quarto tentativo reale invece del router
    casuale. Aggiunta anche una verifica difensiva sulla risposta (vedi looksLikeSafetyClassifierReply
    in geminiCallOnce) per il caso in cui un futuro modello "non di chat" rientri comunque nel catalogo
-   gratuito con uno di questi quattro slug. */
-const AI_FREE_FALLBACK_MODELS=["google/gemma-4-26b-a4b-it:free","nvidia/nemotron-3-nano-30b-a3b:free","openai/gpt-oss-20b:free","z-ai/glm-5.2:free"];
+   gratuito con uno di questi quattro slug.
+   AGGIORNAMENTO 2026-09-05 (controllo di stato su richiesta di Carmine, poi fix): chiamate dirette e
+   ripetute contro ai-proxy (non solo lettura del listino) hanno confermato che nvidia/nemotron-3-
+   nano-30b-a3b:free e openai/gpt-oss-20b:free non esistono più nel piano gratuito di OpenRouter —
+   rispondono 404 "This model is unavailable for free" in modo stabile, non un sovraccarico
+   temporaneo. Di fatto la catena aveva solo 2 tentativi reali su 4: se google/gemma-4-26b-a4b-it e
+   z-ai/glm-5.2 fossero risultati entrambi occupati nello stesso momento (capita, sono pool gratuiti
+   condivisi), la generazione sarebbe fallita del tutto. Sostituiti entrambi con due modelli verificati
+   vivi con chiamate reali oggi, scelti anche per diversificare il provider a monte (non tutti
+   Google, per non perdere due tentativi insieme in caso di disservizio di un solo fornitore):
+   minimax/minimax-m3:free (provider GMICloud, risposta pulita e diretta, senza testo di
+   "ragionamento" da ripulire) e google/gemma-4-31b-it:free (risposta pulita, finish_reason "stop"
+   naturale). Se in futuro uno di questi quattro dovesse a sua volta sparire dal piano gratuito,
+   ripetere la stessa verifica diretta (chiamata reale ad ai-proxy, non solo lista modelli) prima di
+   sceglierne un altro: il catalogo "gratuito" di OpenRouter cambia spesso senza preavviso. */
+const AI_FREE_FALLBACK_MODELS=["google/gemma-4-26b-a4b-it:free","minimax/minimax-m3:free","google/gemma-4-31b-it:free","z-ai/glm-5.2:free"];
 // Riconosce, nei salvataggi vecchi, una delle due chiavi che in passato erano incorporate nel
 // codice (quella "esaurita" di prima, e quella sostituita oggi passando dietro ad ai-proxy — vedi
 // commento su DEFAULT_AI_BASE_URL), per migrare automaticamente chi le aveva alla nuova
@@ -20127,7 +20141,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.11.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.11.1"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
