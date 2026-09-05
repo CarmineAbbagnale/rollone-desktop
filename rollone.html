@@ -7691,6 +7691,25 @@ function musicPlayerWidget(slot){
   musicEnsureLoaded().then(refresh);
   return wrap;
 }
+// ANCORAGGIO (2026-09-05, richiesto esplicitamente da Carmine dopo che il widget minimal è
+// sparito sia da RPG Companion sia da Impostazioni durante una sessione, senza tornare nemmeno
+// dopo aver chiuso e riaperto l'app del tutto): entrambi i punti che disegnano questo widget
+// (companionDashboard, Schermo del DM) lo appendevano direttamente col nome nudo della funzione,
+// quindi un'eventuale eccezione al suo interno avrebbe fatto sparire il widget senza lasciare
+// traccia visibile né bloccare il resto della schermata in modo osservabile. Da qui in poi si
+// passa sempre da questo wrapper: se musicPlayerWidget() fallisce, mostra un avviso al posto del
+// lettore (mai il vuoto silenzioso) e registra l'errore in console, cosi' se il problema si
+// ripresenta la causa esatta sarà finalmente visibile.
+function musicPlayerWidgetSafe(slot){
+  try{
+    return musicPlayerWidget(slot);
+  }catch(e){
+    console.error("[RollOne] musicPlayerWidget('"+slot+"') non renderizzato:",e);
+    return el("div",{class:"card",style:"padding:10px 12px;margin-bottom:12px"},
+      el("div",{style:"font-size:12px;font-weight:700;opacity:.8;margin-bottom:4px"},"🎵 Musica"),
+      el("div",{class:"muted",style:"font-size:12.5px"},"Il lettore non è riuscito a caricarsi in questo momento. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug."));
+  }
+}
 /* Piccola finestra di testo riusabile per nome/rinomina catalogo. Non uso window.prompt(): il
    resto dell'app evita deliberatamente i dialog nativi del browser (vedi customSelect/styleSelect
    qui sopra, introdotti apposta perché i popup di sistema rompono lo stile su Android), e
@@ -7812,7 +7831,26 @@ function viewSettings(){
   const stat=DATA_KEYS.map(x=>`${(d[x.k]||[]).length} ${x.label}`).join(" · ");
   const row="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px";
   const sub="font-size:13px;margin:12px 0 2px;color:var(--gold2)";
+  // BUG CORRETTO (2026-09-05, trovato durante il lavoro sull'ancoraggio del lettore musicale, non
+  // collegato ad esso): era dichiarata SOLO dentro il blocco "if (window.Capacitor ||
+  // window.electronAPI)" della card "Aggiornamenti" più sotto, quindi block-scoped (const dentro
+  // {}) e irraggiungibile dalla card "Segnala bug", molto più in basso in questa stessa funzione,
+  // che la usa per allegare la versione alla segnalazione — chiunque inviasse una segnalazione
+  // riceveva "Invio non riuscito (appliedV is not defined)" invece della conferma. Spostata qui,
+  // a livello dell'intera funzione, cosi' entrambe le card la vedono.
+  const appliedV=(()=>{ try{return localStorage.getItem("rollone-applied-version");}catch(e){return null;} })();
 
+  // ANCORAGGIO (2026-09-05, richiesto esplicitamente da Carmine dopo che il lettore musicale è
+  // sparito da Impostazioni e RPG Companion durante una sessione, senza tornare nemmeno dopo aver
+  // chiuso e riaperto l'app del tutto — segno che una card più in alto in questa stessa funzione
+  // può aver lanciato un'eccezione non gestita, interrompendo l'esecuzione PRIMA di raggiungere le
+  // card successive, incluse quelle di esportazione dati e del lettore musicale più sotto). Non è
+  // stato possibile riprodurre l'errore esatto per revisione statica del codice, quindi invece di
+  // inseguire una causa non riproducibile si isola ogni card in un try/catch indipendente: se una
+  // card fallisce, mostra un avviso al posto suo invece di far sparire anche tutte quelle dopo di
+  // lei. Se l'errore si ripresenta, il messaggio (visibile e in console) indicherà finalmente quale
+  // card e quale causa, cosa che oggi non è possibile sapere con certezza.
+  try{
   const c0=el("div",{class:"card"});
   c0.append(el("h3",{style:"color:var(--gold2)"},"🎨 Aspetto"));
   c0.append(el("p",{class:"muted",style:"font-size:13px"},"Scegli il tema dell'interfaccia. In modalità personalizzata puoi scegliere anche il colore d'accento."));
@@ -7862,6 +7900,10 @@ function viewSettings(){
       "L'analisi automatica dei colori di un'immagine (qui sopra) può impostare entrambi questi colori al posto tuo."));
   }
   wrap.append(c0);
+  }catch(e){
+    console.error("[RollOne] card Impostazioni 'Aspetto' non renderizzata:",e);
+    wrap.append(el("div",{class:"card"},el("p",{class:"muted",style:"font-size:13px"},"⚠ Sezione «Aspetto» non disponibile in questo momento.")));
+  }
 
   // Controllo aggiornamenti manuale (2026-08-31): prima l'unico modo di ricevere un
   // aggiornamento era chiudere e riaprire davvero l'app (il controllo parte solo all'avvio o al
@@ -7875,9 +7917,9 @@ function viewSettings(){
   // più nulla da "controllare" qui, e la card confondeva soltanto. Resta visibile solo dove ha
   // ancora un effetto reale: dentro l'app nativa Android o una vecchia installazione Electron.
   if (window.Capacitor || window.electronAPI) {
+   try{
     const cUpd=el("div",{class:"card"});
     cUpd.append(el("h3",{style:"color:var(--gold2)"},"🔄 Aggiornamenti"));
-    const appliedV=(()=>{ try{return localStorage.getItem("rollone-applied-version");}catch(e){return null;} })();
     cUpd.append(el("p",{class:"muted",style:"font-size:13px"},
       "Versione contenuti attuale: "+(appliedV?("v"+appliedV):"non rilevabile su questa piattaforma")+
       ". L'app controlla da sola se c'è una versione più recente all'avvio e al login; usa questo pulsante per controllare subito, senza chiudere e riaprire l'app."));
@@ -7888,14 +7930,17 @@ function viewSettings(){
       toast(triggered?"Controllo aggiornamenti in corso…":"Controllo automatico non disponibile in questa build: chiudi e riapri l'app per verificare.");
     }},"🔄 Controlla aggiornamenti ora"));
     wrap.append(cUpd);
+   }catch(e){ console.error("[RollOne] card Impostazioni 'Aggiornamenti' non renderizzata:",e); }
   }
 
+  try{
   const cAI=el("div",{class:"card"});
   cAI.append(el("h3",{style:"color:var(--gold2)"},"🤖 Intelligenza Artificiale"));
   cAI.append(el("p",{class:"muted",style:"font-size:13px"},"Provider, chiave e modello usati da campagne, generatori del DM e narrazione. L'app parte già pronta con una chiave e una catena di modelli gratuiti preimpostate, ma resti libero di sostituirle in ogni momento con qualsiasi servizio IA (OpenRouter, OpenAI, Groq, DeepSeek, Mistral, un server locale…) e la tua chiave personale."));
   cAI.append(el("div",{style:row+";margin-top:8px"},
     el("button",{class:"btn ghost sm",onclick:openAISettings},"⚙ Apri impostazioni AI")));
   wrap.append(cAI);
+  }catch(e){ console.error("[RollOne] card Impostazioni 'Intelligenza Artificiale' non renderizzata:",e); }
 
   // Griglia tattica e Tavolo (VTT): nascosti in maniera permanente su richiesta esplicita
   // dell'utente (2026-08-28). I relativi controlli in Impostazioni sono stati rimossi di
@@ -7908,6 +7953,7 @@ function viewSettings(){
   // letteralmente nulla di osservabile, solo confusione ("perché vedo opzioni per la campagna se
   // sono un giocatore?"): mostrata solo in modalità Dungeon Master, dove ha davvero un effetto.
   if(STATE.mode!=="player"){
+   try{
     const cCampDun=el("div",{class:"card"});
     cCampDun.append(el("h3",{style:"color:var(--gold2)"},"🧙 Campagna AI e Dungeon AI"));
     cCampDun.append(el("p",{class:"muted",style:"font-size:13px"},"Attiva o disattiva separatamente queste due schede: senza spuntarle qui, restano nascoste dal menu."));
@@ -7918,8 +7964,10 @@ function viewSettings(){
     cbDun.onchange=()=>{ STATE.settings=STATE.settings||{}; STATE.settings.dungeonAiEnabled=cbDun.checked; save(); render(); };
     cCampDun.append(el("label",{style:"display:flex;align-items:center;gap:6px;font-size:13px;margin-top:6px"},cbDun,"Attiva Dungeon AI (esplorazione di dungeon con mappa e narrazione)"));
     wrap.append(cCampDun);
+   }catch(e){ console.error("[RollOne] card Impostazioni 'Campagna AI e Dungeon AI' non renderizzata:",e); }
   }
 
+  try{
   const cMp=el("div",{class:"card"});
   cMp.append(el("h3",{style:"color:var(--gold2)"},"🌐 Account"));
   // BUG FIX (2026-09-01): la stessa descrizione parlava di "campagne" anche in modalità
@@ -7969,6 +8017,19 @@ function viewSettings(){
   // codice a voce/chat dal DM, non lo cerca lui stesso in una scheda che non ha.
   if(STATE.mode!=="player") cMp.append(el("p",{class:"muted",style:"font-size:12px;margin-top:10px"},"Per condividere una campagna, apri i suoi dettagli e usa «Condividi in multiplayer»; per unirti a quella di un altro giocatore, usa «🔗 Unisciti con codice» nella scheda Campagna AI."));
   wrap.append(cMp);
+  }catch(e){
+    // ANCORAGGIO (2026-09-05): questa è la card più complessa della schermata (stato multiplayer,
+    // sincronizzazione account, MP_READY/mpClient() legati a Supabase) e la più probabile a lanciare
+    // un'eccezione proprio dopo un ripristino dell'app dal background, quando lo stato multiplayer
+    // potrebbe non essere ancora pronto. Prima un errore qui interrompeva l'intera funzione PRIMA di
+    // raggiungere le card successive (Leggibilità, Esporta dati, Lettore musicale, Manutenzione) —
+    // la causa più probabile della sparizione del lettore musicale segnalata da Carmine. Isolata così
+    // il resto della schermata continua a comparire comunque.
+    console.error("[RollOne] card Impostazioni 'Account' non renderizzata:",e);
+    wrap.append(el("div",{class:"card"},
+      el("h3",{style:"color:var(--gold2)"},"🌐 Account"),
+      el("p",{class:"muted",style:"font-size:13px"},"Stato account non disponibile in questo momento. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug.")));
+  }
 
   // NUOVO (2026-09-01): sezione richiesta per la pubblicazione su Google Play Store — la
   // scheda "Data Safety" del Play Console richiede che l'app renda visibili all'utente,
@@ -8110,6 +8171,7 @@ function viewSettings(){
     el("button",{class:"btn ghost sm",onclick:()=>{STATE.mode=null;save();render();}},"⇄ Cambia modalità")));
   wrap.append(cMode);
 
+  try{
   const cRead=el("div",{class:"card"});
   cRead.append(el("h3",{style:"color:var(--gold2)"},"📖 Leggibilità e qualità dei testi IA"));
   cRead.append(el("p",{class:"muted",style:"font-size:13px"},"Regola la dimensione del testo scritto dal narratore (chat di campagna e dungeon) e aiuta l'IA a scrivere in modo più chiaro, corretto e vario."));
@@ -8120,13 +8182,14 @@ function viewSettings(){
     }},lbl));
   });
   cRead.append(scaleRow);
-  const cbProof=el("input",{type:"checkbox"}); cbProof.checked=STATE.aiPrefs.proofread!==false;
-  cbProof.onchange=()=>{STATE.aiPrefs.proofread=cbProof.checked; save();};
-  const cbVar=el("input",{type:"checkbox"}); cbVar.checked=STATE.aiPrefs.variety!==false;
-  cbVar.onchange=()=>{STATE.aiPrefs.variety=cbVar.checked; save();};
+  const cbProof=el("input",{type:"checkbox"}); cbProof.checked=(STATE.aiPrefs&&STATE.aiPrefs.proofread)!==false;
+  cbProof.onchange=()=>{STATE.aiPrefs=STATE.aiPrefs||{}; STATE.aiPrefs.proofread=cbProof.checked; save();};
+  const cbVar=el("input",{type:"checkbox"}); cbVar.checked=(STATE.aiPrefs&&STATE.aiPrefs.variety)!==false;
+  cbVar.onchange=()=>{STATE.aiPrefs=STATE.aiPrefs||{}; STATE.aiPrefs.variety=cbVar.checked; save();};
   cRead.append(el("label",{style:"display:flex;align-items:center;gap:6px;font-size:13px;margin-top:10px"},cbProof,"Correzione ortografica e frasi più chiare (l'IA si autocorregge prima di scrivere)"));
   cRead.append(el("label",{style:"display:flex;align-items:center;gap:6px;font-size:13px;margin-top:6px"},cbVar,"Più varietà nella generazione (evita di ripetere sempre gli stessi dettagli, mostri e oggetti)"));
   wrap.append(cRead);
+  }catch(e){ console.error("[RollOne] card Impostazioni 'Leggibilità' non renderizzata:",e); }
 
   // SEMPLIFICAZIONE (2026-09-02, richiesta esplicita): prima c'erano due card separate ("I tuoi
   // dati di gioco" e "Contenuti di gioco (pacchetti)") con quattro formati diversi (HTML dati,
@@ -8134,6 +8197,7 @@ function viewSettings(){
   // pulsanti, un solo formato (JSON): più semplice da capire, meno scelte da spiegare. Le
   // funzioni che leggono/scrivono HTML restano nel codice (extractPayload le riconosce ancora)
   // solo per non rompere i vecchi backup .html già esportati da chi usava la versione precedente.
+  try{
   const c1=el("div",{class:"card"});
   c1.append(el("h3",{style:"color:var(--gold2)"},"I tuoi dati"));
   c1.append(el("p",{class:"muted",style:"font-size:13px"},"Personaggi, creazioni della Forgia e impostazioni. Restano salvati nel programma, ma esportali per non perderli quando aggiorni l'app o cambi computer, o per trasferirli su un altro dispositivo."));
@@ -8143,14 +8207,31 @@ function viewSettings(){
     el("button",{class:"btn ghost",onclick:importDataFile},"⬆ Importa dati")));
   c1.append(el("p",{class:"muted",style:"font-size:12px;margin-top:6px"},"Formato: JSON."));
   wrap.append(c1);
+  }catch(e){
+    console.error("[RollOne] card Impostazioni 'I tuoi dati' non renderizzata:",e);
+    wrap.append(el("div",{class:"card"},el("h3",{style:"color:var(--gold2)"},"I tuoi dati"),
+      el("p",{class:"muted",style:"font-size:13px"},"Non disponibile in questo momento."),
+      el("div",{style:row},
+        el("button",{class:"btn",onclick:exportDataJSON},"⬇ Esporta i tuoi dati"),
+        el("button",{class:"btn ghost",onclick:importDataFile},"⬆ Importa dati"))));
+  }
 
+  // ANCORAGGIO (2026-09-05): vedi il commento in cima a viewSettings(). Card isolata apposta perché
+  // è quella che Carmine ha segnalato sparita insieme al widget minimal in RPG Companion.
+  try{
   const cMusic=el("div",{class:"card"});
   cMusic.append(el("h3",{style:"color:var(--gold2)"},"🎵 Lettore musicale"));
   cMusic.append(el("p",{class:"muted",style:"font-size:13px"},"Carica i tuoi mp3 e crea playlist personalizzate (anche più cataloghi separati, es. «Preferiti», «Battaglia», «Taverna»). I brani restano solo su questo dispositivo. Un lettore minimal è disponibile in RPG Companion e Schermo del DM, e la musica continua in sottofondo anche muovendoti nell'app."));
   cMusic.append(el("div",{style:row+";margin-top:8px"},
     el("button",{class:"btn ghost sm",onclick:()=>musicPlayerModal()},"🎵 Apri il lettore")));
   wrap.append(cMusic);
+  }catch(e){
+    console.error("[RollOne] card Impostazioni 'Lettore musicale' non renderizzata:",e);
+    wrap.append(el("div",{class:"card"},el("h3",{style:"color:var(--gold2)"},"🎵 Lettore musicale"),
+      el("p",{class:"muted",style:"font-size:13px"},"Non disponibile in questo momento. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug.")));
+  }
 
+  try{
   const c3=el("div",{class:"card"});
   c3.append(el("h3",{style:"color:var(--red2)"},"Manutenzione"));
   c3.append(el("p",{class:"muted",style:"font-size:13px"},"Azzera tutti i tuoi dati (personaggi e creazioni). Operazione irreversibile: esporta un backup prima."));
@@ -8160,6 +8241,7 @@ function viewSettings(){
       STATE.combat={combatants:[],round:1,turn:0,active:false,log:[]};persist();go("settings");toast("Dati azzerati");
     })},"↺ Azzera tutti i dati")));
   wrap.append(c3);
+  }catch(e){ console.error("[RollOne] card Impostazioni 'Manutenzione' non renderizzata:",e); }
   return wrap;
 }
 
@@ -10782,7 +10864,7 @@ function companionDashboard(c){
   wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
     el("h2",{style:"margin:0;color:var(--gold2)"},"RPG Companion"),
     el("button",{class:"btn ghost sm",onclick:()=>go("sheet",{current:c.id})},"← Scheda completa")));
-  wrap.append(musicPlayerWidget("companion"));
+  wrap.append(musicPlayerWidgetSafe("companion"));
   // FIX (2026-09-02): la "Cronologia tiri" completa stava in fondo alla pagina, dopo la riga
   // dei moduli — l'utente doveva scorrere tutta la dashboard per vederla, mentre il senso naturale
   // è vederla subito sotto al lanciatore. Ora vive nella stessa colonna del pannello di tiro,
@@ -14727,7 +14809,7 @@ let DM_TAB="Scontro";
 function viewDMScreen(){
   const wrap=el("div",{class:"grid"});
   wrap.append(el("h2",{style:"color:var(--gold2)"},"🛡 Schermo del DM"));
-  wrap.append(musicPlayerWidget("dmscreen"));
+  wrap.append(musicPlayerWidgetSafe("dmscreen"));
   const tabs=el("div",{style:"display:flex;gap:6px;flex-wrap:wrap"});
   ["Scontro","Dadi","Riferimenti","Generatori","Negozi","Vita del Villaggio","Gilda","Mondo","Cronaca","Mappe","Campagna AI","Dungeon AI","Domini Horror","Note"].forEach(t=>{
     tabs.append(el("button",{class:"tabbtn"+(DM_TAB===t?" active":""),
@@ -20141,7 +20223,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.11.1"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.11.2"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
