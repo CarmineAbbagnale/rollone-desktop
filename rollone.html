@@ -7564,13 +7564,23 @@ async function musicUploadFiles(fileList){
   for(const f of files){
     if(!/audio\//.test(f.type) && !/\.(mp3|m4a|wav|ogg|flac)$/i.test(f.name)){ toast("Ignorato «"+f.name+"»: non sembra un file audio."); continue; }
     if(f.size>30*1024*1024){ toast("«"+f.name+"» troppo grande (max 30 MB)."); continue; }
+    // ANCORAGGIO (2026-09-06): il selettore di file di Android (Storage Access Framework) a volte
+    // restituisce un f.type vuoto o generico ("application/octet-stream") invece del vero tipo
+    // audio, specie per formati meno comuni (FLAC, M4A). Prima si forzava comunque "audio/mpeg" in
+    // quel caso: se il file non era davvero un MP3, l'elemento <audio> lo riceveva con
+    // un'etichetta sbagliata e falliva la decodifica in modo silenzioso (nessun ascoltatore
+    // "error" era presente prima di questo fix). Ora, quando manca un tipo utilizzabile, si deduce
+    // dall'estensione del nome file invece di assumere sempre mp3.
+    const extMimeMap={mp3:"audio/mpeg",m4a:"audio/mp4",wav:"audio/wav",ogg:"audio/ogg",flac:"audio/flac"};
+    const extMatch=/\.([a-z0-9]+)$/i.exec(f.name);
+    const guessedMime=(f.type&&/^audio\//.test(f.type))?f.type:(extMatch&&extMimeMap[extMatch[1].toLowerCase()])||f.type||"audio/mpeg";
     // Converto esplicitamente il File in un Blob "puro" (stessi byte, senza i metadati extra di
     // File come nome/lastModified) prima di salvarlo: alcune WebView Android più datate hanno
     // avuto bug nella clonazione strutturata proprio dell'oggetto File dentro IndexedDB, mentre il
     // supporto ai Blob è più maturo e uniforme. Costa un solo giro di copia in memoria, fatto una
     // volta al caricamento, non ad ogni riproduzione.
-    const blob=new Blob([f],{type:f.type||"audio/mpeg"});
-    const track={id:uid(),name:f.name.replace(/\.[a-z0-9]+$/i,""),mime:f.type||"audio/mpeg",size:f.size,blob,addedAt:Date.now()};
+    const blob=new Blob([f],{type:guessedMime});
+    const track={id:uid(),name:f.name.replace(/\.[a-z0-9]+$/i,""),mime:guessedMime,size:f.size,blob,addedAt:Date.now()};
     try{ await musicIdbPut("tracks",track); MUSIC_TRACKS.push(track); ok++; }
     catch(e){
       const quota=e&&(e.name==="QuotaExceededError"||/quota/i.test(e.message||""));
@@ -7617,16 +7627,37 @@ async function musicDeleteTrack(trackId){
   if(MUSIC_STATE.trackId===trackId) musicStop();
 }
 function musicCurrentOrder(){ const p=musicPlaylistById(MUSIC_STATE.playlistId); return p?p.trackIds.slice():[]; }
+// ANCORAGGIO (2026-09-06, segnalazione: "il player non funziona per niente, nessuna reazione al
+// tocco di play, mai sentita la musica su questa installazione", Android): prima, qualunque
+// eccezione qui dentro (blob corrotto/non decodificabile per come lo aveva salvato IndexedDB su
+// quel dispositivo, mime sbagliato, ecc.) falliva IN SILENZIO — la funzione è async e nessun
+// chiamante fa .catch(), quindi un errore diventava una unhandled promise rejection invisibile
+// all'utente, zero toast, zero cambio di icona: esattamente il sintomo "nessuna reazione
+// visibile". Ora ogni fallimento produce un avviso concreto invece di sparire nel nulla, e un
+// ascoltatore "error" sull'elemento audio (sotto) intercetta anche i fallimenti di decodifica che
+// avvengono DOPO l'avvio della riproduzione (asincroni rispetto a questa funzione).
 async function musicPlayTrack(playlistId,trackId){
-  await musicEnsureLoaded();
-  const track=musicTrackById(trackId); if(!track){ toast("Brano non trovato (forse eliminato)."); return; }
-  if(MUSIC_OBJECT_URL){ try{ URL.revokeObjectURL(MUSIC_OBJECT_URL); }catch(e){} MUSIC_OBJECT_URL=null; }
-  MUSIC_OBJECT_URL=URL.createObjectURL(track.blob);
-  MUSIC_AUDIO.src=MUSIC_OBJECT_URL;
-  MUSIC_STATE.playlistId=playlistId; MUSIC_STATE.trackId=trackId; MUSIC_STATE.playing=true;
-  musicSaveState();
-  MUSIC_AUDIO.dispatchEvent(new Event("rollone-trackchange"));
-  try{ await MUSIC_AUDIO.play(); }catch(e){ /* alcuni browser richiedono un gesto utente: qui è già presente, chi chiama parte sempre da un click */ }
+  try{
+    await musicEnsureLoaded();
+    const track=musicTrackById(trackId); if(!track){ toast("Brano non trovato (forse eliminato)."); return; }
+    if(!track.blob || typeof track.blob.size!=="number" || !track.blob.size){
+      toast("«"+(track.name||"brano")+"» risulta vuoto o danneggiato nel salvataggio locale. Eliminalo e ricaricalo.");
+      console.error("[RollOne] musicPlayTrack: blob mancante o vuoto per il brano",trackId,track);
+      return;
+    }
+    if(MUSIC_OBJECT_URL){ try{ URL.revokeObjectURL(MUSIC_OBJECT_URL); }catch(e){} MUSIC_OBJECT_URL=null; }
+    MUSIC_OBJECT_URL=URL.createObjectURL(track.blob);
+    MUSIC_AUDIO.src=MUSIC_OBJECT_URL;
+    MUSIC_STATE.playlistId=playlistId; MUSIC_STATE.trackId=trackId; MUSIC_STATE.playing=true;
+    musicSaveState();
+    MUSIC_AUDIO.dispatchEvent(new Event("rollone-trackchange"));
+    await MUSIC_AUDIO.play();
+  }catch(e){
+    MUSIC_STATE.playing=false; musicSaveState();
+    MUSIC_AUDIO.dispatchEvent(new Event("rollone-trackchange"));
+    console.error("[RollOne] musicPlayTrack non riuscita:",e);
+    toast("Riproduzione non riuscita: "+(e&&e.message?e.message:"errore sconosciuto")+". Se il file è in un formato raro (es. FLAC su alcuni Android), prova a ricaricarlo in MP3.");
+  }
 }
 function musicPause(){ MUSIC_AUDIO.pause(); MUSIC_STATE.playing=false; musicSaveState(); }
 async function musicResume(){
@@ -7659,6 +7690,24 @@ MUSIC_AUDIO.addEventListener("ended",()=>{
   musicNext();
 });
 MUSIC_AUDIO.addEventListener("volumechange",musicSaveState);
+// ANCORAGGIO (2026-09-06): prima non esisteva NESSUN ascoltatore "error" sull'elemento audio.
+// Un fallimento di decodifica/caricamento che avviene DOPO l'avvio di play() (asincrono rispetto
+// a musicPlayTrack, es. formato non supportato dal decoder di sistema, blob illeggibile) restava
+// invisibile: nessun toast, nessun cambio di icona, il player sembrava semplicemente "morto" —
+// esattamente il sintomo segnalato ("nessuna reazione visibile, mai sentita la musica"). Ora
+// l'errore reale del media element viene mostrato e loggato, cosa che oggi non è possibile sapere.
+MUSIC_AUDIO.addEventListener("error",()=>{
+  const err=MUSIC_AUDIO.error;
+  const codeMsg={1:"riproduzione interrotta",2:"errore di rete",3:"file audio corrotto o formato non decodificabile su questo dispositivo",4:"formato audio non supportato su questo dispositivo"};
+  const msg=err?(codeMsg[err.code]||"errore sconosciuto ("+err.code+")"):"errore sconosciuto";
+  console.error("[RollOne] MUSIC_AUDIO error:",err,"src attivo:",!!MUSIC_AUDIO.src);
+  if(MUSIC_STATE.playing){
+    MUSIC_STATE.playing=false; musicSaveState();
+    const t=musicTrackById(MUSIC_STATE.trackId);
+    toast("Impossibile riprodurre «"+(t?t.name:"il brano")+"»: "+msg+". Prova a ricaricarlo in formato MP3.");
+  }
+  MUSIC_AUDIO.dispatchEvent(new Event("rollone-trackchange"));
+});
 /* Widget minimal (RPG Companion / Schermo del DM): mostra brano corrente, play/pausa,
    avanti/indietro e un accesso rapido al lettore completo. slot distingue le due vedute così
    ognuna stacca solo i propri ascoltatori quando viene ricostruita, senza toccare l'altra. */
@@ -7778,7 +7827,7 @@ function musicRenderPlayerModal(){
   if(activePlaylist){
     wrap.append(el("div",{style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px"},
       el("button",{class:"btn sm",disabled:activePlaylist.trackIds.length?null:"disabled",onclick:()=>{
-        musicPlayTrack(activePlaylist.id,activePlaylist.trackIds[0]);
+        musicPlayTrack(activePlaylist.id,activePlaylist.trackIds[0]).then(musicRenderPlayerModal);
       }},"▶ Riproduci catalogo"),
       el("label",{style:"display:flex;align-items:center;gap:5px;font-size:12px"},
         (()=>{const cb=el("input",{type:"checkbox"}); cb.checked=MUSIC_STATE.shuffle; cb.onchange=()=>{MUSIC_STATE.shuffle=cb.checked;musicSaveState();}; return cb;})(),"mescola"),
@@ -7798,7 +7847,7 @@ function musicRenderPlayerModal(){
         (MUSIC_STATE.trackId===tid?"▶ ":"")+(t?t.name:"(brano eliminato)")));
       row.append(el("button",{class:"iconbtn",disabled:i===0?"disabled":null,onclick:()=>musicReorderTrack(activePlaylist.id,tid,-1).then(musicRenderPlayerModal)},"↑"));
       row.append(el("button",{class:"iconbtn",disabled:i===activePlaylist.trackIds.length-1?"disabled":null,onclick:()=>musicReorderTrack(activePlaylist.id,tid,1).then(musicRenderPlayerModal)},"↓"));
-      if(t) row.append(el("button",{class:"iconbtn",onclick:()=>musicPlayTrack(activePlaylist.id,tid)},"▶"));
+      if(t) row.append(el("button",{class:"iconbtn",onclick:()=>musicPlayTrack(activePlaylist.id,tid).then(musicRenderPlayerModal)},"▶"));
       row.append(el("button",{class:"iconbtn",onclick:()=>musicRemoveTrackFromPlaylist(activePlaylist.id,tid).then(musicRenderPlayerModal)},"✕"));
       plList.append(row);
     });
@@ -7813,7 +7862,7 @@ function musicRenderPlayerModal(){
     const row=el("div",{style:"display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;background:rgba(127,127,127,.05);margin-bottom:4px"});
     row.append(el("span",{style:"flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"},t.name+" · "+Math.round(t.size/1024/1024*10)/10+" MB"));
     if(activePlaylist) row.append(el("button",{class:"btn ghost sm",disabled:activePlaylist.trackIds.includes(t.id)?"disabled":null,onclick:()=>musicAddTrackToPlaylist(activePlaylist.id,t.id).then(musicRenderPlayerModal)},"+ al catalogo"));
-    row.append(el("button",{class:"iconbtn",onclick:()=>musicPlayTrack(activePlaylist?activePlaylist.id:null,t.id)},"▶"));
+    row.append(el("button",{class:"iconbtn",onclick:()=>musicPlayTrack(activePlaylist?activePlaylist.id:null,t.id).then(musicRenderPlayerModal)},"▶"));
     row.append(el("button",{class:"btn red sm",onclick:()=>confirmModal("Eliminare il brano?","«"+t.name+"» verrà rimosso dalla libreria e da ogni catalogo. Irreversibile.",()=>{
       musicDeleteTrack(t.id).then(musicRenderPlayerModal);
     })},"🗑"));
@@ -20223,7 +20272,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.11.2"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.11.3"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
