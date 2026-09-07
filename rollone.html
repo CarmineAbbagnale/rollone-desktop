@@ -1254,6 +1254,42 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
 }
 [data-theme="dark"] .cond{background:var(--r-wood-dark);border-color:var(--r-crimson-light);color:#ffcfc4}
 
+/* ================= COMMUNITY (lobby/amici) ================= */
+/* BUG CORRETTO (2026-09-07, segnalato: "il sistema di messaggistica non esiste proprio, né
+   viene visualizzata la cronologia in chat globale e privata"): comunityLobbyPanel() e
+   communityFriendChatPanel() riusavano le classi .vtt-chat-log/.vtt-msg/.vtt-btn create per il
+   Tavolo (VTT), ma le variabili --vtt-* da cui dipendono (background, colore testo) sono
+   dichiarate SOLO dentro il contenitore .vtt del Tavolo (vedi sopra) — la schermata Community
+   non ci è mai annidata dentro. Risultato verificato lato database: i messaggi venivano
+   davvero inviati e salvati (righe reali presenti in global_chat_messages), ma comparivano con
+   sfondo trasparente e per i messaggi propri un testo scurissimo (#211705) fisso su sfondo
+   scuro in tema notte — di fatto invisibili, non "assenti". Classi nuove, dedicate, legate ai
+   token di tema reali (--panelB/--ink/--line/--amber-l, definiti in :root e già corretti in
+   entrambi i temi chiaro/scuro), usate ora al posto delle .vtt-* in entrambe le chat. */
+.community-chat-log{display:flex;flex-direction:column;gap:8px;max-height:34vh;overflow-y:auto;padding:2px 2px 4px}
+.community-msg{max-width:92%;padding:8px 11px;border-radius:10px;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.community-msg.them{align-self:flex-start;background:var(--panelB);color:var(--ink);border:1px solid var(--line)}
+.community-msg.me{align-self:flex-end;background:var(--amber-l);color:#241906}
+.community-msg .who{font-size:9px;opacity:.65;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+
+/* ================= MUSIC DOCK ================= */
+/* ANCORAGGIO (2026-09-07): vedi il commento sopra musicMountDock() in rollone.html. Fisso,
+   sempre nello stesso punto, sopra la barra di navigazione mobile (#tabs, z-index:400/401 qui
+   sopra) ma sotto ai modali (che restano oltre z-index:99999), nascosto finché non c'è un brano
+   caricato (.show) e mentre un modale è aperto (.modal-open). */
+.music-dock{position:fixed;left:10px;right:10px;bottom:14px;z-index:450;display:none;
+  align-items:center;gap:10px;padding:8px 10px;border-radius:12px;
+  background:linear-gradient(180deg,var(--panelA),var(--panelB));border:1px solid var(--line);
+  box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:420px;margin:0 auto;font-family:inherit}
+.music-dock.show{display:flex}
+.music-dock.modal-open{display:none}
+[data-theme="dark"] .music-dock{background:linear-gradient(180deg,var(--r-surface-raised),var(--r-wood-dark));border-color:var(--r-bronze)}
+.music-dock-info{flex:1;min-width:0;cursor:pointer}
+.music-dock-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-dock-bar{height:3px;background:rgba(127,127,127,.25);border-radius:2px;margin-top:5px;overflow:hidden}
+.music-dock-fill{height:100%;width:0%;background:var(--gold2,#e0a83c)}
+.music-dock-controls{display:flex;gap:4px;align-items:center;flex:0 0 auto}
+
 /* ================= RESPONSIVE ================= */
 @media(max-width:1040px){
   .app-shell{flex-direction:column}
@@ -1322,6 +1358,9 @@ label.fld > span{display:block;font-size:11px;color:var(--muted);margin-bottom:6
      nuova barra così non ci finiscono nascosti sotto (bottom impostato inline, serve !important). */
   #remoteSyncBar{bottom:calc(64px + env(safe-area-inset-bottom)) !important}
   .toast{bottom:calc(74px + env(safe-area-inset-bottom))}
+  /* Il dock musicale (vedi sopra) usa lo stesso accorgimento: sollevato sopra la barra di
+     navigazione fissa mobile, mai nascosto sotto di essa. */
+  .music-dock{left:8px;right:8px;bottom:calc(64px + env(safe-area-inset-bottom) + 8px)}
   /* GRIGLIE -> colonna singola o compatte */
   .twocol,.threecol{grid-template-columns:1fr}
   .abil-grid,.abil-assign,.statblock .abil6{grid-template-columns:repeat(3,1fr)}
@@ -5523,7 +5562,27 @@ async function mpSyncAccountOnLogin(){
       const localJson=JSON.stringify(mpSanitizeAccountStateForCloud());
       const localHash=mpHashStr(localJson);
       if(!STATE.mp.lastSyncedHash || localHash!==STATE.mp.lastSyncedHash){
-        await mpPushAccountState(true);
+        // BUG CORRETTO (2026-09-07, segnalato: "quando sincronizza i dati con il server scarica
+        // in automatico i bug ed errori in precedenza"): questo ramo pensava "ho modifiche locali
+        // non ancora inviate" da un semplice hash diverso, e le spediva SEMPRE al cloud con
+        // force=true — anche quando quelle "modifiche locali" erano in realtà una copia VECCHIA,
+        // rimasta su questo dispositivo da prima dell'ultimo accesso da un altro (es. telefono
+        // lasciato offline per giorni mentre PC/tablet continuavano a giocare e correggere dati).
+        // In quel caso il dispositivo vecchio sovrascriveva silenziosamente sul server i dati più
+        // recenti e corretti dell'altro dispositivo con la propria copia superata — e quella copia
+        // superata è poi quella che TUTTI gli altri dispositivi si ritrovavano "scaricata in
+        // automatico" al sync successivo, riportando indietro problemi già risolti altrove. Ora si
+        // confronta anche quando il cloud è stato aggiornato l'ultima volta: se è DOPO l'ultimo
+        // sync noto di QUESTO dispositivo, vuol dire che un altro dispositivo ha scritto nel
+        // frattempo — in quel caso non si sovrascrive più in silenzio, si chiede esplicitamente
+        // quale versione tenere (stessa schermata di conflitto già usata al primo accesso).
+        const cloudIsNewerThanLastKnownSync = data.updated_at && STATE.mp.lastAccountSyncAt &&
+          (new Date(data.updated_at).getTime() > STATE.mp.lastAccountSyncAt);
+        if(cloudIsNewerThanLastKnownSync){
+          accountSyncConflictModal(data);
+        }else{
+          await mpPushAccountState(true);
+        }
       }else{
         mpApplyCloudAccountState(data);
       }
@@ -5536,7 +5595,7 @@ async function mpSyncAccountOnLogin(){
 function accountSyncConflictModal(cloudRow){
   const body=el("div",{});
   body.append(el("p",{style:"font-size:13px;line-height:1.6"},
-    "Questo dispositivo ha dati di gioco che non sono ancora mai stati sincronizzati con il tuo account, e il tuo account ha già altri dati salvati nel cloud (probabilmente da un altro dispositivo). Quali vuoi tenere?"));
+    "Questo dispositivo ha dati di gioco locali che potrebbero non coincidere con l'ultima versione salvata nel cloud (probabilmente aggiornata da un altro dispositivo nel frattempo). Quali vuoi tenere?"));
   body.append(el("p",{class:"muted",style:"font-size:12px"},"Ultimo aggiornamento nel cloud: "+(cloudRow.updated_at?new Date(cloudRow.updated_at).toLocaleString():"n/d")));
   const cloudBtn=el("button",{class:"btn",onclick:()=>{ mpApplyCloudAccountState(cloudRow); closeModal(); }},"☁ Usa i dati del cloud (di un altro dispositivo)");
   const localBtn=el("button",{class:"btn ghost",onclick:async()=>{ await mpPushAccountState(true); closeModal(); toast("Dati di questo dispositivo caricati sul cloud."); }},"📱 Usa i dati di questo dispositivo (sovrascrive il cloud)");
@@ -6120,7 +6179,7 @@ function communityLobbyPanel(){
   const wrap=el("div",{class:"card"});
   wrap.append(el("div",{class:"section-title",style:"font-size:13px"},"💬 Lobby pubblica",el("span",{class:"ln"})));
   wrap.append(el("p",{class:"muted",style:"font-size:12px"},"Visibile a chiunque abbia un account RollOne e sia collegato: usala per trovare compagni di gioco, non per la campagna (quella ha la sua chat dedicata al Tavolo)."));
-  const scroll=el("div",{class:"vtt-chat-log"});
+  const scroll=el("div",{class:"community-chat-log"});
   if(!GLOBAL_CHAT_CACHE.loaded){
     scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Carico la lobby…"));
     communityFetchGlobalChat().then(()=>{ communitySubscribeGlobalChat(); render(); });
@@ -6129,7 +6188,7 @@ function communityLobbyPanel(){
     if(!GLOBAL_CHAT_CACHE.msgs.length) scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Nessun messaggio ancora: scrivi il primo."));
     GLOBAL_CHAT_CACHE.msgs.forEach(m=>{
       const mine=m.sender_id===MP_USER_ID;
-      scroll.append(el("div",{class:"vtt-msg "+(mine?"me":"them")},
+      scroll.append(el("div",{class:"community-msg "+(mine?"me":"them")},
         mine?null:el("div",{class:"who"},communityName(m.sender_id)),
         m.text));
     });
@@ -6141,7 +6200,7 @@ function communityLobbyPanel(){
     const input=el("textarea",{rows:"1",placeholder:"Scrivi nella lobby…",style:"width:100%;resize:none"});
     const sendIt=()=>{ const v=input.value; if(!v.trim()) return; input.value=""; communitySendGlobalChat(v); };
     input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendIt(); } });
-    const sendBtn=el("button",{class:"vtt-btn primary",onclick:sendIt},"Invia");
+    const sendBtn=el("button",{class:"btn sm",onclick:sendIt},"Invia");
     wrap.append(el("div",{style:"display:flex;gap:6px;align-items:flex-end;margin-top:6px"},input,sendBtn));
   }
   setTimeout(()=>{ scroll.scrollTop=scroll.scrollHeight; },30);
@@ -6240,7 +6299,7 @@ function communityFriendChatPanel(friendId,friendName){
   wrap.append(el("div",{style:"display:flex;align-items:center;gap:8px;margin-bottom:6px"},
     el("button",{class:"btn ghost sm",onclick:()=>{ COMMUNITY_ACTIVE_FRIEND=null; communityUnsubscribeFriendChat(); render(); }},"← Amici"),
     el("b",{},friendName)));
-  const scroll=el("div",{class:"vtt-chat-log"});
+  const scroll=el("div",{class:"community-chat-log"});
   const log=FRIEND_CHAT_CACHE[friendId];
   if(log===undefined){
     scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Carico la chat…"));
@@ -6250,7 +6309,7 @@ function communityFriendChatPanel(friendId,friendName){
     if(!log.length) scroll.append(el("div",{class:"muted",style:"font-size:12px;padding:6px"},"Nessun messaggio ancora: scrivi il primo."));
     log.forEach(m=>{
       const mine=m.sender_id===MP_USER_ID;
-      scroll.append(el("div",{class:"vtt-msg "+(mine?"me":"them")},
+      scroll.append(el("div",{class:"community-msg "+(mine?"me":"them")},
         mine?null:el("div",{class:"who"},friendName),
         m.text));
     });
@@ -6259,7 +6318,7 @@ function communityFriendChatPanel(friendId,friendName){
   const input=el("textarea",{rows:"1",placeholder:"Scrivi a "+friendName+"…",style:"width:100%;resize:none"});
   const sendIt=()=>{ const v=input.value; if(!v.trim()) return; input.value=""; communitySendFriendChat(friendId,v); };
   input.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendIt(); } });
-  const sendBtn=el("button",{class:"vtt-btn primary",onclick:sendIt},"Invia");
+  const sendBtn=el("button",{class:"btn sm",onclick:sendIt},"Invia");
   wrap.append(el("div",{style:"display:flex;gap:6px;align-items:flex-end;margin-top:6px"},input,sendBtn));
   setTimeout(()=>{ scroll.scrollTop=scroll.scrollHeight; },30);
   return wrap;
@@ -7793,6 +7852,61 @@ function musicPlayerWidgetSafe(slot){
       el("div",{class:"muted",style:"font-size:12.5px"},"Il lettore non è riuscito a caricarsi in questo momento. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug."));
   }
 }
+// ANCORAGGIO (2026-09-07, richiesta esplicita di Carmine dopo l'ennesima sparizione del lettore,
+// segnalata di nuovo dopo il fix di isolamento della v1.11.6: "deve stare ancorato, qualsiasi cosa
+// succeda, non deve muoversi da dove lo abbiamo posizionato"): finché il widget minimal viveva
+// dentro l'albero di render() (RPG Companion, Schermo del DM), ogni bug di UNA vista poteva farlo
+// sparire insieme al resto — un try/catch in più sposta solo dove si nasconde il problema, non lo
+// elimina alla radice, come dimostrato dal fatto che è già successo due volte in due punti diversi
+// del codice (v1.11.2, poi di nuovo v1.11.6 in un'altra card). La soluzione strutturale è togliere
+// il lettore da quell'albero: questo "dock" viene creato UNA SOLA VOLTA (la guardia MUSIC_DOCK_EL
+// impedisce ricreazioni), appeso direttamente a <body> — MAI a #app, che render() svuota e
+// ricostruisce ad ogni cambio schermata (vedi "app.innerHTML=''" in render()) — e non viene più
+// toccato per tutta la vita della pagina. Resta fisso nello stesso punto (basso schermo, sopra la
+// barra di navigazione su mobile) su OGNI schermata dell'app, non solo Companion/Schermo del DM
+// come prima, e sopravvive a qualunque eccezione di rendering di qualunque vista, al cambio
+// schermata, all'apertura di modali (si nasconde da solo mentre un modale è aperto, per non
+// duplicare i controlli sopra il lettore completo che ha già la sua barra "In riproduzione").
+let MUSIC_DOCK_EL=null;
+function musicMountDock(){
+  if(MUSIC_DOCK_EL || !document.body) return;
+  try{
+    const dock=el("div",{class:"music-dock"});
+    const info=el("div",{class:"music-dock-info",onclick:()=>musicPlayerModal()});
+    const trackName=el("div",{class:"music-dock-name"},"Nessun brano in riproduzione");
+    const progressFill=el("div",{class:"music-dock-fill"});
+    const progress=el("div",{class:"music-dock-bar"},progressFill);
+    info.append(trackName,progress);
+    const playBtn=el("button",{class:"iconbtn",onclick:(e)=>{e.stopPropagation();musicToggle();}},"▶");
+    const controls=el("div",{class:"music-dock-controls"},
+      el("button",{class:"iconbtn",onclick:(e)=>{e.stopPropagation();musicPrev();}},"⏮"), playBtn,
+      el("button",{class:"iconbtn",onclick:(e)=>{e.stopPropagation();musicNext();}},"⏭"));
+    dock.append(info,controls);
+    document.body.appendChild(dock);
+    MUSIC_DOCK_EL=dock;
+    function refresh(){
+      const t=musicTrackById(MUSIC_STATE.trackId);
+      if(!t){ dock.classList.remove("show"); return; }
+      trackName.textContent=t.name;
+      playBtn.textContent=MUSIC_STATE.playing?"⏸":"▶";
+      const pct=(MUSIC_AUDIO.duration&&isFinite(MUSIC_AUDIO.duration))?(MUSIC_AUDIO.currentTime/MUSIC_AUDIO.duration*100):0;
+      progressFill.style.width=pct+"%";
+      dock.classList.add("show");
+    }
+    ["play","pause","timeupdate","loadedmetadata","ended","rollone-trackchange"].forEach(evt=>{
+      MUSIC_AUDIO.addEventListener(evt,refresh);
+    });
+    // Il dock si nasconde da solo mentre un modale è aperto (es. il lettore completo, che ha
+    // già la sua barra "In riproduzione"), per non duplicare i controlli sopra il modale.
+    const modalRoot=document.getElementById("modalRoot");
+    if(modalRoot){
+      const obs=new MutationObserver(()=>{ dock.classList.toggle("modal-open", !!modalRoot.children.length); });
+      obs.observe(modalRoot,{childList:true});
+    }
+    musicEnsureLoaded().then(refresh).catch(()=>{});
+    refresh();
+  }catch(e){ console.error("[RollOne] musicMountDock() non montato:",e); }
+}
 /* Piccola finestra di testo riusabile per nome/rinomina catalogo. Non uso window.prompt(): il
    resto dell'app evita deliberatamente i dialog nativi del browser (vedi customSelect/styleSelect
    qui sopra, introdotti apposta perché i popup di sistema rompono lo stile su Android), e
@@ -8051,6 +8165,22 @@ function viewSettings(){
     wrap.append(cUpd);
    }catch(e){ console.error("[RollOne] card Impostazioni 'Aggiornamenti' non renderizzata:",e); }
   }
+
+  // NUOVO (2026-09-07, richiesta esplicita: "indica anche la connessione con il link di
+  // discord, posizionamento sotto ad aggiornamenti"). Link reale del server, lo stesso già
+  // pubblicato sul sito ufficiale (pagina "La mia App"): https://discord.gg/JBzqEzEjX. Visibile
+  // su ogni piattaforma (non solo dentro l'app nativa/Electron come «Aggiornamenti» qui sopra):
+  // è solo un collegamento esterno, ha senso ovunque.
+  try{
+  const cDiscord=el("div",{class:"card"});
+  cDiscord.append(el("h3",{style:"color:var(--gold2)"},"💬 Discord"));
+  cDiscord.append(el("p",{class:"muted",style:"font-size:13px"},"Entra nel server Discord ufficiale di RollOne: novità, changelog, segnalazioni bug e i tavoli di gioco della community."));
+  cDiscord.append(el("div",{style:row+";margin-top:8px"},
+    el("button",{class:"btn ghost sm",onclick:()=>{
+      try{ window.open("https://discord.gg/JBzqEzEjX","_blank","noopener"); }catch(e){}
+    }},"💬 Entra nel server Discord")));
+  wrap.append(cDiscord);
+  }catch(e){ console.error("[RollOne] card Impostazioni 'Discord' non renderizzata:",e); }
 
   try{
   const cAI=el("div",{class:"card"});
@@ -8367,7 +8497,7 @@ function viewSettings(){
   try{
   const cMusic=el("div",{class:"card"});
   cMusic.append(el("h3",{style:"color:var(--gold2)"},"🎵 Lettore musicale"));
-  cMusic.append(el("p",{class:"muted",style:"font-size:13px"},"Carica i tuoi mp3 e crea playlist personalizzate (anche più cataloghi separati, es. «Preferiti», «Battaglia», «Taverna»). I brani restano solo su questo dispositivo. Un lettore minimal è disponibile in RPG Companion e Schermo del DM, e la musica continua in sottofondo anche muovendoti nell'app."));
+  cMusic.append(el("p",{class:"muted",style:"font-size:13px"},"Carica i tuoi mp3 e crea playlist personalizzate (anche più cataloghi separati, es. «Preferiti», «Battaglia», «Taverna»). I brani restano solo su questo dispositivo. Quando un brano è caricato, un lettore minimo resta ancorato in basso su ogni schermata dell'app (non solo in RPG Companion e Schermo del DM), e la musica continua in sottofondo anche muovendoti nell'app."));
   cMusic.append(el("div",{style:row+";margin-top:8px"},
     el("button",{class:"btn ghost sm",onclick:()=>musicPlayerModal()},"🎵 Apri il lettore")));
   wrap.append(cMusic);
@@ -9911,6 +10041,10 @@ function applyModeVisibility(){
   if(tavoloBtn) tavoloBtn.style.display="none";
 }
 function render(){
+  // ANCORAGGIO (2026-09-07): monta il dock musicale globale (vedi il commento sopra
+  // musicMountDock()) alla primissima occasione utile, prima di qualunque return anticipato
+  // di questa funzione (schermata di login, scelta modalità) — così resta ancorato anche lì.
+  try{ musicMountDock(); }catch(e){}
   if(!AUTH_GATE_PASSED){ renderAuthGate(); return; }
   const _authRoot=document.getElementById("authGateRoot"); if(_authRoot) _authRoot.remove();
   if(!STATE.mode){ renderModeGate(); return; }
@@ -11029,7 +11163,10 @@ function companionDashboard(c){
   wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
     el("h2",{style:"margin:0;color:var(--gold2)"},"RPG Companion"),
     el("button",{class:"btn ghost sm",onclick:()=>go("sheet",{current:c.id})},"← Scheda completa")));
-  wrap.append(musicPlayerWidgetSafe("companion"));
+  // ANCORAGGIO (2026-09-07): il widget musicale embedded qui è stato rimosso a favore del
+  // "dock" globale (musicMountDock(), vedi il modulo musica) — appeso una sola volta a <body>
+  // invece che ricostruito ad ogni render di questa vista, così non sparisce più insieme alla
+  // dashboard se qualcosa qui dentro fallisce, e non si sposta mai da dove Carmine lo vede.
   // FIX (2026-09-02): la "Cronologia tiri" completa stava in fondo alla pagina, dopo la riga
   // dei moduli — l'utente doveva scorrere tutta la dashboard per vederla, mentre il senso naturale
   // è vederla subito sotto al lanciatore. Ora vive nella stessa colonna del pannello di tiro,
@@ -11066,7 +11203,6 @@ function companionDashboard(c){
     wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
       el("h2",{style:"margin:0;color:var(--gold2)"},"RPG Companion"),
       el("button",{class:"btn ghost sm",onclick:()=>go("sheet",{current:c.id})},"← Scheda completa")));
-    try{ wrap.append(musicPlayerWidgetSafe("companion")); }catch(e2){}
     wrap.append(el("div",{class:"card"},
       el("p",{class:"muted",style:"font-size:13px"},"Questa schermata non si è caricata correttamente. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug.")));
   }
@@ -14984,7 +15120,8 @@ let DM_TAB="Scontro";
 function viewDMScreen(){
   const wrap=el("div",{class:"grid"});
   wrap.append(el("h2",{style:"color:var(--gold2)"},"🛡 Schermo del DM"));
-  wrap.append(musicPlayerWidgetSafe("dmscreen"));
+  // ANCORAGGIO (2026-09-07): vedi il commento in companionDashboard() — il widget musicale
+  // embedded è stato sostituito dal "dock" globale ancorato a <body> (musicMountDock()).
   const tabs=el("div",{style:"display:flex;gap:6px;flex-wrap:wrap"});
   ["Scontro","Dadi","Riferimenti","Generatori","Negozi","Vita del Villaggio","Gilda","Mondo","Cronaca","Mappe","Campagna AI","Dungeon AI","Domini Horror","Note"].forEach(t=>{
     tabs.append(el("button",{class:"tabbtn"+(DM_TAB===t?" active":""),
@@ -20398,7 +20535,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.11.6"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.11.7"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";
