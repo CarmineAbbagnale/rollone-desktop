@@ -8155,6 +8155,13 @@ function viewSettings(){
   // in-app, una privacy policy, una spiegazione dei dati trattati, un modo di eliminare
   // l'account e un riepilogo dei permessi/consensi richiesti. Segue lo stesso stile a
   // card/section-title delle altre schede di questa vista.
+  // ANCORAGGIO (2026-09-07, segnalazione ricorrente: lettore musicale sparito di nuovo dopo
+  // chiusura/riapertura, anche dopo reinstallazione pulita): questa card, "Segnala bug" e
+  // "Modalità" sotto erano rimaste le uniche NON isolate in questa funzione — costruite PRIMA
+  // di Leggibilità/I tuoi dati/Lettore musicale/Manutenzione, un'eccezione qui bloccava
+  // silenziosamente tutte le card successive, esattamente come il bug già corretto per la card
+  // "Account" il 2026-09-05. Isolata allo stesso modo.
+  try{
   const cPriv=el("div",{class:"card"});
   cPriv.append(el("h3",{style:"color:var(--gold2)"},"🔒 Privacy e Account"));
 
@@ -8210,6 +8217,11 @@ function viewSettings(){
         persist(); go("settings"); toast("Account e dati eliminati.");
       })},"🗑 Elimina il mio account")));
   wrap.append(cPriv);
+  }catch(e){
+    console.error("[RollOne] card Impostazioni 'Privacy e Account' non renderizzata:",e);
+    wrap.append(el("div",{class:"card"},el("h3",{style:"color:var(--gold2)"},"🔒 Privacy e Account"),
+      el("p",{class:"muted",style:"font-size:13px"},"Non disponibile in questo momento. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug.")));
+  }
 
   // NUOVO (2026-09-01): "Segnala bug" — testo + fino a 5 foto, salvati su Supabase (bucket
   // "bug-reports" + tabella "bug_reports"). Funziona anche senza account multiplayer: la
@@ -8217,6 +8229,7 @@ function viewSettings(){
   // pubblica dell'app. Non c'è ancora invio email automatico verso lo sviluppatore: le
   // segnalazioni si consultano dal pannello Supabase finché non viene collegato un servizio
   // email dedicato (richiede credenziali che l'utente deve fornire lui stesso).
+  try{
   const cBug=el("div",{class:"card"});
   cBug.append(el("h3",{style:"color:var(--gold2)"},"🐞 Segnala bug"));
   cBug.append(el("p",{class:"muted",style:"font-size:13px"},"Descrivi cosa non ha funzionato: più dettagli dai (cosa stavi facendo, cosa ti aspettavi), più è facile trovare e sistemare il problema. Puoi allegare fino a 5 foto o screenshot."));
@@ -8279,7 +8292,13 @@ function viewSettings(){
   }},"📨 Invia segnalazione");
   cBug.append(bugSendBtn);
   wrap.append(cBug);
+  }catch(e){
+    console.error("[RollOne] card Impostazioni 'Segnala bug' non renderizzata:",e);
+    wrap.append(el("div",{class:"card"},el("h3",{style:"color:var(--gold2)"},"🐞 Segnala bug"),
+      el("p",{class:"muted",style:"font-size:13px"},"Non disponibile in questo momento. Chiudi e riapri RollOne; se il problema resta, riprova più tardi.")));
+  }
 
+  try{
   const cMode=el("div",{class:"card"});
   cMode.append(el("h3",{style:"color:var(--gold2)"},"🎭 Modalità"));
   cMode.append(el("p",{class:"muted",style:"font-size:13px"},"Modalità attuale: "),
@@ -8289,6 +8308,7 @@ function viewSettings(){
   cMode.append(el("div",{style:row+";margin-top:8px"},
     el("button",{class:"btn ghost sm",onclick:()=>{STATE.mode=null;save();render();}},"⇄ Cambia modalità")));
   wrap.append(cMode);
+  }catch(e){ console.error("[RollOne] card Impostazioni 'Modalità' non renderizzata:",e); }
 
   try{
   const cRead=el("div",{class:"card"});
@@ -10992,8 +11012,20 @@ function viewCompanion(){
   return companionDashboard(c);
 }
 function companionDashboard(c){
-  const d=derived(c);
+  // ANCORAGGIO (2026-09-07, segnalazione ricorrente: lettore musicale sparito dopo
+  // chiusura/riapertura anche dopo reinstallazione pulita): questa funzione non aveva MAI
+  // alcun isolamento try/catch, a differenza di viewSettings() dove lo stesso genere di bug
+  // era già stato corretto per le sue card il 2026-09-05. Qui il rischio era anche peggiore:
+  // derived(c) veniva calcolato PRIMA di aggiungere il widget musicale al wrap — un'eccezione
+  // in derived(c) (o in una qualunque parte della dashboard, es. dati di un personaggio
+  // corrotti/parziali dopo un aggiornamento) faceva sparire l'intera schermata RPG Companion,
+  // widget musicale incluso, senza che restasse traccia visibile del motivo. Ora l'intera
+  // costruzione è protetta: se qualcosa fallisce, il widget musicale (la parte più segnalata
+  // come mancante) viene comunque mostrato, insieme a un messaggio d'errore invece di uno
+  // schermo vuoto o bloccato.
   const wrap=el("div",{class:"companion-wrap"});
+  try{
+  const d=derived(c);
   wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
     el("h2",{style:"margin:0;color:var(--gold2)"},"RPG Companion"),
     el("button",{class:"btn ghost sm",onclick:()=>go("sheet",{current:c.id})},"← Scheda completa")));
@@ -11028,6 +11060,16 @@ function companionDashboard(c){
     companionResourcesPanel(c,d));
   wrap.append(grid);
   wrap.append(companionModuleRow(c));
+  }catch(e){
+    console.error("[RollOne] RPG Companion non renderizzato:",e);
+    wrap.innerHTML="";
+    wrap.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
+      el("h2",{style:"margin:0;color:var(--gold2)"},"RPG Companion"),
+      el("button",{class:"btn ghost sm",onclick:()=>go("sheet",{current:c.id})},"← Scheda completa")));
+    try{ wrap.append(musicPlayerWidgetSafe("companion")); }catch(e2){}
+    wrap.append(el("div",{class:"card"},
+      el("p",{class:"muted",style:"font-size:13px"},"Questa schermata non si è caricata correttamente. Chiudi e riapri RollOne; se il problema resta, segnalalo da Impostazioni → Bug.")));
+  }
   return wrap;
 }
 
@@ -20356,7 +20398,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
-  var ROLLONE_CONTENT_VERSION = "1.11.5"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
+  var ROLLONE_CONTENT_VERSION = "1.11.6"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola)
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // versione realmente in esecuzione in questo momento
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";

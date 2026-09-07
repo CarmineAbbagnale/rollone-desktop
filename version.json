@@ -1,7 +1,7 @@
 {
-  "version": "1.11.5",
+  "version": "1.11.6",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "960ab0e9cb70bc32b0e3bcc52317bb6c3995b3ece60dd574c900f66b6fc0214e",
+  "sha256": "45bfd0ea0abef2ae4abdf60859072b420fc02428bf1115ebde0fe99eaae0a139",
   "apk": {
     "minVersionName": "1.10.2",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
