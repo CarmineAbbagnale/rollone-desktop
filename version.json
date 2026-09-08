@@ -1,10 +1,10 @@
 {
-  "version": "1.12.2",
+  "version": "1.12.3",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "1bf88c0e9a1473108dd50f52bdabd96b5003776535b2cca242887ba64e042250",
+  "sha256": "00294cbbfd56553b470f4658b758b0b88d4fc404f194ecca9de487e8800715e4",
   "apk": {
-    "minVersionName": "1.12.1",
+    "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Corretto un bug grave su Android: durante lo scroll di alcuni pannelli (es. selezione talenti) l'app poteva rimpicciolirsi in un angolo dello schermo e bloccarsi. Causa: la funzione di zoom con due dita, aggiunta pochi giorni fa, e' stata rimossa perche' instabile. Consigliato aggiornare l'APK."
+    "notice": "Aggiornamento consigliato: risolto un bug su Android che poteva rimpicciolire e bloccare l'app durante la creazione del personaggio, l'aumento delle caratteristiche o la scelta di un talento, finche' non si ruotava lo schermo."
   }
 }
