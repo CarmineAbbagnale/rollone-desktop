@@ -1,10 +1,10 @@
 {
-  "version": "1.12.0",
+  "version": "1.12.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "21918418f9abb95a12df5f3a9d9fc22555380e1536bb1740e8e2cd22e8bdb260",
+  "sha256": "de02a1ba330c4291a1187bf186400859e3e26018e0800ceed2d4a6f855d3ef48",
   "apk": {
-    "minVersionName": "1.12.0",
+    "minVersionName": "1.12.1",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "L'app e' stata rinominata da RollOne a Fumble RPG e l'APK Android e' stato ricostruito da zero (stesso account, nessuna perdita di progressi): serve scaricare e installare di nuovo l'APK dalla pagina Download."
+    "notice": "Corretto un bug grave su Android: durante lo scroll di alcuni pannelli (es. selezione talenti) l'app poteva rimpicciolirsi in un angolo dello schermo e bloccarsi. Causa: la funzione di zoom con due dita, aggiunta pochi giorni fa, e' stata rimossa perche' instabile. Consigliato aggiornare l'APK."
   }
 }
