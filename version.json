@@ -1,10 +1,10 @@
 {
-  "version": "1.12.14",
+  "version": "1.12.15",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "70265d9a968ecb546c910b1527df123d520afa2cd4e3b4643e027ec23df53b94",
+  "sha256": "863574e9f91f634eecd99aceeb6df8485b3f1df9a67b05d5775c8b98f0aad79b",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Aggiornamento contenuti: terza parte dell'audit Creative Commons/SRD, ora sui mostri. Individuate e segnalate 20 nuove creature dal nome/lore chiaramente proprietario Wizards (es. Cloaker, Intellect Devourer, Yugoloth); tolto da 4 nomi il riferimento tra parentesi al nome commerciale inglese. Nessun dato rimosso."
+    "notice": "Controllo copyright testuale sugli incantesimi ufficiali non-SRD: 55 descrizioni riscritte in forma originale (meccaniche di gioco invariate). Corretta anche l'etichettatura di 3 mostri segnalati per errore come non-SRD."
   }
 }
