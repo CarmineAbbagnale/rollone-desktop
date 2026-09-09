@@ -1,10 +1,10 @@
 {
-  "version": "1.12.11",
+  "version": "1.12.12",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "399a762758eea3883546033c72724006b4a94397c89fdbb4e4b290e468409370",
+  "sha256": "644376efbd649e96cf58894664b445276a6e392153859cfb410de144b6a39594",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Aggiornamento consigliato: risolto un bug su Android che poteva rimpicciolire e bloccare l'app durante la creazione del personaggio, l'aumento delle caratteristiche o la scelta di un talento, finche' non si ruotava lo schermo."
+    "notice": "Aggiornamento contenuti: corretti i claim fuorvianti sulla conformita' Creative Commons/SRD, aggiunti badge di fonte (SRD/ufficiale D&D/homebrew) su specie, background, mostri e talenti, e tolti dai nomi di 10 mostri i riferimenti tra parentesi ai nomi commerciali Wizards (es. Beholder)."
   }
 }
