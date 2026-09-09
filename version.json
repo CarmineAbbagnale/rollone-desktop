@@ -1,10 +1,10 @@
 {
-  "version": "1.12.15",
+  "version": "1.12.16",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "863574e9f91f634eecd99aceeb6df8485b3f1df9a67b05d5775c8b98f0aad79b",
+  "sha256": "6bad97d08ffda7c30c5135586efb8982efa1d38bd063ba5ccdd8206e5c263b6b",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Controllo copyright testuale sugli incantesimi ufficiali non-SRD: 55 descrizioni riscritte in forma originale (meccaniche di gioco invariate). Corretta anche l'etichettatura di 3 mostri segnalati per errore come non-SRD."
+    "notice": "Corretto bug: alcuni talenti che concedono incantesimi a scelta (Marchi di Eberron, talenti di Strixhaven e altri) non mostravano più alcun modo di completare la scelta sulla scheda personaggio."
   }
 }
