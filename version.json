@@ -1,10 +1,10 @@
 {
-  "version": "1.12.17",
+  "version": "1.12.18",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "55295ea76c7f477f22ab5f77857e6e522f5589b61d6e5eb16e50ac04c1658f69",
+  "sha256": "b3b071e12617eedc13de64806edba67dc69551b4df815f7a271b327552335a30",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Corretto in modo strutturale il bug per cui, dopo un aggiornamento, potevano ritornare bug già risolti in passato: gli aggiornamenti ora vengono scritti anche su disco e collegati al motore nativo dell'app, cosi un riavvio vero mostra sempre l'ultima versione scaricata."
+    "notice": "Risolto lo zoom improvviso/schermo che si rimpicciolisce sulla card Allineamento e ruolo, causato da un aggiornamento in background (sync account) che toglieva bruscamente il focus a un campo di testo. Inoltre i personaggi sincronizzati dall'account ora vengono sempre riadattati ai campi della versione installata, invece di restare con dati vecchi che riportavano bug già corretti."
   }
 }
