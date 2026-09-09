@@ -1,10 +1,10 @@
 {
-  "version": "1.12.12",
+  "version": "1.12.14",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "644376efbd649e96cf58894664b445276a6e392153859cfb410de144b6a39594",
+  "sha256": "70265d9a968ecb546c910b1527df123d520afa2cd4e3b4643e027ec23df53b94",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Aggiornamento contenuti: corretti i claim fuorvianti sulla conformita' Creative Commons/SRD, aggiunti badge di fonte (SRD/ufficiale D&D/homebrew) su specie, background, mostri e talenti, e tolti dai nomi di 10 mostri i riferimenti tra parentesi ai nomi commerciali Wizards (es. Beholder)."
+    "notice": "Aggiornamento contenuti: terza parte dell'audit Creative Commons/SRD, ora sui mostri. Individuate e segnalate 20 nuove creature dal nome/lore chiaramente proprietario Wizards (es. Cloaker, Intellect Devourer, Yugoloth); tolto da 4 nomi il riferimento tra parentesi al nome commerciale inglese. Nessun dato rimosso."
   }
 }
