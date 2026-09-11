@@ -1,10 +1,10 @@
 {
-  "version": "1.12.19",
+  "version": "1.12.20",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "c52fa679a187e25079b4bf9850cd697c2b6f852f6e4e1be5f513c30dcbe33d45",
+  "sha256": "35109d4b493ba4c880bb654b85ba627ac9c29e9740d888b1b003dc30e66f9c0f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Nuova sezione 'RPG Library' in Impostazioni: mostra D&D 5e (attivo) e i prossimi sistemi di gioco di ruolo in arrivo sulla piattaforma."
+    "notice": "Riattivate Tavolo/VTT e griglia tattica ed Esplora Dungeon (erano disattivate su richiesta precedente). Lettore musicale: aggiunto uno Stop dedicato che chiude il lettore in un tocco, e un pulsante Chiudi ben visibile in fondo alla libreria."
   }
 }
