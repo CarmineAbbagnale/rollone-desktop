@@ -8592,8 +8592,66 @@ function viewSettings(){
     })},"↺ Azzera tutti i dati")));
   wrap.append(c3);
   }catch(e){ console.error("[Fumble RPG] card Impostazioni 'Manutenzione' non renderizzata:",e); }
+
+  try{
+  const cRpg=el("div",{class:"card"});
+  cRpg.append(el("h3",{style:"color:var(--gold2)"},"📚 RPG Library"));
+  cRpg.append(el("p",{class:"muted",style:"font-size:13px"},"Fumble RPG sta diventando una piattaforma per più sistemi di gioco di ruolo, ognuno con le proprie regole e modalità di gioco. Oggi è attivo D&D 5e; altri sistemi sono in arrivo."));
+  cRpg.append(el("button",{class:"btn",onclick:()=>go("rpglibrary")},"Apri RPG Library"));
+  wrap.append(cRpg);
+  }catch(e){ console.error("[Fumble RPG] card Impostazioni 'RPG Library' non renderizzata:",e); }
   return wrap;
 }
+
+/* =========================================================================
+   RPG LIBRARY (2026-09-11): schermata "scegli il tuo RPG". D&D è l'unico
+   sistema attivo oggi, tutti gli altri sono presenti come catalogo
+   "coming soon" — nessun adapter reale, solo vetrina. Non tocca in alcun
+   modo la logica D&D esistente: è una vista aggiuntiva nel router, uguale
+   a qualsiasi altra (vedi switch in render()).
+   ========================================================================= */
+const RPG_CATALOG=[
+  {id:"dnd",name:"D&D 5e",genre:"Fantasy",desc:"Dungeons & Dragons, quinta edizione. Schede, classi, bestiario, forgia, compendio, campagne condivise.",status:"active",icon:"🐉"},
+  {id:"pathfinder",name:"Pathfinder",genre:"Fantasy",desc:"In arrivo.",status:"coming_soon",icon:"🗡️"},
+  {id:"coc",name:"Call of Cthulhu",genre:"Horror",desc:"In arrivo.",status:"coming_soon",icon:"🐙"},
+  {id:"cyberpunk",name:"Cyberpunk RED",genre:"Cyberpunk",desc:"In arrivo.",status:"coming_soon",icon:"🤖"},
+  {id:"vampire",name:"Vampire: the Masquerade",genre:"Horror",desc:"In arrivo.",status:"coming_soon",icon:"🩸"},
+  {id:"shadowrun",name:"Shadowrun",genre:"Cyberpunk",desc:"In arrivo.",status:"coming_soon",icon:"🌆"},
+  {id:"warhammer",name:"Warhammer Fantasy",genre:"Fantasy",desc:"In arrivo.",status:"coming_soon",icon:"⚔️"},
+  {id:"savage-worlds",name:"Savage Worlds",genre:"Universale",desc:"In arrivo.",status:"coming_soon",icon:"🃏"},
+  {id:"fate",name:"Fate",genre:"Narrativo",desc:"In arrivo.",status:"coming_soon",icon:"✒️"},
+  {id:"gurps",name:"GURPS",genre:"Universale",desc:"In arrivo.",status:"coming_soon",icon:"📐"},
+  {id:"traveller",name:"Traveller",genre:"Sci-Fi",desc:"In arrivo.",status:"coming_soon",icon:"🚀"},
+  {id:"starfinder",name:"Starfinder",genre:"Sci-Fi",desc:"In arrivo.",status:"coming_soon",icon:"🛰️"},
+  {id:"alien",name:"Alien RPG",genre:"Sci-Fi horror",desc:"In arrivo.",status:"coming_soon",icon:"👽"},
+  {id:"year-zero",name:"Year Zero Engine",genre:"Universale",desc:"In arrivo.",status:"coming_soon",icon:"0️⃣"},
+  {id:"pbta",name:"Powered by the Apocalypse",genre:"Narrativo",desc:"In arrivo.",status:"coming_soon",icon:"📖"},
+  {id:"osr",name:"OSR",genre:"Fantasy old-school",desc:"In arrivo.",status:"coming_soon",icon:"🕯️"}
+];
+function viewRpgLibrary(){
+  const wrap=el("div",{class:"grid"});
+  wrap.append(el("h2",{style:"color:var(--gold2)"},"📚 RPG Library"));
+  wrap.append(el("p",{class:"muted",style:"font-size:13px;max-width:640px"},"Fumble RPG sta diventando una piattaforma per più sistemi di gioco di ruolo. Ogni RPG ha le sue regole e la sua modalità di gioco: qui trovi quelli attivi e quelli in arrivo."));
+  const gridWrap=el("div",{style:"display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:10px"});
+  RPG_CATALOG.forEach(sys=>{
+    const active=sys.status==="active";
+    const card=el("div",{class:"card",style:"display:flex;flex-direction:column;gap:8px"+(active?"":";opacity:.72")});
+    card.append(el("div",{style:"font-size:28px"},sys.icon));
+    card.append(el("h3",{style:"color:var(--gold2);margin:0"},sys.name));
+    card.append(el("div",{class:"muted",style:"font-size:12px"},sys.genre));
+    card.append(el("p",{class:"muted",style:"font-size:13px;flex:1"},sys.desc));
+    if(active){
+      card.append(el("button",{class:"btn",onclick:()=>go("home")},"▶ Gioca"));
+    }else{
+      card.append(el("div",{class:"btn ghost sm",style:"text-align:center;cursor:default;opacity:.8"},"In arrivo"));
+    }
+    gridWrap.append(card);
+  });
+  wrap.append(gridWrap);
+  wrap.append(el("button",{class:"btn ghost sm",style:"margin-top:16px",onclick:()=>go("settings")},"← Torna a Impostazioni"));
+  return wrap;
+}
+
 
 /* =========================================================================
    TESORI, Treasure Untold (369 oggetti estratti dal manuale)
@@ -10233,6 +10291,7 @@ function render(){
       case "compendium": node=viewCompendium(); break;
       case "classes": node=viewClasses(); break;
       case "settings": node=viewSettings(); break;
+      case "rpglibrary": node=viewRpgLibrary(); break;
       case "treasure": node=viewTreasure(); break;
       case "epic": node=viewEpic(); break;
       default: node=viewHome();
