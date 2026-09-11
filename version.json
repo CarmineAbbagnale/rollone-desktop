@@ -1,10 +1,10 @@
 {
-  "version": "1.12.18",
+  "version": "1.12.19",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "b3b071e12617eedc13de64806edba67dc69551b4df815f7a271b327552335a30",
+  "sha256": "403cfcb8a501caab255a29144aeaf81c2e7757859f5e05d8174ec292a35403cc",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Risolto lo zoom improvviso/schermo che si rimpicciolisce sulla card Allineamento e ruolo, causato da un aggiornamento in background (sync account) che toglieva bruscamente il focus a un campo di testo. Inoltre i personaggi sincronizzati dall'account ora vengono sempre riadattati ai campi della versione installata, invece di restare con dati vecchi che riportavano bug già corretti."
+    "notice": "Nuova sezione 'RPG Library' in Impostazioni: mostra D&D 5e (attivo) e i prossimi sistemi di gioco di ruolo in arrivo sulla piattaforma."
   }
 }
