@@ -1,10 +1,10 @@
 {
-  "version": "1.12.20",
+  "version": "1.12.21",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "35109d4b493ba4c880bb654b85ba627ac9c29e9740d888b1b003dc30e66f9c0f",
+  "sha256": "52f2e127496883845a4a798f1cd5037a658f5512dd9ecd4a704d79bcdff35724",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Riattivate Tavolo/VTT e griglia tattica ed Esplora Dungeon (erano disattivate su richiesta precedente). Lettore musicale: aggiunto uno Stop dedicato che chiude il lettore in un tocco, e un pulsante Chiudi ben visibile in fondo alla libreria."
+    "notice": "Corretta l'importazione personaggio da PDF: talenti, abilit\u00e0 uniche e storia del personaggio ora vengono salvati correttamente e non spariscono pi\u00f9 dalla scheda stampata."
   }
 }
