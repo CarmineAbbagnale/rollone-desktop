@@ -1,10 +1,10 @@
 {
-  "version": "1.12.21",
+  "version": "1.13.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "52f2e127496883845a4a798f1cd5037a658f5512dd9ecd4a704d79bcdff35724",
+  "sha256": "ca7dca3e95d429b6909a10b56c74b9fa53a35deca1ad3c14b3285299d5107b63",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Corretta l'importazione personaggio da PDF: talenti, abilit\u00e0 uniche e storia del personaggio ora vengono salvati correttamente e non spariscono pi\u00f9 dalla scheda stampata."
+    "notice": "Prima versione della sezione Pathfinder 2e: sezione «Impara a giocare» per chi non ci ha mai giocato, creazione personaggio con i quattro popoli e le quattro classi del Set Introduttivo ufficiale, e scheda personaggio dedicata. La trovi nella RPG Library."
   }
 }
