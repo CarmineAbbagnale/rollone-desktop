@@ -1,10 +1,10 @@
 {
-  "version": "1.15.0",
+  "version": "1.16.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "0f5ebc28395b01687a101047585eb4e0c529a9e8b6e884603db5cbefcb7f315f",
+  "sha256": "3ecf5ce2d2565183bdb09e9715dba93e28dd324c08c309dc55f0d1e6ba287385",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder ora è una vera app separata: selezione del gioco all'avvio, menu isolato (solo Pathfinder o solo D&D alla volta, mai insieme). Cambia gioco quando vuoi da Impostazioni."
+    "notice": "Pathfinder: aggiunta la progressione di livello 1-20 (PF, CA, Percezione, Tiri Salvezza, Classe Difficoltà, Aumenti di Caratteristica/Abilità, Talenti Generali). Talenti di Classe/Abilità/Ascendenza ancora da un database completo: per ora annotabili a mano."
   }
 }
