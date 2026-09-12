@@ -1,10 +1,10 @@
 {
-  "version": "1.14.0",
+  "version": "1.15.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "3afdca5b57e5622282e225c7a63113251f3d6ffb6322b8852b9583a547347670",
+  "sha256": "0f5ebc28395b01687a101047585eb4e0c529a9e8b6e884603db5cbefcb7f315f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Sezione Pathfinder 2e ampliata: 8 popoli, 13 classi, armi e armature con tiro per colpire funzionante. La trovi nella RPG Library."
+    "notice": "Pathfinder ora è una vera app separata: selezione del gioco all'avvio, menu isolato (solo Pathfinder o solo D&D alla volta, mai insieme). Cambia gioco quando vuoi da Impostazioni."
   }
 }
