@@ -1,10 +1,10 @@
 {
-  "version": "1.13.0",
+  "version": "1.14.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "ca7dca3e95d429b6909a10b56c74b9fa53a35deca1ad3c14b3285299d5107b63",
+  "sha256": "3afdca5b57e5622282e225c7a63113251f3d6ffb6322b8852b9583a547347670",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Prima versione della sezione Pathfinder 2e: sezione «Impara a giocare» per chi non ci ha mai giocato, creazione personaggio con i quattro popoli e le quattro classi del Set Introduttivo ufficiale, e scheda personaggio dedicata. La trovi nella RPG Library."
+    "notice": "Sezione Pathfinder 2e ampliata: 8 popoli, 13 classi, armi e armature con tiro per colpire funzionante. La trovi nella RPG Library."
   }
 }
