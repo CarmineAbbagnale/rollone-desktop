@@ -1,10 +1,10 @@
 {
-  "version": "1.21.0",
+  "version": "1.22.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "9b96fc4e3cb22aa99fbf074699dca1a944350cb7ad7b31d51598386e08342809",
+  "sha256": "4ef751eb09d5ae5886a6b1e542101a86cfea788dc050ad70bdade610de770f1a",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: aggiunto il primo database di Incantesimi di 1° rango verificato per le 4 tradizioni magiche, selezionabili dalla scheda subito dopo i Trucchetti."
+    "notice": "Pathfinder: aggiunto il primo Bestiario verificato (31 creature, livello -1/+10) consultabile dalla nuova voce di menu \"Bestiario\"."
   }
 }
