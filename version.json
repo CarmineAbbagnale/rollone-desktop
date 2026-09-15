@@ -1,10 +1,10 @@
 {
-  "version": "1.22.0",
+  "version": "1.23.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "4ef751eb09d5ae5886a6b1e542101a86cfea788dc050ad70bdade610de770f1a",
+  "sha256": "5881b1cfdee765f7ebbdfad1664d43c85dd52c0e476d7a80cb9e45d375742c00",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: aggiunto il primo Bestiario verificato (31 creature, livello -1/+10) consultabile dalla nuova voce di menu \"Bestiario\"."
+    "notice": "Pathfinder: aggiunti i primi Oggetti Magici verificati (40 voci, livello 2/20) consultabili dalla nuova voce di menu \"Oggetti\"."
   }
 }
