@@ -1,10 +1,10 @@
 {
-  "version": "1.20.0",
+  "version": "1.21.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "88ed57c272c677753a4404041f429be1b67f4fe60c10270bd19460e1b6c153cf",
+  "sha256": "9b96fc4e3cb22aa99fbf074699dca1a944350cb7ad7b31d51598386e08342809",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: aggiunto il primo database di Trucchetti (incantesimi rango 0) verificato per le 4 tradizioni magiche, selezionabili dalla scheda per le classi incantatrici."
+    "notice": "Pathfinder: aggiunto il primo database di Incantesimi di 1° rango verificato per le 4 tradizioni magiche, selezionabili dalla scheda subito dopo i Trucchetti."
   }
 }
