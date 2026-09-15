@@ -1,10 +1,10 @@
 {
-  "version": "1.17.0",
+  "version": "1.18.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "20900a4420ceac17a0432427d25445aacbd54ca023231b665494a5b55e6907ef",
+  "sha256": "aac17e428f5280c5104f26c04f35f7e1ba0c4f92e6c00d99d08003268da7985f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: aggiunto un database verificato di 63 Talenti di Ascendenza di 1° livello (8 popoli) selezionabili dalla scheda, invece del solo campo testo libero."
+    "notice": "Pathfinder: aggiunto un database verificato di 55 Talenti di Abilità di 1° livello, condivisi tra tutte le classi, selezionabili dalla scheda."
   }
 }
