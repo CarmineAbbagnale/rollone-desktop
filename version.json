@@ -1,10 +1,10 @@
 {
-  "version": "1.19.0",
+  "version": "1.20.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "66d2f77a4ce5eebb5e58306ea5202374b307bf6ebdb6b2b8a245e052853d3f5e",
+  "sha256": "88ed57c272c677753a4404041f429be1b67f4fe60c10270bd19460e1b6c153cf",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: aggiunto un database verificato di 98 Talenti di Classe di 1° livello, uno per ciascuna delle 13 classi, selezionabili dalla scheda."
+    "notice": "Pathfinder: aggiunto il primo database di Trucchetti (incantesimi rango 0) verificato per le 4 tradizioni magiche, selezionabili dalla scheda per le classi incantatrici."
   }
 }
