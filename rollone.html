@@ -9651,6 +9651,1714 @@ function pfSpellR1Db(trad){
   return trad==="arcane"?PF_SPELLS_R1_ARCANE:trad==="divine"?PF_SPELLS_R1_DIVINE:trad==="occult"?PF_SPELLS_R1_OCCULT:trad==="primal"?PF_SPELLS_R1_PRIMAL:null;
 }
 
+/* Incantesimi Pathfinder 2e di rango 2 (v1.25.0): seconda milestone del sistema magico,
+   ricercati e verificati su Archives of Nethys (2e.aonprd.com, edizione Remaster) tramite
+   sub-agenti dedicati per ciascuna tradizione. Stesso schema dei trucchetti/rango 1
+   ({name,rank,traits,actions,range,targets,savingThrow,desc}). Le voci Arcano/Primordiale
+   condivise sono deduplicate per riferimento diretto (come nel rango 1); Divina/Occulta
+   restano letterali indipendenti pur condividendo alcuni incantesimi comuni. Copertura
+   dichiarata onestamente: gli incantesimi comuni di rango 2 di Player Core/Player Core 2,
+   non l'intero elenco ufficiale — rango 3+ resta una milestone futura. */
+const PF_SPELLS_R2_ARCANE = {
+  acidGrip: {
+    "name": "Morsa Acida",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "1 creatura",
+    "savingThrow": "Riflessi",
+    "desc": "Una mano artigliata ed evanescente afferra il bersaglio, bruciandolo con acido magico. Il bersaglio tira un TS su Riflessi. Successo critico: nessun effetto. Successo: subisce 2d8 danni da acido dimezzati, nessun danno persistente, e l'artiglio lo sposta fino a 1,5m a tua scelta. Fallimento: danno pieno (2d8) più 1d6 danni persistenti da acido, spostato fino a 3m. Fallimento critico: danno doppio e persistente pieno, spostato fino a 6m. Una creatura che subisce il danno persistente ha una penalità di stato di 3m alle Velocità finché non lo cura. Potenziato (+2): il danno iniziale aumenta di 2d8 e quello persistente di 1d6."
+  },
+  blazingBolt: {
+    "name": "Dardo Fiammeggiante",
+    "rank": 2,
+    "traits": [],
+    "actions": "da 1 a 3 azioni",
+    "range": "18m",
+    "targets": "1 o più creature",
+    "savingThrow": "CA (tiro per colpire con incantesimi)",
+    "desc": "Scagli un raggio di calore e fiamme: tiro per colpire con incantesimi contro una creatura, 2d6 danni da fuoco (raddoppiati in caso di colpo critico). Per ogni azione aggiuntiva spesa nel lancio puoi colpire un bersaglio diverso con un ulteriore raggio, fino a un massimo di 3 bersagli con 3 azioni; ciascun tiro aumenta la penalità da attacchi multipli, ma questa si applica solo dopo aver effettuato tutti i tiri dell'incantesimo. Se spendi 2 o più azioni, il danno di ogni raggio sale a 4d6 (sempre raddoppiato in critico). Potenziato (+1): il danno aumenta di 1d6 nella versione a 1 azione, o di 2d6 nelle versioni a 2-3 azioni."
+  },
+  blur: {
+    "name": "Sfocatura",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Il contorno del bersaglio diventa sfocato e tremolante: per 1 minuto è occultato. Poiché la sua posizione resta comunque evidente, non può sfruttare questo occultamento per Nascondersi o Muoversi Furtivamente."
+  },
+  darkness: {
+    "name": "Oscurità",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "36m",
+    "targets": "Raggio 6m",
+    "savingThrow": null,
+    "desc": "Crei un velo di oscurità che impedisce alla luce di entrare o di irradiarsi nell'area per 1 minuto. Le fonti di luce non magica al suo interno (torce, lanterne) smettono di emettere luce anche se il loro raggio si estenderebbe oltre l'area; l'effetto sopprime anche la luce magica di rango pari o inferiore al tuo. Le creature dentro non vedono l'esterno; dall'esterno l'area appare come un globo di oscurità pura. Potenziato (4°): anche chi ha scurovisione (non scurovisione superiore) vede a stento attraverso l'oscurità, trattando i bersagli visti attraverso di essa come occultati."
+  },
+  darkvision: {
+    "name": "Scurovisione",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Ti doni una vista soprannaturale nelle zone d'ombra: ottieni la scurovisione per 1 ora. Potenziato (3°): gittata Tocco, bersaglio 1 creatura volontaria. Potenziato (5°): gittata Tocco, bersaglio 1 creatura volontaria, durata fino alla prossima preparazione giornaliera."
+  },
+  deafness: {
+    "name": "Sordità",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura",
+    "savingThrow": "Tempra",
+    "desc": "Il bersaglio rischia di perdere l'udito e tira un TS su Tempra, diventando poi immune per 1 minuto. Successo critico: nessun effetto. Successo: sordo per 1 round. Fallimento: sordo per 10 minuti. Fallimento critico: sordo permanentemente."
+  },
+  dispelMagic: {
+    "name": "Dissolvi Magia",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "1 incantesimo attivo o oggetto magico incustodito",
+    "savingThrow": null,
+    "desc": "Disfai la magia dietro un incantesimo o un effetto: effettua un check per contrastare contro il bersaglio. Se contrasti con successo un oggetto magico, questo diventa un oggetto mondano del suo tipo per 10 minuti (senza alterarne le proprietà non magiche). Contro un artefatto o oggetto simile fallisci automaticamente."
+  },
+  enlarge: {
+    "name": "Ingrandire",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "Il bersaglio cresce a taglia Grande per 5 minuti; il suo equipaggiamento cresce con lui (torna normale se rimosso). Diventa maldestro 1, la sua portata aumenta di 1,5m (3m se partiva Minuscolo), e ottiene un bonus di stato +2 ai danni con attacchi in mischia. Nessun effetto su creature già Grandi o superiori. Potenziato (4°): la creatura cresce invece a taglia Enorme, bonus danni +4, portata +3m (+4,5m se Minuscola); nessun effetto su Enormi o superiori. Potenziato (6°): scegli la versione di 2° o 4° rango e applicala a un massimo di 10 creature volontarie."
+  },
+  everlight: {
+    "name": "Luce Perenne",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "tocco",
+    "targets": "1 gemma dal valore di almeno 6 mo",
+    "savingThrow": null,
+    "desc": "La gemma che tocchi si illumina, emanando luce intensa di un colore a tua scelta in un raggio di 6m (e luce fioca per altri 6m oltre) a tempo indeterminato. L'incantesimo termina immediatamente se la gemma viene distrutta."
+  },
+  falseVitality: {
+    "name": "Falsa Vitalità",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Aumenti la tua carne con le energie tipicamente usate per manipolare i non morti, ottenendo 10 punti ferita temporanei per 8 ore. Potenziato (+1): i punti ferita temporanei aumentano di 3."
+  },
+  illusoryCreature: {
+    "name": "Creatura Illusoria",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "150m",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Crei l'immagine illusoria (sostenuta) di una creatura di taglia Grande o inferiore, con suoni, odori e sensazione al tatto credibili. Se tu e l'immagine siete a più di 150m di distanza, l'incantesimo termina. L'immagine non parla da sola, ma puoi usare le tue azioni per parlare attraverso di essa (con la voce mascherata), eventualmente con una prova di Inganno o Intrattenere per imitare la creatura. In combattimento usa 2 azioni per turno quando la sostieni, col tuo modificatore di attacco con incantesimi e la tua CD incantesimi come CA (TS pari a CD-10); è abbastanza sostanziale da poter fiancheggiare. Se colpita da un attacco o fallisce un TS, l'incantesimo termina. In caso di colpo infligge 3d4 danni mentali non letali; se il danno non corrisponde all'immagine mostrata il GM può concedere una prova di Percezione immediata per smascherarla. Chi la tocca o la Osserva attentamente può tentare di smascherarla, recuperando metà del danno subito (se presente) e non subendone più. Potenziato (+1): il danno degli attacchi aumenta di 1d4 e la taglia massima creabile aumenta di una categoria (fino a Mastodontica)."
+  },
+  invisibility: {
+    "name": "Invisibilità",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Le illusioni piegano la luce attorno al bersaglio, che diventa non rilevato da tutte le creature per 10 minuti (queste possono comunque tentare di individuarlo, rendendolo nascosto invece). Se il bersaglio compie un'azione ostile, l'incantesimo termina al completamento di quell'azione. Potenziato (4°): dura 1 minuto e non termina più per azioni ostili."
+  },
+  knock: {
+    "name": "Scasso",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 porta, serratura o contenitore",
+    "savingThrow": null,
+    "desc": "Rendi il bersaglio più facile da aprire per 1 minuto: concede un bonus di stato +4 a chi tenta di aprirlo con Atletica o Furtività. Puoi tentare tu stesso una prova di Furtività per aprirlo come parte del lancio, aggiungendo il tuo livello anche da non addestrato. Contrasta l'incantesimo Serratura."
+  },
+  marvelousMount: {
+    "name": "Cavalcatura Meravigliosa",
+    "rank": 2,
+    "traits": [],
+    "actions": "10 minuti",
+    "range": "9m",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Evochi una fantastica creatura di taglia Grande come cavalcatura per il bersaglio per 8 ore. La cavalcatura è uno scagnozzo del bersaglio, ha Velocità 12m e può portarlo con tutto l'equipaggiamento trasportato (nessun'altra creatura). Usa CA e TS del bersaglio, ma viene distrutta (terminando l'incantesimo) se subisce più di 10 danni in una volta sola. Potenziato (3°): può camminare sull'acqua, ma deve terminare il turno su terreno solido o affondare. Potenziato (4°): Velocità 18m e cammina sull'acqua. Potenziato (5°): Velocità 18m, cammina sull'acqua, e ottiene Velocità di volo 18m (deve terminare il turno su una superficie o cade). Potenziato (6°): Velocità e Velocità di volo 24m."
+  },
+  mist: {
+    "name": "Foschia",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "36m",
+    "targets": "Raggio 6m",
+    "savingThrow": null,
+    "desc": "Evochi una nube di foschia per 1 minuto. Tutte le creature al suo interno diventano occultate, e quelle all'esterno diventano occultate agli occhi di chi si trova dentro. Puoi Annullare la nube in qualsiasi momento."
+  },
+  noiseBlast: {
+    "name": "Scoppio Sonoro",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "Raggio 3m",
+    "savingThrow": "Tempra",
+    "desc": "Un rumore assordante esplode nell'area, infliggendo 2d10 danni sonori. Successo critico: nessun effetto. Successo: danno dimezzato. Fallimento: danno pieno e sordo per 1 round. Fallimento critico: danno doppio, sordo per 1 minuto e stordito 1. Potenziato (+1): il danno aumenta di 1d10."
+  },
+  resistEnergy: {
+    "name": "Resistenza all'Energia",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Uno scudo di energia elementale protegge il bersaglio per 10 minuti da un tipo di danno a scelta tra acido, freddo, elettricità, fuoco o sonoro: il bersaglio e il suo equipaggiamento ottengono resistenza 5 a quel tipo. Potenziato (4°): la resistenza sale a 10 e puoi bersagliare fino a due creature. Potenziato (7°): la resistenza sale a 15 e puoi bersagliare fino a cinque creature."
+  },
+  revealingLight: {
+    "name": "Luce Rivelatrice",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "Raggio 3m",
+    "savingThrow": "Riflessi",
+    "desc": "Un'onda di luce magica (dall'aspetto a tua scelta, come fiamme colorate senza calore o scintille luminose) investe l'area. Chi è colpito è abbagliato; se era invisibile diventa occultato, se era già occultato per altri motivi smette di esserlo. Successo critico: nessun effetto. Successo: dura 2 round. Fallimento: dura 1 minuto. Fallimento critico: dura 10 minuti."
+  },
+  seeTheUnseen: {
+    "name": "Scorgere l'Invisibile",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Per 10 minuti il tuo sguardo trafigge le illusioni e scorge creature invisibili e spiriti: le vedi come se non fossero invisibili, anche se appaiono sfocate (occultate e difficili da identificare). Vedi anche creature incorporee (come i fantasmi) che attraversano oggetti entro 3m dalla loro superficie, come forme confuse. Ottieni un bonus di stato +2 alle prove per smascherare le illusioni. Potenziato (5°): la durata diventa 8 ore."
+  },
+  shrink: {
+    "name": "Rimpicciolire",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "Deformi lo spazio rimpicciolendo il bersaglio a taglia Minuscola per 5 minuti; il suo equipaggiamento si rimpicciolisce con lui (torna normale se rimosso) e la sua portata diventa 0. Nessun effetto su creature già Minuscole. Potenziato (6°): puoi bersagliare fino a 10 creature."
+  },
+  stupefy: {
+    "name": "Istupidire",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Ottunde la mente del bersaglio. Successo critico: nessun effetto. Successo: instupidito 1 fino all'inizio del tuo prossimo turno. Fallimento: instupidito 2 per 1 minuto. Fallimento critico: instupidito 3 per 1 minuto."
+  },
+  summonElemental: {
+    "name": "Evocare Elementale",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "9m",
+    "targets": "1 elementale evocato",
+    "savingThrow": null,
+    "desc": "Evochi una creatura con il tratto elementale di livello 1 o inferiore che combatte al tuo fianco per il tempo che la sostieni (fino a 1 minuto). Potenziato (3°): livello 2. (4°): livello 3. (5°): livello 5. (6°): livello 7. (7°): livello 9. (8°): livello 11. (9°): livello 13. (10°): livello 15."
+  },
+  telekineticManeuver: {
+    "name": "Manovra Telecinetica",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "18m",
+    "targets": "1 creatura",
+    "savingThrow": "CA (tiro per colpire con incantesimi)",
+    "desc": "Con un'ondata di potere telecinetico sposti un nemico o qualcosa che porta con sé: puoi tentare di Disarmare, Riposizionare, Spingere o Atterrare il bersaglio usando un tiro per colpire con incantesimi al posto di una prova di Atletica."
+  },
+  translate: {
+    "name": "Tradurre",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Per 1 ora il bersaglio comprende il significato di una singola lingua che sta ascoltando o leggendo nel momento del lancio (non codici o linguaggio metaforico, a discrezione del GM). Se sente più lingue e ne è consapevole, sceglie quale comprendere; altrimenti viene scelta casualmente. Potenziato (3°): il bersaglio può anche parlare quella lingua. Potenziato (4°): puoi bersagliare fino a 10 creature, che possono anche parlare la lingua."
+  },
+  waterBreathing: {
+    "name": "Respirazione Acquatica",
+    "rank": 2,
+    "traits": [],
+    "actions": "1 minuto",
+    "range": "9m",
+    "targets": "Fino a 5 creature",
+    "savingThrow": null,
+    "desc": "I bersagli possono respirare sott'acqua per 1 ora. Potenziato (3°): la durata sale a 8 ore. Potenziato (4°): dura fino alla prossima preparazione giornaliera."
+  },
+  waterWalk: {
+    "name": "Camminare sulle Acque",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Per 10 minuti il bersaglio può camminare sulla superficie dell'acqua e di altri liquidi senza sprofondare; può comunque immergersi se vuole, ma in tal caso deve Nuotare normalmente. Non concede la capacità di respirare sott'acqua. Potenziato (4°): gittata 9m, durata 1 ora, fino a 10 creature bersagliabili."
+  },
+  web: {
+    "name": "Ragnatela",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "9m",
+    "targets": "Raggio 3m",
+    "savingThrow": "Atletica o Riflessi",
+    "desc": "Crei una ragnatela appiccicosa che dura 1 minuto; le caselle coperte sono terreno difficile. Ogni volta che una creatura nella ragnatela inizia o entra in un'azione di movimento, tenta una prova di Atletica o un TS su Riflessi contro la tua CD incantesimi. Successo critico: nessun effetto, e non deve più tentare prove/TS quel turno (con Atletica, libera la ragnatela dalle caselle attraversate). Successo: nessun effetto durante l'azione (stessa pulizia con Atletica). Fallimento: penalità di circostanza di 3m alle Velocità fino all'inizio del turno successivo. Fallimento critico: immobilizzata fino all'inizio del turno successivo, poi penalità di 3m per 1 round; può tentare di Fuggire per rimuovere l'immobilizzazione. Ogni casella può essere liberata da un attacco o effetto che infligge almeno 5 danni da taglio o 1 da fuoco (CA 5, fallisce automaticamente i TS). Potenziato (4°): area raggio 6m, gittata 18m."
+  },
+  humanoidForm: {
+    "name": "Forma Umanoide",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Per 10 minuti trasformi il tuo aspetto in quello di un umanoide di taglia Piccola o Media (nano, elfo, goblin, halfling, umano, orco, ecc.). Ottieni il tratto umanoide oltre ai tuoi tratti abituali, più ogni tratto legato al tipo scelto. Se la trasformazione riduce la tua taglia, la portata si riduce di conseguenza (di solito a 1,5m). Non cambia le tue statistiche né dona capacità speciali della forma. Puoi indossare e usare il tuo equipaggiamento, che si adatta di taglia (torna normale se lasciato). Ottieni un bonus di stato +4 alle prove di Inganno per spacciarti per un membro generico dell'ascendenza scelta (aggiungendo il livello anche da non addestrato), ma non puoi imitare una persona specifica senza creare un travestimento. Puoi Annullare l'incantesimo. Potenziato (3°): ottieni scurovisione o visione in penombra se la forma la possiede. Potenziato (5°): puoi assumere l'aspetto di un umanoide Grande; se questo aumenta la tua taglia, ottieni anche gli effetti di Ingrandire."
+  },
+  oakenResilience: {
+    "name": "Corteccia Resiliente",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "La pelle del bersaglio diventa dura come corteccia o legno per 10 minuti: ottiene resistenza 2 ai danni contundenti e perforanti, e debolezza 3 al fuoco. Dopo aver subito danno da fuoco può Annullare l'incantesimo come azione gratuita innescata da quel danno (senza ridurlo). Potenziato (+2): le resistenze aumentano di 2 e la debolezza di 3."
+  },
+  shapeWood: {
+    "name": "Modellare il Legno",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "Un pezzo di legno grezzo (fino a circa 0,5 m³)",
+    "savingThrow": null,
+    "desc": "Plasmi il legno in una forma approssimativa a tua scelta. Il potere di modellazione è troppo rozzo per produrre parti intricate, dettagli fini o componenti mobili. Non puoi usare l'incantesimo per aumentare il valore dell'oggetto che stai modellando."
+  },
+};
+
+const PF_SPELLS_R2_PRIMAL = {
+  animalForm: {
+    "name": "Forma Animale",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Richiami l'energia primordiale trasformandoti per 1 minuto in una forma da battaglia animale di taglia Media (puoi scegliere il tipo specifico, es. leone o leopardo delle nevi per \"felino\", senza effetto su taglia o statistiche). Ottieni il tratto animale e puoi Annullare l'incantesimo. Ottieni sempre: CA = 16 + livello; ignori penalità di ingombro e riduzione di Velocità dell'armatura; 5 PF temporanei; visione in penombra e olfatto impreciso a 9m; uno o più attacchi da mischia senza armi specifici della forma (gli unici con cui puoi colpire, addestrato, attacco +9, danni +1, basati su Forza); Atletica +9 (se non superiore alla tua). Esempi di forme: Scimmia (Velocità 7,5m, scalare 6m; pugno 2d6 contundenti); Orso (Velocità 9m; morso 2d8 perforanti, artiglio agile 1d8 taglienti); Toro (Velocità 9m; corno 2d8 perforanti); Canide (Velocità 12m; morso 2d8 perforanti); Felino (Velocità 12m; morso 2d6 perforanti, artiglio agile 1d10 taglienti); Cervo (Velocità 15m; corna 2d6 perforanti); Rana (Velocità 7,5m, nuotare 7,5m; morso 2d6 contundenti, lingua agile portata 4,5m 2d4 contundenti); Squalo (nuotare 10,5m; morso 2d8 perforanti, respira solo in acqua); Serpente (Velocità 6m, scalare/nuotare 6m; zanne 2d4 perforanti + 1d6 veleno). Potenziato (3°): 10 PF temp, CA = 17 + livello, attacco +14, danni +5, Atletica +14. Potenziato (4°): forma Grande, portata +3m; 15 PF temp, CA = 18 + livello, attacco +16, danni +9, Atletica +16. Potenziato (5°): forma Mastodontica, portata +4,5m; 20 PF temp, CA = 18 + livello, attacco +18, danni +7 e dadi danno raddoppiati, Atletica +20."
+  },
+  animalMessenger: {
+    "name": "Messaggero Animale",
+    "rank": 2,
+    "traits": [],
+    "actions": "1 minuto",
+    "range": "36m",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Offri del cibo e un comune animale Minuscolo selvatico entro gittata si avvicina per mangiarlo. Gli imprimi nella mente immagine, direzione e distanza di un luogo noto e riconoscibile, e puoi legargli un piccolo oggetto o messaggio di Ingombro leggero. L'animale fa del suo meglio per raggiungere la destinazione; se ci riesce, attende nei paraggi permettendo a creature non ostili di recuperare l'oggetto. L'incantesimo termina alla consegna del messaggio o dopo 24 ore, quale delle due si verifichi prima. Se non ci sono animali Minuscoli selvatici entro gittata, l'incantesimo è perso senza effetto."
+  },
+  createFood: {
+    "name": "Creare Cibo",
+    "rank": 2,
+    "traits": [],
+    "actions": "1 ora",
+    "range": "9m",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Crei abbastanza cibo da sfamare sei creature di taglia Media per un giorno. Il cibo è insipido ma nutriente; dopo 1 giorno, se non mangiato, marcisce e diventa immangiabile. Le creature Piccole ne mangiano circa un quarto rispetto a una Media (un sedicesimo per la maggior parte delle Minuscole), quelle Grandi 10 volte tanto (100 volte per le Enormi, e così via). Potenziato (4°): sfami 12 creature Medie. Potenziato (6°): 50 creature. Potenziato (8°): 200 creature."
+  },
+  darkness: {
+    "name": "Oscurità",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "36m",
+    "targets": "Raggio 6m",
+    "savingThrow": null,
+    "desc": "Crei un velo di oscurità che impedisce alla luce di entrare o di irradiarsi nell'area per 1 minuto. Le fonti di luce non magica al suo interno (torce, lanterne) smettono di emettere luce anche se il loro raggio si estenderebbe oltre l'area; l'effetto sopprime anche la luce magica di rango pari o inferiore al tuo. Le creature dentro non vedono l'esterno; dall'esterno l'area appare come un globo di oscurità pura. Potenziato (4°): anche chi ha scurovisione (non scurovisione superiore) vede a stento attraverso l'oscurità, trattando i bersagli visti attraverso di essa come occultati."
+  },
+  darkvision: {
+    "name": "Scurovisione",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Ti doni una vista soprannaturale nelle zone d'ombra: ottieni la scurovisione per 1 ora. Potenziato (3°): gittata Tocco, bersaglio 1 creatura volontaria. Potenziato (5°): gittata Tocco, bersaglio 1 creatura volontaria, durata fino alla prossima preparazione giornaliera."
+  },
+  deafness: {
+    "name": "Sordità",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura",
+    "savingThrow": "Tempra",
+    "desc": "Il bersaglio rischia di perdere l'udito e tira un TS su Tempra, diventando poi immune per 1 minuto. Successo critico: nessun effetto. Successo: sordo per 1 round. Fallimento: sordo per 10 minuti. Fallimento critico: sordo permanentemente."
+  },
+  dispelMagic: {
+    "name": "Dissolvi Magia",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "1 incantesimo attivo o oggetto magico incustodito",
+    "savingThrow": null,
+    "desc": "Disfai la magia dietro un incantesimo o un effetto: effettua un check per contrastare contro il bersaglio. Se contrasti con successo un oggetto magico, questo diventa un oggetto mondano del suo tipo per 10 minuti (senza alterarne le proprietà non magiche). Contro un artefatto o oggetto simile fallisci automaticamente."
+  },
+  enlarge: {
+    "name": "Ingrandire",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "Il bersaglio cresce a taglia Grande per 5 minuti; il suo equipaggiamento cresce con lui (torna normale se rimosso). Diventa maldestro 1, la sua portata aumenta di 1,5m (3m se partiva Minuscolo), e ottiene un bonus di stato +2 ai danni con attacchi in mischia. Nessun effetto su creature già Grandi o superiori. Potenziato (4°): la creatura cresce invece a taglia Enorme, bonus danni +4, portata +3m (+4,5m se Minuscola); nessun effetto su Enormi o superiori. Potenziato (6°): scegli la versione di 2° o 4° rango e applicala a un massimo di 10 creature volontarie."
+  },
+  everlight: {
+    "name": "Luce Perenne",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "tocco",
+    "targets": "1 gemma dal valore di almeno 6 mo",
+    "savingThrow": null,
+    "desc": "La gemma che tocchi si illumina, emanando luce intensa di un colore a tua scelta in un raggio di 6m (e luce fioca per altri 6m oltre) a tempo indeterminato. L'incantesimo termina immediatamente se la gemma viene distrutta."
+  },
+  acidGrip: {
+    "name": "Morsa Acida",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "1 creatura",
+    "savingThrow": "Riflessi",
+    "desc": "Una mano artigliata ed evanescente afferra il bersaglio, bruciandolo con acido magico. Il bersaglio tira un TS su Riflessi. Successo critico: nessun effetto. Successo: subisce 2d8 danni da acido dimezzati, nessun danno persistente, e l'artiglio lo sposta fino a 1,5m a tua scelta. Fallimento: danno pieno (2d8) più 1d6 danni persistenti da acido, spostato fino a 3m. Fallimento critico: danno doppio e persistente pieno, spostato fino a 6m. Una creatura che subisce il danno persistente ha una penalità di stato di 3m alle Velocità finché non lo cura. Potenziato (+2): il danno iniziale aumenta di 2d8 e quello persistente di 1d6."
+  },
+  blazingBolt: {
+    "name": "Dardo Fiammeggiante",
+    "rank": 2,
+    "traits": [],
+    "actions": "da 1 a 3 azioni",
+    "range": "18m",
+    "targets": "1 o più creature",
+    "savingThrow": "CA (tiro per colpire con incantesimi)",
+    "desc": "Scagli un raggio di calore e fiamme: tiro per colpire con incantesimi contro una creatura, 2d6 danni da fuoco (raddoppiati in caso di colpo critico). Per ogni azione aggiuntiva spesa nel lancio puoi colpire un bersaglio diverso con un ulteriore raggio, fino a un massimo di 3 bersagli con 3 azioni; ciascun tiro aumenta la penalità da attacchi multipli, ma questa si applica solo dopo aver effettuato tutti i tiri dell'incantesimo. Se spendi 2 o più azioni, il danno di ogni raggio sale a 4d6 (sempre raddoppiato in critico). Potenziato (+1): il danno aumenta di 1d6 nella versione a 1 azione, o di 2d6 nelle versioni a 2-3 azioni."
+  },
+  marvelousMount: {
+    "name": "Cavalcatura Meravigliosa",
+    "rank": 2,
+    "traits": [],
+    "actions": "10 minuti",
+    "range": "9m",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Evochi una fantastica creatura di taglia Grande come cavalcatura per il bersaglio per 8 ore. La cavalcatura è uno scagnozzo del bersaglio, ha Velocità 12m e può portarlo con tutto l'equipaggiamento trasportato (nessun'altra creatura). Usa CA e TS del bersaglio, ma viene distrutta (terminando l'incantesimo) se subisce più di 10 danni in una volta sola. Potenziato (3°): può camminare sull'acqua, ma deve terminare il turno su terreno solido o affondare. Potenziato (4°): Velocità 18m e cammina sull'acqua. Potenziato (5°): Velocità 18m, cammina sull'acqua, e ottiene Velocità di volo 18m (deve terminare il turno su una superficie o cade). Potenziato (6°): Velocità e Velocità di volo 24m."
+  },
+  mist: {
+    "name": "Foschia",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "36m",
+    "targets": "Raggio 6m",
+    "savingThrow": null,
+    "desc": "Evochi una nube di foschia per 1 minuto. Tutte le creature al suo interno diventano occultate, e quelle all'esterno diventano occultate agli occhi di chi si trova dentro. Puoi Annullare la nube in qualsiasi momento."
+  },
+  resistEnergy: {
+    "name": "Resistenza all'Energia",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Uno scudo di energia elementale protegge il bersaglio per 10 minuti da un tipo di danno a scelta tra acido, freddo, elettricità, fuoco o sonoro: il bersaglio e il suo equipaggiamento ottengono resistenza 5 a quel tipo. Potenziato (4°): la resistenza sale a 10 e puoi bersagliare fino a due creature. Potenziato (7°): la resistenza sale a 15 e puoi bersagliare fino a cinque creature."
+  },
+  revealingLight: {
+    "name": "Luce Rivelatrice",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "Raggio 3m",
+    "savingThrow": "Riflessi",
+    "desc": "Un'onda di luce magica (dall'aspetto a tua scelta, come fiamme colorate senza calore o scintille luminose) investe l'area. Chi è colpito è abbagliato; se era invisibile diventa occultato, se era già occultato per altri motivi smette di esserlo. Successo critico: nessun effetto. Successo: dura 2 round. Fallimento: dura 1 minuto. Fallimento critico: dura 10 minuti."
+  },
+  summonElemental: {
+    "name": "Evocare Elementale",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "9m",
+    "targets": "1 elementale evocato",
+    "savingThrow": null,
+    "desc": "Evochi una creatura con il tratto elementale di livello 1 o inferiore che combatte al tuo fianco per il tempo che la sostieni (fino a 1 minuto). Potenziato (3°): livello 2. (4°): livello 3. (5°): livello 5. (6°): livello 7. (7°): livello 9. (8°): livello 11. (9°): livello 13. (10°): livello 15."
+  },
+  waterBreathing: {
+    "name": "Respirazione Acquatica",
+    "rank": 2,
+    "traits": [],
+    "actions": "1 minuto",
+    "range": "9m",
+    "targets": "Fino a 5 creature",
+    "savingThrow": null,
+    "desc": "I bersagli possono respirare sott'acqua per 1 ora. Potenziato (3°): la durata sale a 8 ore. Potenziato (4°): dura fino alla prossima preparazione giornaliera."
+  },
+  waterWalk: {
+    "name": "Camminare sulle Acque",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Per 10 minuti il bersaglio può camminare sulla superficie dell'acqua e di altri liquidi senza sprofondare; può comunque immergersi se vuole, ma in tal caso deve Nuotare normalmente. Non concede la capacità di respirare sott'acqua. Potenziato (4°): gittata 9m, durata 1 ora, fino a 10 creature bersagliabili."
+  },
+  web: {
+    "name": "Ragnatela",
+    "rank": 2,
+    "traits": [],
+    "actions": "3 azioni",
+    "range": "9m",
+    "targets": "Raggio 3m",
+    "savingThrow": "Atletica o Riflessi",
+    "desc": "Crei una ragnatela appiccicosa che dura 1 minuto; le caselle coperte sono terreno difficile. Ogni volta che una creatura nella ragnatela inizia o entra in un'azione di movimento, tenta una prova di Atletica o un TS su Riflessi contro la tua CD incantesimi. Successo critico: nessun effetto, e non deve più tentare prove/TS quel turno (con Atletica, libera la ragnatela dalle caselle attraversate). Successo: nessun effetto durante l'azione (stessa pulizia con Atletica). Fallimento: penalità di circostanza di 3m alle Velocità fino all'inizio del turno successivo. Fallimento critico: immobilizzata fino all'inizio del turno successivo, poi penalità di 3m per 1 round; può tentare di Fuggire per rimuovere l'immobilizzazione. Ogni casella può essere liberata da un attacco o effetto che infligge almeno 5 danni da taglio o 1 da fuoco (CA 5, fallisce automaticamente i TS). Potenziato (4°): area raggio 6m, gittata 18m."
+  },
+  oakenResilience: {
+    "name": "Corteccia Resiliente",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "La pelle del bersaglio diventa dura come corteccia o legno per 10 minuti: ottiene resistenza 2 ai danni contundenti e perforanti, e debolezza 3 al fuoco. Dopo aver subito danno da fuoco può Annullare l'incantesimo come azione gratuita innescata da quel danno (senza ridurlo). Potenziato (+2): le resistenze aumentano di 2 e la debolezza di 3."
+  },
+  shapeWood: {
+    "name": "Modellare il Legno",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "Un pezzo di legno grezzo (fino a circa 0,5 m³)",
+    "savingThrow": null,
+    "desc": "Plasmi il legno in una forma approssimativa a tua scelta. Il potere di modellazione è troppo rozzo per produrre parti intricate, dettagli fini o componenti mobili. Non puoi usare l'incantesimo per aumentare il valore dell'oggetto che stai modellando."
+  },
+  oneWithPlants: {
+    "name": "Tutt'uno con le Piante",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Puoi trasformarti in una pianta oppure fonderti con materia vegetale. Mentre sei trasformato non puoi muoverti o influenzare nulla fuori dalla pianta, ma puoi lanciare incantesimi che non richiedano linea d'effetto oltre di essa. Puoi Annullare l'incantesimo. Fondersi con le Piante (durata 10 minuti): devi toccare una pianta abbastanza grande da contenerti coi tuoi averi, altrimenti l'incantesimo è interrotto; puoi sentire ma non vedere l'esterno. Se la pianta subisce danno mentre sei dentro, vieni espulso e subisci 10d6 danni (un passaggio magico ti espelle senza danno); l'incantesimo termina se ti trovi mai fuori dalla pianta. Trasformarsi in una Pianta (durata 8 ore): diventi una pianta Grande, tipicamente un albero. Le prove di Percezione non rivelano la tua natura, ma una prova di Natura o Sopravvivenza riuscita contro la tua CD incantesimi rivela che sembri una pianta stranamente nuova nella zona; puoi osservare tutto coi tuoi sensi normali. Come pianta la tua CA è 20 e solo bonus/penalità di stato o circostanza ti influenzano; ogni successo o successo critico ai TS su Riflessi diventa un fallimento."
+  },
+  shatter: {
+    "name": "Frantumare",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "9m",
+    "targets": "1 oggetto incustodito",
+    "savingThrow": null,
+    "desc": "Un attacco sonico ad alta frequenza frantuma un oggetto vicino: 2d10 danni sonori, ignorando la Durezza dell'oggetto se è 4 o inferiore. Potenziato (+1): il danno aumenta di 1d10 e la Durezza ignorata aumenta di 2."
+  },
+  speakWithAnimals: {
+    "name": "Parlare con gli Animali",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Per 1 ora puoi porre domande, ricevere risposte e usare Diplomazia con gli animali. Non li rende più amichevoli del normale: quelli astuti tendono a essere laconici ed elusivi, quelli meno intelligenti spesso danno risposte insensate."
+  },
+  entanglingFlora: {
+    "name": "Flora Avviluppante",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "36m",
+    "targets": "Raggio 6m",
+    "savingThrow": "Riflessi",
+    "desc": "Piante e funghi esplodono o crescono rapidamente, avviluppando le creature per 1 minuto. Tutte le superfici nell'area sono terreno difficile. Ogni round in cui una creatura inizia il turno nell'area tenta un TS su Riflessi: fallimento, penalità di circostanza di 3m alle Velocità finché non lascia l'area; fallimento critico, anche immobilizzata per 1 round. Le creature possono tentare di Fuggire per rimuovere questi effetti."
+  },
+  environmentalEndurance: {
+    "name": "Resistenza Ambientale",
+    "rank": 2,
+    "traits": [],
+    "actions": "10 minuti",
+    "range": "tocco",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "Proteggi il bersaglio, fino alla prossima preparazione giornaliera, da temperature pericolose. Scegli freddo o caldo severo: il bersaglio è protetto da quella temperatura (ma non da freddo o caldo estremo). Potenziato (3°): protetto da freddo e caldo severi. Potenziato (5°): protetto anche da freddo e caldo estremi."
+  },
+  cleanseAffliction: {
+    "name": "Purificare l'Afflizione",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura volontaria",
+    "savingThrow": null,
+    "desc": "Una magia curativa delicata respinge gli effetti di tossine e afflizioni complesse. Scegli un'afflizione sul bersaglio (maledizione, malattia o veleno): se ha superato lo stadio 1, ne riduci lo stadio di uno. Questa riduzione si applica una sola volta per ciascun caso dell'afflizione, fino alla guarigione completa del caso. Le versioni potenziate tentano comunque di contrastare l'afflizione a ogni lancio. Potenziato (3°): tenta di contrastare se è una malattia o un veleno. Potenziato (4°): tenta di contrastare se è una maledizione, malattia o veleno."
+  },
+  status: {
+    "name": "Stato",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura vivente volontaria",
+    "savingThrow": null,
+    "desc": "Finché tu e il bersaglio siete sullo stesso piano di esistenza ed entrambi vivi, resti consapevole del suo stato per il resto della giornata: conosci direzione e distanza da te e le eventuali condizioni che lo affliggono. Potenziato (4°): la gittata sale a 9m e puoi bersagliare fino a 10 creature."
+  },
+  dismantle: {
+    "name": "Smontare",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 oggetto non magico posseduto (massimo 1 Ingombro)",
+    "savingThrow": null,
+    "desc": "Tocchi un oggetto, che si smonta immediatamente nei suoi componenti per 1 minuto. Fallisce se l'oggetto non ha componenti separabili (es. una statua di un unico blocco), e usarlo su un oggetto pericoloso come una trappola solitamente lo attiva. L'oggetto ottiene la condizione rotto, e i pezzi diventano abbastanza piccoli da nascondersi sotto vestiti e armatura normali. Puoi Annullare l'incantesimo: al termine, l'oggetto si riassembla apparendo nelle tue mani libere o a terra davanti a te, perdendo la condizione rotto e recuperando i PF che aveva al momento del lancio. Potenziato (4°): dura 10 minuti. Potenziato (6°): dura fino alla prossima preparazione giornaliera."
+  },
+  vomitSwarm: {
+    "name": "Rigurgito Vermiforme",
+    "rank": 2,
+    "traits": [],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "Cono di 9m",
+    "savingThrow": "Riflessi (base)",
+    "desc": "Rigurgiti uno sciame di parassiti magici plasmati dalla tua immaginazione (tipicamente un misto di centopiedi, scarafaggi, vespe e vermi; l'aspetto è puramente estetico e non cambia l'effetto). Lo sciame investe l'area con morsi e punture: 2d8 danni da perforazione con TS base su Riflessi. Chi fallisce diventa anche nauseato 1. Lo sciame scompare al termine dell'incantesimo. Potenziato (+1): il danno aumenta di 1d8."
+  },
+};
+
+const PF_SPELLS_R2_DIVINE = {
+  augury: {
+    "name": "Presagio",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "predizione"
+    ],
+    "actions": "10 minuti",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Lanci questo incantesimo in preparazione di un'altra azione che intraprenderai entro i prossimi 30 minuti, ottenendo un vago scorcio del futuro riguardo ai risultati di quell'azione. Il GM tira segretamente un dado per determinare se la risposta è positiva (favorevole), negativa (sfavorevole), mista (favorevole e sfavorevole insieme) o nulla. Su un fallimento di questo tiro segreto, la risposta è sempre 'nulla', rendendo una lettura accurata indistinguibile da una falsa. Se lanci di nuovo Presagio riguardo esattamente la stessa azione entro un breve lasso di tempo, senza che le circostanze siano cambiate in modo significativo, ottieni lo stesso risultato del lancio precedente."
+  },
+  bloodVendetta: {
+    "name": "Vendetta di Sangue",
+    "rank": 2,
+    "traits": [
+      "maledizione"
+    ],
+    "actions": "1 reazione",
+    "range": "9 metri",
+    "targets": "la creatura che ha innescato l'effetto",
+    "savingThrow": "Volontà",
+    "desc": "Scagli una maledizione su chi ti ha ferito. Si innesca quando una creatura ti infligge danno perforante, tagliente o danno persistente da sanguinamento; devi poter sanguinare. Il bersaglio subisce 2d6 danni persistenti da sanguinamento e deve tentare un tiro salvezza su Volontà. Successo critico: nessun effetto. Successo: il bersaglio subisce solo metà del danno persistente da sanguinamento. Fallimento: il bersaglio subisce il danno persistente da sanguinamento pieno e ottiene debolezza 1 al perforante e al tagliente finché continua a sanguinare. Fallimento critico: come fallimento, ma il danno persistente da sanguinamento è raddoppiato. Potenziato (+2): il danno persistente da sanguinamento aumenta di 2d6."
+  },
+  calm: {
+    "name": "Calma",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "emozione",
+      "incapacitante",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": "Volontà",
+    "desc": "Calmi con la forza le creature nell'area, portandole in uno stato non violento (esplosione di 3 metri di raggio). Ogni creatura nell'area deve tentare un tiro salvezza su Volontà. Successo critico: la creatura non è affetta. Successo: la creatura subisce una penalità di status -1 ai tiri per colpire. Fallimento: gli effetti basati sull'emozione della creatura sono soppressi e non può usare azioni ostili; l'effetto termina se la creatura subisce ostilità da parte di altri. Fallimento critico: come fallimento, ma subire ostilità non pone fine all'effetto. Sostenuto fino a 1 minuto."
+  },
+  charitableUrge: {
+    "name": "Impulso Caritatevole",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "incapacitante",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Costringi un bersaglio a rinunciare ai propri averi tramite un incantesimo di ammaliamento. L'incantesimo fallisce automaticamente se il bersaglio non porta alcun oggetto. Successo critico: il bersaglio resiste completamente all'effetto. Successo: il bersaglio diventa instupidito 1 mentre lotta contro la compulsione. Fallimento: al turno successivo del bersaglio, deve donare un oggetto alla creatura più vicina; se il suo unico possesso viene usato attivamente per la difesa, può diventare instupidito 1 al posto della donazione. Fallimento critico: l'effetto persiste per 4 round con compulsioni ripetute ad ogni turno; il bersaglio può tentare un nuovo tiro salvezza su Volontà alla fine di ogni suo turno per ridurre la durata, un successo critico pone fine immediatamente all'effetto."
+  },
+  cleanseAffliction: {
+    "name": "Cura Afflizione",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Una magia curativa delicata respinge gli effetti di tossine e malanni più complessi. Scegli una maledizione, una malattia o un veleno che affligge il bersaglio: se l'afflizione è progredita oltre lo stadio 1, ne riduci lo stadio di uno. Questa riduzione si applica una sola volta per ogni singola istanza dell'afflizione. Potenziato (3°): tenti di contrastare l'afflizione se è una malattia o un veleno. Potenziato (4°): tenti di contrastare l'afflizione se è una maledizione, una malattia o un veleno."
+  },
+  clearMind: {
+    "name": "Mente Limpida",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Rimuovi la contaminazione mentale tentando di contrastare un effetto che impone le condizioni in fuga, spaventato o instupidito. Se il tentativo di contrasto fallisce ma avrebbe avuto successo con un rango di contrasto inferiore di 2, l'effetto viene invece soppresso fino al tuo prossimo turno. L'incantesimo non può contrastare né sopprimere condizioni derivanti da maledizioni, malattie o dallo stato naturale del bersaglio. Potenziato (4°): aggiunge confuso, controllato e rallentato alle condizioni bersagliabili. Potenziato (6°): come 4°, più condannato. Potenziato (8°): come 4°, più condannato e stordito."
+  },
+  createFood: {
+    "name": "Creare Cibo",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "1 ora",
+    "range": "9 metri",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Crei abbastanza cibo per sfamare sei creature di taglia Media per un giorno. Il cibo è insipido ma nutriente e marcisce dopo 1 giorno se non consumato. Le creature Piccole consumano un quarto della porzione di una Media, le Minuscole un sedicesimo, le Grandi 10 volte tanto. Potenziato (4°): sfami 12 creature Medie. Potenziato (6°): 50 creature. Potenziato (8°): 200 creature."
+  },
+  darkness: {
+    "name": "Oscurità",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "oscurità",
+      "manipolazione"
+    ],
+    "actions": "3 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Crei un velo di oscurità che impedisce alla luce di penetrare o emanarsi nell'area (esplosione di 6 metri di raggio, durata 1 minuto). Le fonti di luce non magiche smettono di funzionare all'interno dell'oscurità, e la luce magica di rango pari o inferiore viene soppressa. Le creature dentro non vedono l'esterno; dall'esterno l'area appare come un globo di oscurità pura. Potenziato (4°): le creature con scurovisione (esclusa la scurovisione superiore) percepiscono a malapena attraverso l'oscurità, trattando i bersagli come occultati."
+  },
+  darkvision: {
+    "name": "Scurovisione",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Ti doni una vista soprannaturale nelle zone di oscurità: ottieni la scurovisione per 1 ora. Potenziato (3°): gittata tocco, bersaglio 1 creatura senziente. Potenziato (5°): gittata tocco, bersaglio 1 creatura senziente, durata fino alle prossime preparazioni giornaliere."
+  },
+  deafness: {
+    "name": "Sordità",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Tempra",
+    "desc": "Il bersaglio perde l'udito e tira un TS su Tempra, diventando poi immune per 1 minuto. Successo critico: non è affetto. Successo: sordo per 1 round. Fallimento: sordo per 10 minuti. Fallimento critico: sordo permanentemente."
+  },
+  dispelMagic: {
+    "name": "Dissolvi Magia",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "1 effetto di incantesimo o oggetto magico incustodito",
+    "savingThrow": null,
+    "desc": "Dissolvi la magia dietro un incantesimo o un effetto. Tenti un controllo per contrastare contro il bersaglio. Se ha successo contro un oggetto magico, questo diventa mondano per 10 minuti senza alterarne le proprietà non magiche. Gli artefatti e oggetti simili fanno automaticamente fallire l'incantesimo."
+  },
+  environmentalEndurance: {
+    "name": "Resistenza Ambientale",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "10 minuti",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Proteggi il bersaglio, fino alle tue prossime preparazioni giornaliere, da temperature pericolose. Scegli freddo o caldo severo: il bersaglio è protetto da quella temperatura (ma non da freddo o caldo estremo). Potenziato (3°): protetto da freddo e caldo severi. Potenziato (5°): protetto anche da freddo e caldo estremi."
+  },
+  everlight: {
+    "name": "Luce Perenne",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "luce",
+      "manipolazione"
+    ],
+    "actions": "3 azioni",
+    "range": "tocco",
+    "targets": "una gemma dal valore di almeno 6 mo",
+    "savingThrow": null,
+    "desc": "La gemma che tocchi si illumina, diffondendo luce intensa di un colore a tua scelta in un raggio di 6 metri (e luce fioca per altri 6 metri oltre) a tempo indeterminato. L'incantesimo termina immediatamente se la gemma si rompe."
+  },
+  finalSacrifice: {
+    "name": "Sacrificio Finale",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "fuoco",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "1 creatura con il tratto tirapiedi che hai evocato o che controlli permanentemente",
+    "savingThrow": "Riflessi (base)",
+    "desc": "Incanali energie dirompenti attraverso il legame che hai con il tuo tirapiedi, facendolo esplodere. Il bersaglio muore immediatamente e l'esplosione infligge 6d6 danni da fuoco alle creature entro 6 metri (TS Riflessi base). Se il bersaglio ha il tratto freddo o acqua, il danno diventa da freddo. Lanciarlo su una creatura sotto controllo temporaneo fallisce automaticamente e interrompe quel controllo. Potenziato (+1): il danno aumenta di 2d6."
+  },
+  ghoulishCravings: {
+    "name": "Brame Ghoulesche",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "maledizione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Tocchi il bersaglio infliggendogli un desiderio incontrollabile di consumare carne cruda. Successo critico: nessun effetto. Successo: nauseato 1 per la fame. Fallimento: nauseato 2, non può ridurlo sotto nauseato 1 finché non consuma carne cruda (o morde un cadavere vicino come azione Interagire). Fallimento critico: come fallimento, ma non può ridurlo sotto nauseato 2."
+  },
+  marvelousMount: {
+    "name": "Cavalcatura Meravigliosa",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "10 minuti",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Una fantastica creatura Grande si materializza come cavalcatura per il bersaglio, con Velocità 12m, trasportandolo con equipaggiamento (nessun'altra creatura). Usa CA e TS del bersaglio, ma viene distrutta (terminando l'incantesimo) se subisce più di 10 danni in una volta. Durata 8 ore. Potenziato (3°): può camminare sull'acqua, deve terminare il turno su terreno solido. Potenziato (4°): Velocità 18m, cammina sull'acqua. Potenziato (5°): Velocità 18m e Velocità di volo 18m, cammina sull'acqua, deve terminare il turno su una superficie. Potenziato (6°): Velocità e Velocità di volo 24m."
+  },
+  noiseBlast: {
+    "name": "Scoppio Sonoro",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "sonoro"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "",
+    "savingThrow": "Tempra",
+    "desc": "Un rumore assordante esplode nell'area (raggio 3m), infliggendo 2d10 danni sonori. Successo critico: nessun effetto. Successo: danno dimezzato. Fallimento: danno pieno e sordo per 1 round. Fallimento critico: danno doppio, sordo per 1 minuto e stordito 1. Potenziato (+1): il danno aumenta di 1d10."
+  },
+  peacefulRest: {
+    "name": "Riposo Pacifico",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 cadavere",
+    "savingThrow": null,
+    "desc": "Il cadavere bersaglio non decade, né può essere trasformato in non morto. La durata dell'incantesimo non conta ai fini di limiti temporali di incantesimi come Resurrezione, e impedisce anche a insetti e parassiti di consumare il corpo. Durata fino alle prossime preparazioni giornaliere. Potenziato (5°): durata illimitata, richiede un'azione aggiuntiva e liquido da imbalsamazione del valore di 6 mo."
+  },
+  reapersLantern: {
+    "name": "Lanterna del Mietitore",
+    "rank": 2,
+    "traits": [
+      "aura",
+      "concentrazione",
+      "morte",
+      "luce",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "",
+    "targets": "",
+    "savingThrow": "Tempra",
+    "desc": "Evochi una lanterna spettrale sospesa da una mano scheletrica (emanazione 1,5m, durata 1 minuto), che produce luce intensa nell'area e luce fioca fino al doppio. Le creature viventi e non morti nell'area tentano un TS su Tempra. Viventi che falliscono ricevono solo metà dei benefici normali di guarigione mentre restano nell'area. Non morti che falliscono diventano indeboliti 1 nell'area. Sostenere: puoi aumentare il raggio di 1,5m per turno, costringendo nuove creature al TS."
+  },
+  resistEnergy: {
+    "name": "Resistenza all'Energia",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Uno scudo di energia elementale protegge il bersaglio per 10 minuti da un tipo di danno a scelta tra acido, freddo, elettricità, fuoco o sonoro: il bersaglio e il suo equipaggiamento ottengono resistenza 5 a quel tipo. Potenziato (4°): resistenza 10, fino a due creature. Potenziato (7°): resistenza 15, fino a cinque creature."
+  },
+  revealingLight: {
+    "name": "Luce Rivelatrice",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "luce",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": "Riflessi",
+    "desc": "Un'ondata di luce magica investe l'area (raggio 3m). Chi è colpito è abbagliato; se era invisibile diventa occultato, se era già occultato per altri motivi smette di esserlo. Successo critico: nessun effetto. Successo: 2 round. Fallimento: 1 minuto. Fallimento critico: 10 minuti."
+  },
+  seeTheUnseen: {
+    "name": "Vedere l'Invisibile",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "rivelazione"
+    ],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Il tuo sguardo penetra le illusioni e individua creature invisibili e spiriti per 10 minuti: le vedi come se non fossero invisibili, sebbene appaiano sfocate (occultate e difficili da identificare). Vedi anche creature incorporee fuse in un oggetto entro 3m dalla sua superficie, come forme sfocate. Bonus di status +2 ai controlli per non credere alle illusioni. Potenziato (5°): durata 8 ore."
+  },
+  shareLife: {
+    "name": "Condividi Vita",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Forgi un legame temporaneo tra la tua essenza vitale e quella del bersaglio: il bersaglio subisce metà del danno da effetti che infliggono danno ai PF, tu subisci il resto, senza poter applicare resistenze/debolezze al danno ricevuto tramite il collegamento. Termina se il bersaglio si allontana oltre 9m o se uno dei due raggiunge 0 PF. Durata 10 minuti."
+  },
+  silence: {
+    "name": "Silenzio",
+    "rank": 2,
+    "traits": [
+      "illusione",
+      "manipolazione",
+      "sottile"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Il bersaglio non produce alcun suono, impedendo di notarlo solo con l'udito. Non può usare attacchi sonori né azioni uditive, e non può lanciare incantesimi con componenti verbali (eccetto quelli col tratto sottile). Durata 1 minuto. Potenziato (4°): emanazione 3m di silenzio attorno alla creatura toccata, silenziando anche chi vi entra."
+  },
+  soundBody: {
+    "name": "Corpo Sano",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione",
+      "vitalità"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Invii energia curativa per contrastare un effetto che impone accecato, abbagliato, sordo, indebolito o nauseato. Se il contrasto fallisce ma avrebbe avuto successo con rango inferiore di 2, l'effetto viene soppresso fino all'inizio del tuo prossimo turno. Non altera condizioni da maledizioni, malattie o naturali. Potenziato (4°): aggiunge prosciugato e rallentato. Potenziato (6°): come 4°, più pietrificato. Potenziato (8°): come 4°, più pietrificato e stordito."
+  },
+  spiritSense: {
+    "name": "Percezione degli Spiriti",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "rilevamento",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Percepisci gli spiriti vicini (emanazione 9m, durata 10 minuti): ottieni un controllo per trovare infestazioni e spiriti nell'area anche senza Cercare. Bonus di status +1 ai controlli di Percezione per Cercare, Recuperare Informazioni e per determinare l'esistenza di spiriti o disattivare infestazioni, oltre a bonus di status +1 a CA e TS contro infestazioni o spiriti. Potenziato (6°): durata fino alle prossime preparazioni giornaliere."
+  },
+  spiritualArmament: {
+    "name": "Armamento Spirituale",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "sacro",
+      "spirito"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "1 bersaglio",
+    "savingThrow": "CA",
+    "desc": "Nella versione Remaster questo incantesimo ha sostituito il precedente \"Arma Spirituale\": la meccanica è cambiata per scagliare una copia spettrale della tua arma equipaggiata invece di un'arma spettrale generica. Evochi un duplicato spettrale di un'arma che indossi e la scagli contro un nemico: tiro per colpire con incantesimo contro la CA, 2d8 danni (raddoppiati in critico), tipo di danno dell'arma o da spirito se più efficace. Conta ai fini della penalità da attacchi multipli, poi l'arma torna da te. Sostenuto fino a 1 minuto: ogni round puoi effettuare un altro attacco entro 36m. Potenziato (+2): il danno aumenta di 1d8."
+  },
+  status: {
+    "name": "Stato",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "rilevamento",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura vivente senziente",
+    "savingThrow": null,
+    "desc": "Finché tu e il bersaglio siete sullo stesso piano ed entrambi vivi, resti consapevole del suo stato: direzione, distanza e condizioni che lo affliggono. Durata fino alle prossime preparazioni giornaliere. Potenziato (4°): gittata 9m, fino a 10 creature."
+  },
+  suddenBlight: {
+    "name": "Piaga Improvvisa",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "vuoto"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": "Tempra (base)",
+    "desc": "Acceleri i processi di decadimento nell'area (raggio 6m). Ogni creatura vivente subisce 2d10 danni da vuoto con TS Tempra base (penalità di circostanza -2 se già malata). Puoi anche far marcire piante non-creature Piccole o inferiori, eliminando sottobosco non magico e relativo terreno difficile/copertura/occultamento; tenta di contrastare eventuali effetti magici sulle piante prima. Potenziato (+1): il danno aumenta di 1d10."
+  },
+  sureFooting: {
+    "name": "Passo Sicuro",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Liberi gli arti del bersaglio da disturbi alla mobilità, tentando di contrastare un effetto che impone goffo, afferrato o paralizzato. Se il contrasto fallisce ma avrebbe avuto successo con rango inferiore di 2, l'effetto viene soppresso fino all'inizio del tuo prossimo turno. Non contrasta maledizioni, malattie o condizioni naturali. Potenziato (4°): aggiunge immobilizzato, legato e rallentato. Potenziato (6°): come 4°, più pietrificato. Potenziato (8°): come 4°, più pietrificato e stordito."
+  },
+  translate: {
+    "name": "Tradurre",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Il bersaglio comprende il significato di una singola lingua che sta ascoltando o leggendo (non codici o linguaggio metaforico) per 1 ora; se sente più lingue sceglie quale comprendere, altrimenti è casuale. Potenziato (3°): può anche parlarla. Potenziato (4°): fino a 10 creature, che possono anche parlarla."
+  },
+  waterBreathing: {
+    "name": "Respirazione Acquatica",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "acqua"
+    ],
+    "actions": "1 minuto",
+    "range": "9 metri",
+    "targets": "fino a 5 creature",
+    "savingThrow": null,
+    "desc": "I bersagli possono respirare sott'acqua per 1 ora. Potenziato (3°): durata 8 ore. Potenziato (4°): durata fino alle prossime preparazioni giornaliere."
+  },
+  waterWalk: {
+    "name": "Camminare sull'Acqua",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "acqua"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Il bersaglio può camminare sulla superficie dell'acqua e di altri liquidi senza sprofondare (può comunque immergersi, ma deve Nuotare normalmente); non concede la capacità di respirare sott'acqua. Durata 10 minuti. Potenziato (4°): gittata 9m, durata 1 ora, fino a 10 creature."
+  },
+};
+
+const PF_SPELLS_R2_OCCULT = {
+  augury: {
+    "name": "Presagio",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "predizione"
+    ],
+    "actions": "10 minuti",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Lanci questo incantesimo in preparazione di un'altra azione che intraprenderai entro i prossimi 30 minuti, ottenendo un vago scorcio del futuro riguardo ai risultati di quell'azione. Il GM tira segretamente un dado per determinare se la risposta è positiva (favorevole), negativa (sfavorevole), mista (favorevole e sfavorevole insieme) o nulla. Su un fallimento di questo tiro segreto, la risposta è sempre 'nulla', rendendo una lettura accurata indistinguibile da una falsa. Se lanci di nuovo Presagio riguardo esattamente la stessa azione entro un breve lasso di tempo, senza che le circostanze siano cambiate in modo significativo, ottieni lo stesso risultato del lancio precedente."
+  },
+  bloodVendetta: {
+    "name": "Vendetta di Sangue",
+    "rank": 2,
+    "traits": [
+      "maledizione"
+    ],
+    "actions": "1 reazione",
+    "range": "9 metri",
+    "targets": "la creatura che ha innescato l'effetto",
+    "savingThrow": "Volontà",
+    "desc": "Scagli una maledizione su chi ti ha ferito. Si innesca quando una creatura ti infligge danno perforante, tagliente o danno persistente da sanguinamento; devi poter sanguinare. Il bersaglio subisce 2d6 danni persistenti da sanguinamento e deve tentare un tiro salvezza su Volontà. Successo critico: nessun effetto. Successo: il bersaglio subisce solo metà del danno persistente da sanguinamento. Fallimento: il bersaglio subisce il danno persistente da sanguinamento pieno e ottiene debolezza 1 al perforante e al tagliente finché continua a sanguinare. Fallimento critico: come fallimento, ma il danno persistente da sanguinamento è raddoppiato. Potenziato (+2): il danno persistente da sanguinamento aumenta di 2d6."
+  },
+  blur: {
+    "name": "Sfocatura",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "illusione",
+      "manipolazione",
+      "visivo"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Il contorno del bersaglio appare sfocato e tremolante: diventa occultato per 1 minuto. Poiché la sua posizione resta comunque evidente, non può sfruttare questo occultamento per Nascondersi o Muoversi Furtivamente."
+  },
+  calm: {
+    "name": "Calma",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "emozione",
+      "incapacitante",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": "Volontà",
+    "desc": "Calmi con la forza le creature nell'area, portandole in uno stato non violento (esplosione di 3 metri di raggio). Ogni creatura nell'area deve tentare un tiro salvezza su Volontà. Successo critico: la creatura non è affetta. Successo: la creatura subisce una penalità di status -1 ai tiri per colpire. Fallimento: gli effetti basati sull'emozione della creatura sono soppressi e non può usare azioni ostili; l'effetto termina se la creatura subisce ostilità da parte di altri. Fallimento critico: come fallimento, ma subire ostilità non pone fine all'effetto. Sostenuto fino a 1 minuto."
+  },
+  cleanseAffliction: {
+    "name": "Cura Afflizione",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Una magia curativa delicata respinge gli effetti di tossine e malanni più complessi. Scegli una maledizione, una malattia o un veleno che affligge il bersaglio: se l'afflizione è progredita oltre lo stadio 1, ne riduci lo stadio di uno. Questa riduzione si applica una sola volta per ogni singola istanza dell'afflizione. Potenziato (3°): tenti di contrastare l'afflizione se è una malattia o un veleno. Potenziato (4°): tenti di contrastare l'afflizione se è una maledizione, una malattia o un veleno."
+  },
+  clearMind: {
+    "name": "Mente Limpida",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Rimuovi la contaminazione mentale tentando di contrastare un effetto che impone le condizioni in fuga, spaventato o instupidito. Se il tentativo di contrasto fallisce ma avrebbe avuto successo con un rango di contrasto inferiore di 2, l'effetto viene invece soppresso fino al tuo prossimo turno. L'incantesimo non può contrastare né sopprimere condizioni derivanti da maledizioni, malattie o dallo stato naturale del bersaglio. Potenziato (4°): aggiunge confuso, controllato e rallentato alle condizioni bersagliabili. Potenziato (6°): come 4°, più condannato. Potenziato (8°): come 4°, più condannato e stordito."
+  },
+  darkness: {
+    "name": "Oscurità",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "oscurità",
+      "manipolazione"
+    ],
+    "actions": "3 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Crei un velo di oscurità che impedisce alla luce di penetrare o emanarsi nell'area (esplosione di 6 metri di raggio, durata 1 minuto). Le fonti di luce non magiche smettono di funzionare all'interno dell'oscurità, e la luce magica di rango pari o inferiore viene soppressa. Le creature dentro non vedono l'esterno; dall'esterno l'area appare come un globo di oscurità pura. Potenziato (4°): le creature con scurovisione (esclusa la scurovisione superiore) percepiscono a malapena attraverso l'oscurità, trattando i bersagli come occultati."
+  },
+  darkvision: {
+    "name": "Scurovisione",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Ti doni una vista soprannaturale nelle zone di oscurità: ottieni la scurovisione per 1 ora. Potenziato (3°): gittata tocco, bersaglio 1 creatura senziente. Potenziato (5°): gittata tocco, bersaglio 1 creatura senziente, durata fino alle prossime preparazioni giornaliere."
+  },
+  deafness: {
+    "name": "Sordità",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Tempra",
+    "desc": "Il bersaglio perde l'udito e tira un TS su Tempra, diventando poi immune per 1 minuto. Successo critico: non è affetto. Successo: sordo per 1 round. Fallimento: sordo per 10 minuti. Fallimento critico: sordo permanentemente."
+  },
+  dispelMagic: {
+    "name": "Dissolvi Magia",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "1 effetto di incantesimo o oggetto magico incustodito",
+    "savingThrow": null,
+    "desc": "Dissolvi la magia dietro un incantesimo o un effetto. Tenti un controllo per contrastare contro il bersaglio. Se ha successo contro un oggetto magico, questo diventa mondano per 10 minuti senza alterarne le proprietà non magiche. Gli artefatti e oggetti simili fanno automaticamente fallire l'incantesimo."
+  },
+  embedMessage: {
+    "name": "Incorpora Messaggio",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "illusione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 oggetto o 1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Specifichi un innesco e un messaggio lungo fino a 25 parole. Quando l'innesco si verifica entro 9m dal bersaglio, un testo illusorio del messaggio circonda il bersaglio con una voce disincarnata (lingua e voce a tua scelta), poi l'incantesimo termina. Durata illimitata. Potenziato (4°): aggiungi una semplice componente sensoriale (odore, effetto visivo o sensazione) durante la consegna del messaggio. Potenziato (6°): come 4°, ma senza limite di ripetizioni prima che l'incantesimo termini."
+  },
+  everlight: {
+    "name": "Luce Perenne",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "luce",
+      "manipolazione"
+    ],
+    "actions": "3 azioni",
+    "range": "tocco",
+    "targets": "una gemma dal valore di almeno 6 mo",
+    "savingThrow": null,
+    "desc": "La gemma che tocchi si illumina, diffondendo luce intensa di un colore a tua scelta in un raggio di 6 metri (e luce fioca per altri 6 metri oltre) a tempo indeterminato. L'incantesimo termina immediatamente se la gemma si rompe."
+  },
+  falseVitality: {
+    "name": "Falsa Vitalità",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Aumenti la tua carne con le energie tipicamente usate per manipolare i non morti, ottenendo 10 punti ferita temporanei per 8 ore. Potenziato (+1): i punti ferita temporanei aumentano di 3."
+  },
+  ghostlyCarrier: {
+    "name": "Corriere Spettrale",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Evochi una minuscola entità semi-corporea che rimane adiacente a te per 1 minuto. Ogni volta che lanci un incantesimo con gittata tocco, puoi indirizzare il corriere ad avvicinarsi entro la sua gittata, somministrare l'incantesimo a un bersaglio, e ritirarsi verso di te. Se deve effettuare tiri per colpire con incantesimo, usa i tuoi bonus. Possiede le tue statistiche difensive, ma qualsiasi danno lo distrugge immediatamente."
+  },
+  humanoidForm: {
+    "name": "Forma Umanoide",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "mutaforma"
+    ],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Ti trasformi in una forma umanoide Piccola o Media (nano, elfo, goblin, halfling, umano, mezzorco, ecc.), ottenendo il tratto umanoide più il tratto di ascendenza rilevante; la riduzione di taglia riduce la portata di conseguenza. Le statistiche restano invariate e non ottieni capacità speciali della forma. L'equipaggiamento si ridimensiona con te (torna normale se lasciato cadere). Bonus di status +4 alle prove di Inganno per spacciarti per un membro generico dell'ascendenza scelta (aggiungendo il livello anche da non addestrato), ma impersonare un individuo specifico richiede comunque un travestimento. Durata 10 minuti. Potenziato (3°): ottieni scurovisione o visione crepuscolare se la forma la possiede. Potenziato (5°): puoi assumere forma Grande, con gli effetti di Ingrandire se la taglia aumenta."
+  },
+  illusoryCreature: {
+    "name": "Creatura Illusoria",
+    "rank": 2,
+    "traits": [
+      "uditivo",
+      "concentrazione",
+      "illusione",
+      "manipolazione",
+      "olfattivo",
+      "visivo"
+    ],
+    "actions": "2 azioni",
+    "range": "150 metri",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Evochi un'illusione convincente di una creatura di taglia Grande o inferiore con dettagli sensoriali appropriati; se tu e l'illusione siete a più di 150m, l'incantesimo termina. Non parla da sola, ma puoi darle dialoghi mascherando la voce (con eventuale prova di Inganno o Intrattenere). In combattimento agisce con 2 azioni quando la sostieni, usando il tuo tiro per colpire con incantesimo e la tua CD incantesimi come CA; può fiancheggiare. Un attacco riuscito contro di essa termina l'incantesimo. I suoi colpi infliggono 3d4 danni mentali non letali. Chi la tocca o Cerca può tentare di non crederci, recuperando metà del danno subito e negando danni futuri. Sostenuto. Potenziato (+1): il danno aumenta di 1d4, la taglia massima aumenta di una categoria."
+  },
+  invisibility: {
+    "name": "Invisibilità",
+    "rank": 2,
+    "traits": [
+      "illusione",
+      "manipolazione",
+      "sottile"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Le illusioni piegano la luce attorno al bersaglio, che diventa non rilevato da tutte le creature per 10 minuti (queste possono comunque tentare di individuarlo, rendendolo nascosto invece). Termina non appena il bersaglio completa un'azione ostile. Potenziato (4°): dura 1 minuto e non termina più per azioni ostili."
+  },
+  knock: {
+    "name": "Scassina",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 porta, serratura o contenitore",
+    "savingThrow": null,
+    "desc": "Il bersaglio diventa più facile da aprire: bonus di status +4 a chi tenta di aprirlo con Atletica o Furtività/Raggirare, per 1 minuto. Puoi tentare tu stesso una prova di Raggirare per aprirlo come parte del lancio, aggiungendo il livello anche da non addestrato. Nega anche eventuali effetti magici di chiusura sul bersaglio."
+  },
+  laughingFit: {
+    "name": "Attacco di Risa",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "emozione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura vivente",
+    "savingThrow": "Volontà",
+    "desc": "Il bersaglio è preso da una risata incontrollabile. Successo critico: non è affetto. Successo: non può usare reazioni. Fallimento: rallentato 1 e non può usare reazioni. Fallimento critico: cade prono e non può usare azioni né reazioni per 1 round, poi subisce gli effetti del fallimento. Sostenuto."
+  },
+  marvelousMount: {
+    "name": "Cavalcatura Meravigliosa",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "10 minuti",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Una fantastica creatura Grande si materializza come cavalcatura per il bersaglio, con Velocità 12m, trasportandolo con equipaggiamento (nessun'altra creatura). Usa CA e TS del bersaglio, ma viene distrutta (terminando l'incantesimo) se subisce più di 10 danni in una volta. Durata 8 ore. Potenziato (3°): può camminare sull'acqua, deve terminare il turno su terreno solido. Potenziato (4°): Velocità 18m, cammina sull'acqua. Potenziato (5°): Velocità 18m e Velocità di volo 18m, cammina sull'acqua, deve terminare il turno su una superficie. Potenziato (6°): Velocità e Velocità di volo 24m."
+  },
+  noiseBlast: {
+    "name": "Scoppio Sonoro",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "sonoro"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "",
+    "savingThrow": "Tempra",
+    "desc": "Un rumore assordante esplode nell'area (raggio 3m), infliggendo 2d10 danni sonori. Successo critico: nessun effetto. Successo: danno dimezzato. Fallimento: danno pieno e sordo per 1 round. Fallimento critico: danno doppio, sordo per 1 minuto e stordito 1. Potenziato (+1): il danno aumenta di 1d10."
+  },
+  paranoia: {
+    "name": "Paranoia",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "illusione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Fai percepire al bersaglio tutte le altre creature come minacce mortali per 1 minuto. Successo critico: nessun effetto. Successo: ostile verso tutte le creature tranne quelle già ostili, per 1 round. Fallimento: come successo, ma per 1 minuto. Fallimento critico: tratta chiunque come nemico mortale, usando reazioni e azioni gratuite contro tutti indipendentemente da alleanze precedenti. Potenziato (6°): colpisce fino a 5 creature."
+  },
+  peacefulRest: {
+    "name": "Riposo Pacifico",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 cadavere",
+    "savingThrow": null,
+    "desc": "Il cadavere bersaglio non decade, né può essere trasformato in non morto. La durata dell'incantesimo non conta ai fini di limiti temporali di incantesimi come Resurrezione, e impedisce anche a insetti e parassiti di consumare il corpo. Durata fino alle prossime preparazioni giornaliere. Potenziato (5°): durata illimitata, richiede un'azione aggiuntiva e liquido da imbalsamazione del valore di 6 mo."
+  },
+  resistEnergy: {
+    "name": "Resistenza all'Energia",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Uno scudo di energia elementale protegge il bersaglio per 10 minuti da un tipo di danno a scelta tra acido, freddo, elettricità, fuoco o sonoro: il bersaglio e il suo equipaggiamento ottengono resistenza 5 a quel tipo. Potenziato (4°): resistenza 10, fino a due creature. Potenziato (7°): resistenza 15, fino a cinque creature."
+  },
+  revealingLight: {
+    "name": "Luce Rivelatrice",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "luce",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": "Riflessi",
+    "desc": "Un'ondata di luce magica investe l'area (raggio 3m). Chi è colpito è abbagliato; se era invisibile diventa occultato, se era già occultato per altri motivi smette di esserlo. Successo critico: nessun effetto. Successo: 2 round. Fallimento: 1 minuto. Fallimento critico: 10 minuti."
+  },
+  seeTheUnseen: {
+    "name": "Vedere l'Invisibile",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "rivelazione"
+    ],
+    "actions": "2 azioni",
+    "range": "personale",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Il tuo sguardo penetra le illusioni e individua creature invisibili e spiriti per 10 minuti: le vedi come se non fossero invisibili, sebbene appaiano sfocate (occultate e difficili da identificare). Vedi anche creature incorporee fuse in un oggetto entro 3m dalla sua superficie, come forme sfocate. Bonus di status +2 ai controlli per non credere alle illusioni. Potenziato (5°): durata 8 ore."
+  },
+  shatter: {
+    "name": "Frantumare",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "sonoro"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 oggetto incustodito",
+    "savingThrow": null,
+    "desc": "Un attacco sonico ad alta frequenza frantuma un oggetto vicino: 2d10 danni sonori, ignorando la Durezza se pari o inferiore a 4. Potenziato (+1): il danno aumenta di 1d10 e la Durezza ignorata aumenta di 2."
+  },
+  silence: {
+    "name": "Silenzio",
+    "rank": 2,
+    "traits": [
+      "illusione",
+      "manipolazione",
+      "sottile"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Il bersaglio non produce alcun suono, impedendo di notarlo solo con l'udito. Non può usare attacchi sonori né azioni uditive, e non può lanciare incantesimi con componenti verbali (eccetto quelli col tratto sottile). Durata 1 minuto. Potenziato (4°): emanazione 3m di silenzio attorno alla creatura toccata, silenziando anche chi vi entra."
+  },
+  soundBody: {
+    "name": "Corpo Sano",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione",
+      "vitalità"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Invii energia curativa per contrastare un effetto che impone accecato, abbagliato, sordo, indebolito o nauseato. Se il contrasto fallisce ma avrebbe avuto successo con rango inferiore di 2, l'effetto viene soppresso fino all'inizio del tuo prossimo turno. Non altera condizioni da maledizioni, malattie o naturali. Potenziato (4°): aggiunge prosciugato e rallentato. Potenziato (6°): come 4°, più pietrificato. Potenziato (8°): come 4°, più pietrificato e stordito."
+  },
+  spiritualArmament: {
+    "name": "Armamento Spirituale",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "sacro",
+      "spirito"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "1 bersaglio",
+    "savingThrow": "CA",
+    "desc": "Nella versione Remaster questo incantesimo ha sostituito il precedente \"Arma Spirituale\": la meccanica è cambiata per scagliare una copia spettrale della tua arma equipaggiata invece di un'arma spettrale generica. Evochi un duplicato spettrale di un'arma che indossi e la scagli contro un nemico: tiro per colpire con incantesimo contro la CA, 2d8 danni (raddoppiati in critico), tipo di danno dell'arma o da spirito se più efficace. Conta ai fini della penalità da attacchi multipli, poi l'arma torna da te. Sostenuto fino a 1 minuto: ogni round puoi effettuare un altro attacco entro 36m. Potenziato (+2): il danno aumenta di 1d8."
+  },
+  status: {
+    "name": "Stato",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "rilevamento",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura vivente senziente",
+    "savingThrow": null,
+    "desc": "Finché tu e il bersaglio siete sullo stesso piano ed entrambi vivi, resti consapevole del suo stato: direzione, distanza e condizioni che lo affliggono. Durata fino alle prossime preparazioni giornaliere. Potenziato (4°): gittata 9m, fino a 10 creature."
+  },
+  stupefy: {
+    "name": "Instupidire",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Ottunde la mente del bersaglio. Successo critico: nessun effetto. Successo: instupidito 1 fino all'inizio del tuo prossimo turno. Fallimento: instupidito 2 per 1 minuto. Fallimento critico: instupidito 3 per 1 minuto."
+  },
+  sureFooting: {
+    "name": "Passo Sicuro",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "guarigione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura senziente",
+    "savingThrow": null,
+    "desc": "Liberi gli arti del bersaglio da disturbi alla mobilità, tentando di contrastare un effetto che impone goffo, afferrato o paralizzato. Se il contrasto fallisce ma avrebbe avuto successo con rango inferiore di 2, l'effetto viene soppresso fino all'inizio del tuo prossimo turno. Non contrasta maledizioni, malattie o condizioni naturali. Potenziato (4°): aggiunge immobilizzato, legato e rallentato. Potenziato (6°): come 4°, più pietrificato. Potenziato (8°): come 4°, più pietrificato e stordito."
+  },
+  telekineticManeuver: {
+    "name": "Manovra Telecinetica",
+    "rank": 2,
+    "traits": [
+      "attacco",
+      "concentrazione",
+      "forza",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "18 metri",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Con un'ondata di potere telecinetico sposti un nemico o qualcosa che porta con sé: puoi tentare di Disarmare, Riposizionare, Spingere o Atterrare il bersaglio usando un tiro per colpire con incantesimi al posto di una prova di Atletica."
+  },
+  translate: {
+    "name": "Tradurre",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": null,
+    "desc": "Il bersaglio comprende il significato di una singola lingua che sta ascoltando o leggendo (non codici o linguaggio metaforico) per 1 ora; se sente più lingue sceglie quale comprendere, altrimenti è casuale. Potenziato (3°): può anche parlarla. Potenziato (4°): fino a 10 creature, che possono anche parlarla."
+  },
+  animatedAssault: {
+    "name": "Assalto Animato",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "",
+    "savingThrow": "Riflessi (base)",
+    "desc": "Manipoli con la mente oggetti incustoditi nell'area (raggio 3m), animandoli temporaneamente per attaccare in un caotico turbine di detriti. L'assalto iniziale infligge 2d10 danni contundenti (TS Riflessi base) a ogni creatura nell'area. Nei round successivi, la prima volta che sostieni l'incantesimo ogni round, infligge 1d10 danni contundenti (TS Riflessi base). Sostenuto fino a 1 minuto. Potenziato (+2): il danno iniziale aumenta di 2d10, quello successivo di 1d10."
+  },
+  blisteringInvective: {
+    "name": "Invettiva Rovente",
+    "rank": 2,
+    "traits": [
+      "uditivo",
+      "concentrazione",
+      "emozione",
+      "paura",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Un cumulo di insulti erompe dalla tua bocca, così devastanti che i nemici bruciano per l'intensità della sfuriata: infliggi 2d6 danni da fuoco persistenti (bonus di circostanza +4 al TS per chi non comprende la lingua). Successo critico: nessun effetto. Successo: metà del danno persistente. Fallimento: spaventato 1 e danno persistente pieno. Fallimento critico: spaventato 2 e danno persistente raddoppiato. Potenziato (+2): bersagli due creature aggiuntive, il danno persistente aumenta di 2d6."
+  },
+  charitableUrge: {
+    "name": "Impulso Caritatevole",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "incapacitante",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "9 metri",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Costringi un bersaglio a rinunciare ai propri averi tramite un incantesimo di ammaliamento. L'incantesimo fallisce automaticamente se il bersaglio non porta alcun oggetto. Successo critico: il bersaglio resiste completamente all'effetto. Successo: il bersaglio diventa instupidito 1 mentre lotta contro la compulsione. Fallimento: al turno successivo del bersaglio, deve donare un oggetto alla creatura più vicina; se il suo unico possesso viene usato attivamente per la difesa, può diventare instupidito 1 al posto della donazione. Fallimento critico: l'effetto persiste per 4 round con compulsioni ripetute ad ogni turno; il bersaglio può tentare un nuovo tiro salvezza su Volontà alla fine di ogni suo turno per ridurre la durata, un successo critico pone fine immediatamente all'effetto."
+  },
+  finalSacrifice: {
+    "name": "Sacrificio Finale",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "fuoco",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "36 metri",
+    "targets": "1 creatura con il tratto tirapiedi che hai evocato o che controlli permanentemente",
+    "savingThrow": "Riflessi (base)",
+    "desc": "Incanali energie dirompenti attraverso il legame che hai con il tuo tirapiedi, facendolo esplodere. Il bersaglio muore immediatamente e l'esplosione infligge 6d6 danni da fuoco alle creature entro 6 metri (TS Riflessi base). Se il bersaglio ha il tratto freddo o acqua, il danno diventa da freddo. Lanciarlo su una creatura sotto controllo temporaneo fallisce automaticamente e interrompe quel controllo. Potenziato (+1): il danno aumenta di 2d6."
+  },
+  ghoulishCravings: {
+    "name": "Brame Ghoulesche",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "maledizione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "tocco",
+    "targets": "1 creatura",
+    "savingThrow": "Volontà",
+    "desc": "Tocchi il bersaglio infliggendogli un desiderio incontrollabile di consumare carne cruda. Successo critico: nessun effetto. Successo: nauseato 1 per la fame. Fallimento: nauseato 2, non può ridurlo sotto nauseato 1 finché non consuma carne cruda (o morde un cadavere vicino come azione Interagire). Fallimento critico: come fallimento, ma non può ridurlo sotto nauseato 2."
+  },
+  phantasmalTreasure: {
+    "name": "Tesoro Fantasmatico",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "emozione",
+      "illusione",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "18 metri",
+    "targets": "1 creatura vivente",
+    "savingThrow": "Volontà",
+    "desc": "Un'immagine fantasmatica dell'oggetto più prezioso del bersaglio appare entro gittata; solo il bersaglio la vede chiaramente. Successo critico: nessun effetto. Successo: affascinato fino alla fine del turno, può non credervi toccandola/Cercando/interagendo. Fallimento: come successo, ma per 1 minuto. Fallimento critico: come successo (1 minuto), ma il bersaglio deve dedicare ogni azione al tesoro finché l'incantesimo non termina."
+  },
+  reapersLantern: {
+    "name": "Lanterna del Mietitore",
+    "rank": 2,
+    "traits": [
+      "aura",
+      "concentrazione",
+      "morte",
+      "luce",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "",
+    "targets": "",
+    "savingThrow": "Tempra",
+    "desc": "Evochi una lanterna spettrale sospesa da una mano scheletrica (emanazione 1,5m, durata 1 minuto), che produce luce intensa nell'area e luce fioca fino al doppio. Le creature viventi e non morti nell'area tentano un TS su Tempra. Viventi che falliscono ricevono solo metà dei benefici normali di guarigione mentre restano nell'area. Non morti che falliscono diventano indeboliti 1 nell'area. Sostenere: puoi aumentare il raggio di 1,5m per turno, costringendo nuove creature al TS."
+  },
+  spiritSense: {
+    "name": "Percezione degli Spiriti",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "rilevamento",
+      "manipolazione",
+      "mentale"
+    ],
+    "actions": "2 azioni",
+    "range": "",
+    "targets": "",
+    "savingThrow": null,
+    "desc": "Percepisci gli spiriti vicini (emanazione 9m, durata 10 minuti): ottieni un controllo per trovare infestazioni e spiriti nell'area anche senza Cercare. Bonus di status +1 ai controlli di Percezione per Cercare, Recuperare Informazioni e per determinare l'esistenza di spiriti o disattivare infestazioni, oltre a bonus di status +1 a CA e TS contro infestazioni o spiriti. Potenziato (6°): durata fino alle prossime preparazioni giornaliere."
+  },
+  vomitSwarm: {
+    "name": "Sciame di Vomito",
+    "rank": 2,
+    "traits": [
+      "concentrazione",
+      "manipolazione"
+    ],
+    "actions": "2 azioni",
+    "range": "",
+    "targets": "",
+    "savingThrow": "Riflessi (base)",
+    "desc": "Espelli parassiti magici (centopiedi, scarafaggi, vespe, vermi) in un cono di 9m: 2d8 danni perforanti con TS Riflessi base. Chi fallisce diventa anche nauseato 1. Lo sciame svanisce al termine dell'incantesimo. Potenziato (+1): il danno aumenta di 1d8."
+  },
+};
+
+function pfSpellR2Db(trad){
+  return trad==="arcane"?PF_SPELLS_R2_ARCANE:trad==="divine"?PF_SPELLS_R2_DIVINE:trad==="occult"?PF_SPELLS_R2_OCCULT:trad==="primal"?PF_SPELLS_R2_PRIMAL:null;
+}
+
 /* Bestiario Pathfinder 2e (Remaster): primo database verificato di creature, ricercato e
    verificato su Archives of Nethys (2e.aonprd.com, contenuti Monster Core/NPC Core/Bestiary/
    Bestiary 2/Gamemastery Guide) tramite sub-agenti dedicati (v1.22.0). Struttura dello statblock
@@ -11502,10 +13210,14 @@ function viewPfCompendio(){
       const db=pfSpellR1Db(trad);
       Object.entries(db||{}).forEach(([k,s])=>rows.push({name:s.name,rank:1,trad,desc:s}));
     });
+    ["arcane","primal","divine","occult"].forEach(trad=>{
+      const db=pfSpellR2Db(trad);
+      Object.entries(db||{}).forEach(([k,s])=>rows.push({name:s.name,rank:2,trad,desc:s}));
+    });
     const search=el("input",{placeholder:"Cerca un incantesimo…",value:PF_COMPF.spellQ});
     const list=el("div",{style:"margin-top:12px"});
     const count=el("div",{class:"muted",style:"font-size:13px;margin-top:8px"});
-    const ranks=["","0","1"];
+    const ranks=["","0","1","2"];
     const trads=["Tutte",...Object.values(PF_TRADITION_NAMES)];
     const draw=()=>{list.innerHTML="";
       const res=rows.filter(r=>{
@@ -11525,7 +13237,7 @@ function viewPfCompendio(){
             s.actions?el("p",{},el("b",{},"Azioni: "),s.actions):null,
             s.range?el("p",{},el("b",{},"Gittata: "),s.range):null,
             s.targets?el("p",{},el("b",{},"Bersagli: "),s.targets):null,
-            s.save?el("p",{},el("b",{},"Tiro salvezza: "),s.save):null,
+            s.savingThrow?el("p",{},el("b",{},"Tiro salvezza: "),s.savingThrow):null,
             el("p",{},s.desc||"")));}},
         el("span",{},(r.rank===0?"Trucchetto":"Rango "+r.rank)+" · "+r.name),el("span",{class:"muted",style:"font-size:12px"},PF_TRADITION_NAMES[r.trad]))));};
     search.oninput=()=>{PF_COMPF.spellQ=search.value;draw();};
@@ -12183,6 +13895,46 @@ function pfSpellSection(wrap,c){
   }
   wrap.append(card);
 }
+function pfSpellR2Section(wrap,c){
+  const cls=PF_CLASSES[c.pfClass];
+  if(!cls || !cls.caster) return;
+  const trad=c.pfTradition||PF_CLASS_TRADITION[c.pfClass]||null;
+  if(!trad) return;
+  c.pfSpellsR2=c.pfSpellsR2||[];
+  wrap.append(el("div",{class:"section-title"},"Incantesimi di 2° rango",el("span",{class:"ln"})));
+  const card=el("div",{class:"card"});
+  const db=pfSpellR2Db(trad);
+  const chosenIds=c.pfSpellsR2;
+  const opts=Object.keys(db).filter(id=>!chosenIds.includes(id)).map(id=>({value:id,label:db[id].name}));
+  if(opts.length){
+    const sel=customSelect(opts,{placeholder:"Aggiungi un incantesimo di 2° rango ("+PF_TRADITION_NAMES[trad]+")…"});
+    const btn=el("button",{class:"btn sm",onclick:()=>{
+      const id=sel.value; if(!id) return;
+      c.pfSpellsR2=[...c.pfSpellsR2,id];
+      persist(); render();
+    }},"Aggiungi incantesimo");
+    card.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center"},sel,btn));
+  }else{
+    card.append(el("p",{class:"muted",style:"font-size:12px"},"Hai aggiunto tutti gli incantesimi di 2° rango verificati della tradizione "+PF_TRADITION_NAMES[trad]+"."));
+  }
+  if(chosenIds.length){
+    card.append(el("div",{style:"margin-top:10px;display:grid;gap:6px"},...chosenIds.map((id,i)=>{
+      const def=db[id];
+      return el("div",{class:"card",style:"padding:8px 10px"},
+        el("div",{style:"display:flex;justify-content:space-between;align-items:center"},
+          el("b",{style:"color:var(--gold2);font-size:13px"},def?def.name:id),
+          el("button",{class:"btn ghost sm",onclick:()=>{c.pfSpellsR2=c.pfSpellsR2.filter((_,idx)=>idx!==i);persist();render();}},"✕")),
+        def?el("p",{class:"muted",style:"font-size:11px;margin-top:4px"},[
+            def.actions?("Azioni: "+def.actions):null,
+            def.range?("Gittata: "+def.range):null,
+            def.targets?("Bersagli: "+def.targets):null,
+            def.savingThrow?("TS: "+def.savingThrow):null
+          ].filter(Boolean).join(" · ")):"",
+        def?el("p",{class:"muted",style:"font-size:11px;margin-top:4px;line-height:1.5"},def.desc):"");
+    })));
+  }
+  wrap.append(card);
+}
 function viewPfSheet(){
   const c=(STATE.pfCharacters||[]).find(x=>x.id===STATE.pfCurrent);
   if(!c){ go("pfhome"); return el("div"); }
@@ -12377,6 +14129,7 @@ function viewPfSheet(){
   pfClassFeatSection(wrap,c);
   pfCantripSection(wrap,c);
   pfSpellSection(wrap,c);
+  pfSpellR2Section(wrap,c);
   pfSkillFeatSection(wrap,c);
   // Storia ed equipaggiamento
   if(c.pfBackstory){
@@ -24978,7 +26731,7 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
- var ROLLONE_CONTENT_VERSION = "1.24.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola) — v1.24.0 (15/9): decima milestone della roadmap Pathfinder delegata, prima funzionalità di PARITÀ DI PIATTAFORMA con D&D: il "Compendio Pathfinder". Nuova voce di menu "Compendio" (`viewPfCompendio()`), mirror concettuale del Compendio D&D esistente (`viewCompendium()`, mai toccato): un'unica schermata di sola consultazione a schede che raccoglie TUTTI i database Pathfinder già verificati nelle milestone precedenti in un solo posto navigabile, separato dalla scheda personaggio. Schede: Popoli (le 8 ascendenze con incrementi/tratti/descrizione), Retroscena (i 6 background), Classi (le 13 classi con tiri salvezza/PF per livello/accesso ad armi e armature), Abilità (le 16 abilità Pathfinder), Armi (10 armi di base), Armature (10 armature di base per categoria), Talenti (ricerca+filtro per tipo su tutti e 4 i database già integrati: 28 Generali, 63 di Ascendenza, 55 di Abilità, 98 di Classe — 244 talenti totali consultabili in un solo posto), Incantesimi (ricerca+filtro per rango/tradizione su Trucchetti+Incantesimi di 1° rango, con deduplica automatica degli incantesimi condivisi tra piu tradizioni), Regole rapide (economia delle azioni, gradi di competenza, gradi di successo, penalità da attacchi multipli, Punti Ferita e morte). Aggiunto anche un contenuto mai avuto prima nell'app: database verificato delle 42 CONDIZIONI Pathfinder (Remaster) — Accecato, Maldestro, Confuso, Morente, Distratto (Off-Guard, il nome Remaster che ha sostituito "Flat-Footed"), Nauseato, Rallentato, Stordito, Danno Persistente e le altre — ricercate e verificate su Archives of Nethys (2e.aonprd.com/Conditions.aspx) tramite un sub-agente dedicato, testo parafrasato in italiano, ogni voce indica se ha un valore numerico associato. Isolato dal Compendio D&D esistente: nessuna variabile/funzione D&D toccata, stato proprio (PF_COMP_TAB/PF_COMPF), dati propri (PF_CONDITIONS). Verificato: sintassi OK sui 15 blocchi script, test funzionale in Node sul database condizioni (42 voci, tutte con nome/descrizione/campo "valued" validi). SHA-256 di questa build: 3c00875c1d405ac7c3a9bf895dbfa5a040a5afb7aa868187d6bb79c2fe821bbe. | v1.23.0 (15/9): nona milestone della roadmap Pathfinder delegata, primi OGGETTI MAGICI Pathfinder. Aggiunto un database verificato di 40 oggetti (rune fondamentali e di proprieta per armi/armature, oggetti indossabili/tenuti, bacchette, bastoni, pozioni, un esempio di pergamena) ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti GM Core per le rune, Player Core/Player Core 2 per gli oggetti indossabili/tenuti) tramite due sub-agenti dedicati: rune d'arma (Potenza +1/+2/+3, Devastante/Devastante Superiore/Devastante Superba, Fiammeggiante, Glaciale, Fulminante, Tocco Fantasma, Ritorno), rune d'armatura (Potenza +1/+2/+3, Resistente/Resistente Superiore/Resistente Superba, Fortificazione, Scivolosa, Invisibilita), oggetti indossabili (Mantello delle Illusioni, Bracciali della Forza, Sandali Alati, Fascia della Saggezza, Collana del Fascino, Amuleto di Resistenza, Stivali Arborei, Segnavia, Guanti del Guaritore, Maniche di Conservazione), bacchette e bastoni (Bacchetta Magica generica per Missile di Magia/Guarire, Bacchetta della Continuazione, Bastone del Fuoco, Bastone della Guarigione), pozioni (Pozione di Guarigione nelle sue gradazioni, Pozione di Respiro Energetico), un esempio di Pergamena Magica e oggetti tenuti (Sacco di Contenimento, Sacco Divorante). Nuova voce di menu "Oggetti" nella sezione Pathfinder (mai toccati gli oggetti D&D esistenti: dati, stato (STATE.pfItemsExpanded) e vista (viewPfItems) sono completamente separati) con PF_ITEMS_1/PF_ITEMS_2/PF_ITEMS, ricerca per nome, filtro per livello min/max e per categoria, card che si espandono in linea al tocco mostrando prezzo, tratti, uso, ingombro, attivazione e descrizione completa. Nota tecnica onesta: diversi nomi "classici" D&D-style (Bacchetta di Missile di Magia, Cintura della Forza del Gigante, Stivali Alati, Stivali dell'Elfico, Mantello dell'Elfico, Diadema di Persuasione, Fascia della Saggezza Ispirata, Sacca Prodigiosa, Anello di Protezione/Resistenza Energetica) non esistono piu come oggetti a se stanti dopo il Remaster: sono stati sostituiti da oggetti generici (la Bacchetta Magica, il cui contenuto dipende solo dall'incantesimo caricato) o rinominati/ristrutturati (riportato onestamente nella descrizione di ogni voce). Il Sacco Divorante (oggetto maledetto) non ha un prezzo di vendita su Archives of Nethys: riportato cosi com'e invece di inventarne uno. Copertura dichiarata onestamente: e uno strumento di consultazione (non ancora un inventario personaggio collegato alla scheda) con 40 oggetti comuni, non l'intero compendio oggetti magici ufficiale Pathfinder (centinaia di voci in piu manuali) — prossime milestone della roadmap ne aggiungeranno altri, insieme a incantesimi di rango superiore e al resto del bestiario. SHA-256 di questa build: 3a2a4d8ce5721b23c016c3affb24820a2a4c1e5370cd59fb2294e58110569dbb. | v1.22.0 (15/9): ottava milestone della roadmap Pathfinder delegata, primo BESTIARIO Pathfinder. Aggiunto un database verificato di 31 creature (livello -1/+10) ricercate e verificate su Archives of Nethys (2e.aonprd.com, contenuti Monster Core/NPC Core/Bestiary/Bestiary 2/Gamemastery Guide) tramite due sub-agenti dedicati: animali (Lupo, Ratto Gigante, Orso Nero, Ragno Cacciatore, Coccodrillo), non morti (Guardia Scheletrica, Zombie Barcollante, Guardiano Mummia, Fantasma), umanoidi/PNG (Guerriero Goblin, Grande Capo Goblin, Orco Combattente, Bandito, Cultista), immondi/aberrazioni (Diavoletto, Fuoco Fatuo), draghi (Giovane Drago di Brace, Giovane Drago del Giuramento), piante/funghi (Ammasso Ambulante, Fungo Violetto, Dionea Gigante), costrutti (Armatura Animata, Scopa Animata), fatati (Folletto Sprite, Berretto Rosso, Quickling), giganti (Gigante delle Colline, Troll dei Boschi, Ogre Guerriero) ed elementali (Fuoco Errante, Cascata Vivente). Nuova voce di menu "Bestiario" nella sezione Pathfinder (mai toccato il Bestiario D&D esistente: dati, stato (STATE.pfBestiaryExpanded) e vista (viewPfBestiary) sono completamente separati) con PF_BESTIARY_1/PF_BESTIARY_2/PF_BESTIARY, ricerca per nome, filtro per livello min/max e per tratto, card che si espandono in linea al tocco mostrando lo statblock completo in formato reale PF2e (Percezione, sensi, lingue, abilità, modificatori di caratteristica, CA, tiri salvezza, PF, immunità/debolezze/resistenze, velocità, Colpi in mischia/a distanza con tratti, capacità speciali/reazioni, incantesimi innati quando presenti). Nota tecnica onesta: alcune creature richieste nella ricerca (Drago Rosso Giovane/Drago d'Argento Giovane, Troll, Ogre) non esistono più come statblock generico dopo il Remaster: sono state sostituite dalle relative versioni ufficiali rinominate (Young Cinder Dragon, Young Oath Dragon, Forest Troll, Ogre Warrior), riportato esplicitamente nel campo "source" di ciascuna voce. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che tutte le 31 creature abbiano nome/livello/CA/PF/tiri salvezza/6 modificatori di caratteristica validi. sha256 `9ecb032a0dcd4f77a40b2046770f8610e527150c0ab944a3836a9f312cfbb4f2` pubblicato su `rollone.html`+`app/index.html`+`version.json` via GitHub (upload diretto su entrambi i repo, verificato con `git clone`+`sha256sum` reali) e sulla cartella PC `Manuali base/Claude outputs/` (verificato via `device_bash`+sha256sum, entrambi i file identici). Non ancora coperto: il resto del bestiario ufficiale Pathfinder (centinaia di altre creature), oggetti magici, incantesimi di rango 2+, funzionalità di piattaforma Pathfinder (Compendio, Forgia, Esplora Dungeon, Schermo del DM, Tavolo/VTT). Nextcloud ancora non aggiornato (indirizzo mai fornito). — v1.21.0 (2026-09-15): settima milestone della roadmap Pathfinder delegata da Carmine, seconda parte del sistema di INCANTESIMI (dopo i Trucchetti di v1.20.0). Aggiunto un database verificato di Incantesimi di 1° rango per le 4 tradizioni magiche del Remaster: 30 Arcani, 30 Primordiali, 26 Divini, 41 Occulti (alcuni condivisi tra più tradizioni tramite riferimento diretto allo stesso oggetto, come per i Trucchetti), ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti Player Core/Player Core 2) tramite sub-agenti dedicati, uno per coppia di tradizioni. Nuova sezione scheda PF_SPELLS_R1_ARCANE/DIVINE/OCCULT/PRIMAL + pfSpellR1Db(trad) + pfSpellSection(wrap,c), mostrata subito dopo i Trucchetti per le stesse classi incantatrici, con lo stesso schema di picker (nome, azioni, gittata, bersagli, tiro salvezza, descrizione meccanica completa incluse le voci "Potenziato"). Usa la stessa tradizione scelta/derivata in pfCantripSection (c.pfTradition o PF_CLASS_TRADITION), quindi lo Stregone continua a scegliere la propria tradizione una sola volta per entrambe le sezioni. Copertura dichiarata onestamente: solo gli incantesimi di 1° rango (non tutta la lista ufficiale, selezione dei più iconici/utili per ogni tradizione); rango 2+ restano da fare, così come il numero esatto di incantesimi conosciuti/preparabili per livello e classe (non ancora verificato): per questo il picker non impone un tetto di slot, lasciando il giocatore libero di aggiungere quanti incantesimi il manuale gli assegna, verificandone da sé il numero — stessa filosofia onesta già adottata per i Trucchetti. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che ogni tradizione abbia il conteggio atteso di incantesimi e che ogni voce abbia nome/rango/descrizione validi. Non ancora coperti: incantesimi di rango 2+, slot di incantesimi per livello, incantesimi preparati/spontanei/di dominio/dell'ordine, bestiario Pathfinder, oggetti magici, funzionalità di piattaforma (Compendio, Forgia, Esplora Dungeon, Schermo del DM, Tavolo/VTT) per Pathfinder. — v1.20.0 (2026-09-15): sesta milestone della roadmap Pathfinder delegata da Carmine, prima parte del sistema di INCANTESIMI. Aggiunto un database verificato di Trucchetti (Cantrips, rango 0) per le 4 tradizioni magiche del Remaster: 25 Arcani, 20 Primordiali, 18 Divini, 18 Occulti (molti condivisi tra più tradizioni, come previsto dalle regole reali), ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti Player Core/Player Core 2) tramite sub-agenti dedicati, uno per coppia di tradizioni. Nuova sezione scheda PF_CANTRIPS_ARCANE/DIVINE/OCCULT/PRIMAL + pfCantripSection(wrap,c), mostrata solo per le classi incantatrici (Mago, Chierico, Bardo, Druido, Stregone, Oracolo): un picker che mostra nome, azioni, gittata, bersagli, tiro salvezza e descrizione meccanica di ogni trucchetto della tradizione della classe (PF_CLASS_TRADITION), incluso lo scaling automatico col livello descritto testualmente (es. "Potenziato (+1): il danno aumenta di..."). Lo Stregone, che nella classe reale non ha una tradizione fissa (dipende dalla Discendenza, non ancora un dato strutturato), sceglie la propria tradizione direttamente dalla scheda. Copertura dichiarata onestamente: solo i Trucchetti (rango 0); gli incantesimi veri e propri (rango 1-10, slot per rango, incantesimi preparati/spontanei/di dominio/dell'ordine ecc.) restano completamente da fare, così come il numero esatto di trucchetti conosciuti per livello per ciascuna classe (non ancora verificato): per questo il picker non impone un tetto di slot, lasciando il giocatore libero di aggiungere quanti trucchetti il manuale gli assegna, verificandone da sé il numero. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che ogni tradizione abbia il conteggio atteso di trucchetti e che ogni voce abbia nome/descrizione validi. Non ancora coperti: incantesimi di rango 1+, bestiario Pathfinder, oggetti magici, Talenti di Classe/Ascendenza/Abilità oltre il 1° livello. Nextcloud ancora non aggiornato (indirizzo mai fornito). v1.19.0 (2026-09-15): quinta milestone della roadmap Pathfinder delegata da Carmine. Aggiunto un database verificato di 98 TALENTI DI CLASSE (Class Feats) di 1° livello, uno per ciascuna delle 13 classi (Guerriero 10, Mago 5, Chierico 2, Ladro 7, Barbaro 7, Bardo 7, Campione 14, Druido 6, Monaco 16, Ranger 6, Stregone 5, Alchimista 6, Oracolo 7), ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti Player Core/Player Core 2 Remaster) tramite sub-agenti dedicati, uno per classe o piccolo gruppo di classi. Nuova sezione scheda PF_CLASS_FEATS_L1/pfClassFeatSection(wrap,c): mostra un picker con tutti i talenti di classe di 1° livello del personaggio, con requisito informativo visibile (es. "Istinto Drago", "Musa Enigma", "Causa Redenzione") dato che sottoclassi/scelte come Istinto/Musa/Causa/Dottrina/Ordine non sono ancora tracciate come dato strutturato in questa versione dell'app: il giocatore verifica da sé il requisito, come già accade per i talenti di ascendenza. A differenza dei Talenti di Abilità (condivisi tra tutte le classi), i Talenti di Classe restano specifici della classe scelta, un database separato per ciascuna. Copertura dichiarata onestamente: solo il primo blocco di talenti (quelli disponibili al primo slot Talento di Classe, che per tutte le 13 classi si apre al 2° livello secondo la tabella già verificata in v1.16.0); gli slot di livello superiore (4°, 6°, 8°... fino al 20°) restano ad annotazione manuale tramite pfFeatNoteSection non appena il database di 1° livello per quella classe è esaurito, esattamente come già avviene per i Talenti di Ascendenza oltre il 1° livello — nessuna promessa di copertura non mantenuta. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che tutte le 13 classi di PF_CLASSES abbiano un database corrispondente in PF_CLASS_FEATS_L1 (nessuna mancante), 98 talenti totali confermati, progressione slot Talento di Classe testata (0 al 1° livello, 1 al 2°, cresce fino a 10 al 20° per tutte le classi provate). Non ancora coperti: Talenti di Classe/Ascendenza/Abilità oltre il 1° livello, incantesimi, bestiario Pathfinder, oggetti magici. Nextcloud ancora non aggiornato (indirizzo mai fornito). v1.18.0 (2026-09-15): quarta milestone della roadmap Pathfinder delegata da Carmine. Aggiunto un database verificato di 55 TALENTI DI ABILITÀ (Skill Feats) di 1° livello (grado Addestrato), ricercati e verificati sul Player Core via Archives of Nethys, coprendo tutte le 16 abilità di Pathfinder 2e incluse Furtività/Ladrocinio. A differenza dei Talenti di Classe/Ascendenza, i Talenti di Abilità sono condivisi da tutte le classi: lo stesso database serve automaticamente tutti i personaggi, indipendentemente dalla classe scelta. Sulla scheda, lo slot di Talento di Abilità (schedule già esistente da v1.16.0: ogni livello pari per la maggior parte delle classi, ogni livello per il Ladro) ora offre un vero picker filtrato dinamicamente in base a quali abilità il personaggio ha addestrate, invece del solo campo di testo libero. Per i pochi talenti con una sotto-scelta (es. Specializzazione Artigianale, Cacciatore di Terreno, Competenza del Terreno, Interprete Virtuoso) resta un campo nota per la specialità/il terreno scelto. Deduplicazione deliberata: 13 nomi che in PF2e portano sia il tratto Generale sia il tratto Abilità (es. Prova Certa, Equilibrio Saldo, Caduta Felina, Poliglotta) restano selezionabili solo dalla sezione Talenti Generali già esistente, per evitare doppioni nell'interfaccia — verificato via script che non ci sia alcuna sovrapposizione di nome tra i due database. Copertura dichiarata onestamente: solo il grado Addestrato/livello 1; i talenti di abilità che richiedono Esperto/Maestro/Leggendario (livelli più alti) non sono ancora coperti, e negli slot di livello più alto il pool di livello 1 resta comunque selezionabile come approssimazione finché non verrà aggiunto anche quel contenuto. Non ancora coperti: Talenti di Classe (restano l'ultimo grande blocco ad annotazione manuale), incantesimi, bestiario Pathfinder, oggetti magici. Verificato: sintassi OK sui 15 blocchi script, controllo automatico nessun nome duplicato tra Talenti di Abilità e Talenti Generali, nessun riferimento ad abilità inesistente, test di eleggibilità del picker su un personaggio d'esempio. v1.17.0 (2026-09-12): seconda milestone della roadmap Pathfinder delegata da Carmine ("Decido io il dettaglio, tu procedi in autonomia"). Aggiunto il primo database verificato di TALENTI DI ASCENDENZA (Ancestry Feats) di 1° livello: 63 talenti in totale, 7-10 per ciascuno degli 8 popoli già presenti (Umano, Elfo, Nano, Halfling, Gnomo, Goblin, Orco, Leshy), ricercati e verificati uno per uno sul Player Core (Remaster) tramite Archives of Nethys (2e.aonprd.com), con testo meccanico parafrasato in italiano (non copiato dal manuale) mantenendo intatti tutti i numeri di gioco. Sulla scheda personaggio, lo slot di Talento di Ascendenza di 1° livello ora offre un vero menu di selezione (PF_ANCESTRY_FEATS_L1) invece del solo campo di testo libero introdotto in v1.16.0: per i talenti che comportano un'ulteriore scelta del giocatore (es. Umano "Armi Non Convenzionali" fa scegliere un'arma, Orco "Marchio del Clan" fa scegliere un simbolo, Gnomo "Complice Animale" fa scegliere un famiglio) resta comunque un campo nota per annotare la scelta specifica, dato che il dettaglio di quelle sotto-opzioni non è ancora modellato come dato strutturato. Gli slot di Talento di Ascendenza dei livelli successivi (5°/9°/13°/17°, che richiederebbero un secondo database equivalente non ancora verificato) restano invece ad annotazione manuale, esattamente come prima: nessuna promessa di copertura non mantenuta. Non ancora coperti: Talenti di Classe e di Abilità (che restano gli slot più numerosi e ancora interamente ad annotazione manuale), incantesimi, bestiario Pathfinder, oggetti magici. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che le 8 ascendenze del database talenti corrispondano esattamente alle 8 ascendenze già implementate (nessuna mancante, nessuna in eccesso), conteggio dei 63 talenti confermato. v1.16.0 (2026-09-12): prima milestone della richiesta esplicita di Carmine di portare Pathfinder a parità completa di funzioni con la sezione D&D ("voglio tutte le funzioni, regole, bestiari, oggetti, incantesimi... deve essere completa"), con delega esplicita sull'ordine di lavoro ("Decido io il dettaglio, tu procedi in autonomia"): sistema di PROGRESSIONE DI LIVELLO per i personaggi Pathfinder, prima bloccati permanentemente al 1° livello. Dati verificati contro Archives of Nethys (2e.aonprd.com) prima di essere codificati, nessuna regola inventata. (1) Corretto un bug della formula dei Punti Ferita: prima non moltiplicava mai per il livello (hpMax=PF popolo+PF/liv.+mod.Costituzione, innocuo finché esisteva solo il 1° livello, ma sbagliato non appena si sale), ora hpMax=PF popolo+livello×(PF/liv.+mod.Costituzione). (2) Aggiunta la progressione di competenza per livello di Percezione, Tiri Salvezza e Classe Difficoltà, specifica per ciascuna delle 13 classi (tabelle PF_CLASS_PROGRESSION verificate una per una sulla pagina Archives of Nethys di ogni classe), con il caso speciale del Monaco (Cammino verso la Perfezione: è il giocatore a scegliere quale tiro salvezza diventa Maestria a liv. 7 e 11 e quale diventa Leggendario a liv. 15, non una tabella fissa) e la Classe Difficoltà mostrata solo per le classi che davvero la possiedono in PF2e (le classi puramente incantatrici — Mago, Chierico, Bardo, Druido, Stregone, Oracolo — non ne hanno). (3) Aggiunto il calendario ufficiale di talenti/incrementi per livello (PF_LEVEL_SCHEDULE): Talento di Ascendenza a 1/5/9/13/17, Talento di Classe e Talento di Abilità a ogni livello pari, Talento Generale a 3/7/11/15/19, Aumento di Abilità a ogni dispari da 3 in poi, Aumento di Caratteristica a 5/10/15/20 — con l'eccezione verificata del Ladro (Talento di Abilità e Aumento di Abilità a OGNI livello, non solo ai pari/dispari). (4) Nuova sezione "Livello e progressione" sulla scheda personaggio: campo livello modificabile (1-20), Aumenti di Abilità (rispetta i vincoli ufficiali di grado minimo: da Esperto a Maestria serve livello 7+, da Maestria a Leggendario livello 15+), Aumenti di Caratteristica (4 incrementi liberi senza ripetizioni per ogni traguardo 5/10/15/20, stesso meccanismo già in uso alla creazione), il Cammino verso la Perfezione per il Monaco. (5) Aggiunto un primo database verificato di 28 Talenti Generali del Player Core (PF_GENERAL_FEATS, con requisiti minimi di livello/caratteristica/grado abilità dove previsti, es. Robustezza, Iniziativa Incredibile, Prova Certa, Recupero Rapido, Equilibrio Saldo) selezionabili direttamente dalla scheda con un picker che filtra automaticamente i talenti non ancora sbloccati. (6) Talenti di Classe, di Abilità e di Ascendenza: il database completo di questi talenti (centinaia di voci per classe) NON è ancora integrato — per onestà verso Carmine, l'app riserva comunque il numero corretto di slot per livello ma per ora permette solo di annotare a mano quale talento è stato scelto dal manuale, invece di inventare o approssimare contenuti non verificati. Non ancora coperti (prossime milestone della roadmap concordata): i database completi di Talenti di Classe/Abilità/Ascendenza, incantesimi, bestiario Pathfinder, oggetti magici, e la progressione di competenza con armi/armature ai livelli più alti (resta fissa ad Addestrato). Verificato: sintassi OK sui 15 blocchi script. v1.15.0 (2026-09-12): su richiesta esplicita di Carmine, Pathfinder diventa a tutti gli effetti "un'altra app dentro l'app", non più solo una sezione raggiungibile mentre il resto di D&D resta visibile. Aggiunto un nuovo stato STATE.rpgGame ("dnd" o "pathfinder"), richiesto ad OGNI avvio con una nuova schermata iniziale renderGameGate() (stesso pattern già in uso per la scelta Giocatore/Dungeon Master, chooseMode/renderModeGate): finché non si sceglie il gioco, l'app non mostra nessuna delle due interfacce. Il menu laterale (#tabs) ora porta due gruppi di pulsanti marcati con le classi game-dnd/game-pf: una nuova applyGameVisibility(), chiamata ad ogni render() insieme a quella già esistente per la modalità Giocatore/DM, mostra solo il gruppo del gioco attivo e nasconde per intero l'altro — nessuna voce D&D (Classi/Bestiario/Forgia/Esplora Dungeon/Tavolo/Community/Schermo DM/Compendio/Tesori/Epici) resta visibile quando si è su Pathfinder, e viceversa le 4 voci Pathfinder (Pathfinder/Impara a giocare/Crea Personaggio/Scheda) restano nascoste su D&D. Aggiunta anche una correzione di isolamento in render(): se STATE.view era rimasta su una vista dell'altro gioco (es. dopo un cambio gioco dalle Impostazioni), viene riportata automaticamente alla home del gioco ora attivo, così non resta mai raggiungibile una schermata dell'altro gioco nemmeno per un istante. La card "RPG Library" nelle Impostazioni resta il punto sempre disponibile per cambiare gioco in qualsiasi momento (ora mostra anche quale dei due è attivo e permette di passare all'altro con un click, che imposta STATE.rpgGame oltre a navigare). Corretto anche applyModeVisibility() perché non riattivasse per errore il pulsante "Schermo DM" (voce D&D) quando si è in modalità Dungeon Master ma il gioco attivo è Pathfinder. Nessuna modifica ai dati o alla logica di gioco di D&D o Pathfinder: solo instradamento/visibilità della UI. Verificato: sintassi OK sui 15 blocchi script, bilanciamento tag HTML verificato sul blocco menu modificato. v1.14.0 (2026-09-12): completamento della prima ondata della sezione Pathfinder introdotta in v1.13.0, su richiesta esplicita di Carmine ("completa l'intera sezione"). Tutti i nuovi dati verificati su Archives of Nethys (2e.aonprd.com) prima di essere inseriti, nessun dato inventato. (1) POPOLI: da 4 a 8 — aggiunti Gnomo, Goblin, Orco, Leshy (oltre a Umano/Elfo/Nano/Halfling già presenti), con incrementi/penalità corretti incluso il caso di popoli con incremento libero aggiuntivo oltre a quelli fissi (Gnomo/Goblin/Leshy: 2 incrementi fissi + 1 libero). Generalizzata pfComputeAbilities/lo step Popolo del wizard: prima gestivano l'incremento libero solo con un caso speciale per "Umano", ora un campo anc.freeCount uniforme copre qualunque combinazione (0, 1 o 2 incrementi liberi) per qualsiasi popolo attuale o futuro. (2) CLASSI: da 4 a 13 — aggiunte Barbaro, Bardo, Campione, Druido, Monaco, Ranger, Stregone, Alchimista, Oracolo (oltre a Guerriero/Mago/Chierico/Ladro): tutte le 13 classi del Player Core 1 e 2 tranne la Strega. Corretto anche un dato impreciso della release precedente: il Chierico ha Tempra addestrata (non esperta) al primo livello, verificato ora contro la fonte. (3) EQUIPAGGIAMENTO: prima assente (solo un campo note libero), ora un vero sistema con 12 armi e 10 armature di base verificate (danno, tratti, categoria, bonus CA, tetto di Destrezza, malus alle prove, prezzo), un nuovo passo del wizard per scegliere arma e armatura filtrate in base a cosa la classe scelta sa già usare, calcolo della Classe Armatura che ora usa l'armatura realmente indossata invece della formula "di base" fissa, e un tiro per colpire/danno funzionante sulla scheda (Forza o Destrezza se l'arma ha il tratto Finesse, più il bonus di competenza se l'arma rientra tra quelle della classe). Verificato con uno script di controllo automatico che ricalcola PF/CA/Percezione/Tiri Salvezza/tiro per colpire per tutte le 8×13 combinazioni di popolo e classe: nessuna eccezione, valori sempre in un intervallo plausibile. Non ancora coperti, in arrivo in aggiornamenti successivi: incantesimi, talenti, livelli oltre il primo, bestiario Pathfinder, Strega. Verificato: sintassi OK sui 15 blocchi script. v1.13.0 (2026-09-12): prima versione della sezione Pathfinder 2e (Remaster), richiesta esplicita di Carmine ("consulta la cartella Pathfinder sul cloud e inizia a costruire la sezione... mi raccomando la sezione per imparare"). Sistema tenuto volutamente ISOLATO dal D&D 5e già esistente (nuovo stato STATE.pfCharacters/STATE.pfWizard/STATE.pfCurrent/STATE.pfHowtoSection, mai STATE.characters/STATE.wizard): zero rischio di intaccare dati o logica D&D. Contenuto di questa prima versione, verificato contro Archives of Nethys (2e.aonprd.com, l'equivalente per Pathfinder 2e dell'SRD di D&D usato finora in questo progetto): (1) sezione "Impara a giocare" dedicata (PF_HOWTO_SECTIONS/viewPfLearn, stesso pattern di viewHowToPlay del D&D) con 8 argomenti pensati per chi non ha mai giocato — gradi di successo, competenza per livello, economia delle tre azioni, Percezione/Iniziativa, CA e Tiri Salvezza, i passi di creazione, glossario; (2) wizard di creazione personaggio (viewPfWizard, mirror di viewWizard) con i quattro Popoli e le quattro Classi del Set Introduttivo ufficiale (Beginner Box: Umano/Elfo/Nano/Halfling, Guerriero/Mago/Chierico/Ladro) più sei Retroscena, che applica correttamente il sistema ufficiale di incrementi/penalità alle caratteristiche (Popolo → Retroscena → Classe → 4 incrementi liberi, ricalcolato sempre da zero con pfComputeAbilities() invece che per mutazione cumulativa, per restare coerente se l'utente torna indietro e cambia scelta); (3) scheda personaggio (viewPfSheet/pfDerived) con PF, CA, Percezione, Tiri Salvezza e le 16 abilità di Pathfinder 2e, ciascuna con tiro di dado cliccabile. Non ancora coperti in questa prima versione, in arrivo in aggiornamenti successivi: altri Popoli/Classi/Retroscena, un sistema di equipaggiamento/inventario dettagliato (per ora solo un campo note libero, dichiarato esplicitamente come tale nell'interfaccia), incantesimi, talenti, livelli superiori al primo, bestiario Pathfinder. Aggiornata la card "Pathfinder" nella RPG Library da "In arrivo" a stato beta 🧪 con collegamento diretto alla nuova sezione. Verificato: sintassi OK sui 15 blocchi script. v1.12.21 (2026-09-11): fix segnalato da Carmine — dopo un'importazione di un personaggio da PDF, la successiva stampa/esportazione mostrava trattini al posto di talenti, abilità uniche e storia del personaggio. Causa: openCharacterReviewModal() (modale di revisione dopo l'importazione AI da PDF) leggeva questi tre campi dalla bozza dell'AI ma non li scriveva mai sul personaggio creato (finivano genericamente buttati dentro "notes", quando anche quello succedeva). Aggiunta ai tre campi propria area di revisione nella modale (coerente con "revisione obbligatoria" già richiesta per gli altri campi importati) e mappatura esplicita su c.feats/c.customAbilities/c.backstory alla conferma; il prompt AI ora chiede esplicitamente questi tre campi come JSON strutturato invece di scaricare tutto in notes. Non tocca in alcun modo l'esportazione PDF stessa (già corretta, leggeva già questi campi: il problema era a monte, in fase di importazione). Verificato: sintassi OK sui 15 blocchi script. v1.12.18 (2026-09-09): risolto "zoom improvviso/schermo che si rimpicciolisce" sulla card Allineamento e ruolo, segnalato ancora presente da Carmine anche dopo un'installazione pulita del v1.12.17. Causa reale (non la card in sé, riprodotta confrontando un personaggio nuovo — mai coinvolto — con un vecchio personaggio storico dell'account — sempre coinvolto): mpApplyCloudAccountState(), chiamata dalla sincronizzazione automatica dell'account dopo il login per applicare i dati scaricati dal cloud, richiama render() in modo asincrono e "fuori banda" rispetto a qualunque gesto dell'utente. Se in quel momento l'utente aveva il focus su un campo di testo (tipicamente i primi campi toccati su un personaggio appena sincronizzato, cioè proprio Tratto/Ideale/Legame/Difetto), quel render() distruggeva l'intera scheda con app.innerHTML="" mentre il campo aveva ancora il focus attivo, invece di perderlo prima in modo pulito — su Android questo lascia il browser/WebView bloccato nello stato di zoom che aveva applicato per quel campo. Fix generale (non specifico a questa card, vale per qualunque campo dell'app): render() ora toglie sempre il focus dall'elemento attivo un istante prima di svuotare #app, così il browser chiude lo stato di zoom in modo corretto; nessun dato perso, i campi salvano già ad ogni tocco con oninput/onchange. Corretta anche la causa di fondo segnalata da Carmine ("il sync del server deve correggere i dati con la versione installata sul dispositivo, altrimenti siamo sempre al punto di partenza"): un personaggio caricato da un salvataggio locale vecchio o scaricato dal cloud non veniva mai riadattato alla versione dell'app installata — se nel frattempo erano stati aggiunti nuovi campi al personaggio, quel personaggio restava con quei campi undefined invece di ereditare i valori di default della versione corrente. Aggiunta normalizeCharacterToCurrentVersion()/normalizeCharactersToCurrentVersion(), richiamata sia su ogni caricamento locale (loadState()) sia su ogni sincronizzazione dell'account dal cloud (mpApplyCloudAccountState()): completa solo i campi mancanti con i valori di default di newCharacter(), senza mai toccare un valore già presente nel salvataggio — nessun dato del giocatore modificato o perso, ma ogni personaggio sincronizzato da ora in poi si "auto-ripara" restando sempre coerente con i campi che la versione installata si aspetta, invece di riproporre lo stesso tipo di bug ad ogni nuovo campo aggiunto in futuro. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK. v1.12.17 (2026-09-09): risolve in modo strutturale (non l'ennesima toppa) il bug ricorrente "dopo un aggiornamento tornano bug già corretti in passato" segnalato di nuovo da Carmine (esempio concreto: lo zoom/i tratti caratteriali tornati come prima del fix v1.12.4), con le Impostazioni che dichiaravano comunque la versione più recente (1.12.16) — sintomo che corrisponde esattamente alla causa già inseguita a pezzi in v1.12.9/10/11 e mai chiusa del tutto: Capacitor Android, ad ogni avvio VERO dell'app (non un semplice scambio a caldo), ricarica sempre il bundle statico impacchettato nell'APK all'installazione, e il meccanismo di aggiornamento via IndexedDB+iframe-swap usato finora funziona solo se quella cache non è stata svuotata dal sistema sotto pressione di spazio (rischio documentato) e lo scambio a video riesce entro il timeout — se una delle due salta, si resta sui contenuti vecchi finché non arriva un altro controllo E lo si conferma esplicitamente. Corretto scoprendo che Capacitor offre già un canale "live update" ufficiale, incluso da sempre in @capacitor/android (nessuna nuova build/APK necessaria, verificato leggendo il sorgente del plugin core com.getcapacitor.plugin.WebView, già auto-registrato da Bridge.java): ora, ogni volta che viene scaricata/ripristinata una copia più recente, oltre allo scambio a video di sempre viene anche scritta come file vero sul disco del dispositivo tramite il plugin Filesystem (già presente nell'app, finora usato solo per import/export personaggi) e il ponte nativo viene istruito con WebView.setServerBasePath()+persistServerBasePath() a servire i contenuti da lì fin dal PROSSIMO avvio vero, prima ancora di caricare il bundle vecchio impacchettato — elimina alla radice la finestra in cui un riavvio reale può mostrare contenuti vecchi. Se in futuro viene installata una vera nuova APK, Capacitor stesso rileva il cambio di versionCode/versionName e ignora/cancella questo percorso salvato, ripartendo pulito dal bundle nuovo (verificato nel sorgente, comportamento già incluso, nessun codice aggiuntivo necessario). IndexedDB+iframe-swap restano invariati (aggiornano la sessione in corso senza dover riavviare), questa è un'aggiunta di sicurezza best-effort, mai un sostituto: se Filesystem/WebView non fossero disponibili per qualunque motivo, fallisce in silenzio e si ricade sul comportamento precedente. Verificato: sintassi OK sui 15 blocchi script, test Playwright dedicato con Filesystem/WebView nativi simulati (mkdir→writeFile su www_latest/index.html in DATA→getUri→setServerBasePath con percorso corretto senza prefisso file://→persistServerBasePath, tutti chiamati nell'ordine e con i parametri attesi sia nel percorso "conferma aggiornamento" sia in quello "ripristino da cache all'avvio"), più l'intera batteria di test già esistenti (nessuna regressione). v1.12.16 (2026-09-09): bug segnalato da Carmine, "a livello 4 ho scelto il talento iniziato alla magia oppure il marchio ed altri che mi dicevano di poter scegliere dalla lista, ma sulla scheda del personaggio non compare nulla per fare questa azione". Causa individuata: featChoiceSpec() (la funzione che decide se un talento mostra il pulsante "⚠ Completa" e una finestra di scelta) riconosceva solo 4 pattern (Aumento caratteristiche, Abile/Pluriabilità, Resiliente, Iniziato alla magia): tutti gli altri talenti che concedono incantesimi a scelta — i 26 Marchi di Eberron, i 5 talenti di Strixhaven (Iniziato di Lorehold/Prismari/Quandrix/Silverquill/Witherbloom), Adepto Elementale, Sfiorato dalle Fate, Sfiorato/Toccato dall'Ombra, Marchio Aberrante, Rampollo dei Piani Esterni — restituivano null: il talento veniva salvato correttamente sulla scheda ma cliccandoci sopra si apriva solo la scheda descrittiva in sola lettura, senza alcun modo di fare la scelta indicata dal testo del talento. Verificato via test end-to-end: prima della correzione "Sfiorato dalle Fate" e "Iniziato di Lorehold" non mostravano né pulsante né finestra funzionante. Corretto aggiungendo un nuovo tipo "spellgrant" a featChoiceSpec/resolveFeatChoices, con una tabella dedicata (FEAT_SPELLGRANT_CHOICES) per ciascuno dei talenti che richiede davvero una scelta del giocatore (trucchetto/incantesimo da una lista o da una categoria, caratteristica da incantatore, elemento, piano d'origine): ora mostrano il pulsante "⚠ Completa" e una finestra dove selezionare, e gli incantesimi scelti compaiono nella sezione "Incantesimi" della scheda come per Iniziato alla magia. La maggior parte dei Marchi di Eberron (es. Marchio del Rilevamento, Marchio della Guarigione) concede invece SOLO effetti fissi automatici (nessuna vera scelta nel testo del talento): per questi non compare alcun pulsante, comportamento corretto perché non c'è nulla da scegliere — restano comunque consultabili con un click come prima. Verificato: sintassi OK sui 15 blocchi script, test Playwright su Marchio del Rilevamento (nessun pulsante, corretto), Sfiorato dalle Fate e Iniziato di Lorehold (pulsante presente, finestra di scelta funzionante, incantesimo scelto compare in scheda), più i test già esistenti su Iniziato alla magia (nessuna regressione). v1.12.15 (2026-09-09): controllo mirato sul rischio di copyright testuale (non solo di licenza/marchio), su richiesta esplicita di Carmine dopo aver chiesto come arrivare il più vicino possibile a zero problemi legali. Riscontrato che, a differenza di tutto il resto del database (oggetti magici, mostri, sottoclassi, specie, background: tutti già in forma sintetica/parafrasata originale, verificato campionando ogni categoria), 55 dei 61 incantesimi etichettati "D&D ufficiale non-SRD" in v1.12.13 (quelli con fonte Xanathar's Guide to Everything o Tasha's Cauldron of Everything) contenevano testo copiato quasi alla lettera dai manuali, con tanto di artefatti di scansione OCR (numeri di pagina, intestazioni di capitolo, box di approfondimento estranei alla meccanica dell'incantesimo, frasi troncate a metà). Riscritte da zero tutte le 55 descrizioni in forma originale, mantenendo identiche le meccaniche di gioco (dadi, tiri salvezza, gittate, scaling ai livelli superiori): nessun dato di gioco cambiato, cambiata solo l'espressione del testo. Completati anche alcuni campi "durata"/"esecuzione" che risultavano troncati dallo stesso problema. I 3 oggetti magici non-SRD e le 45 creature non-SRD già segnalate in v1.12.13/14 sono risultati invece già in forma sintetica originale, nessuna riscrittura necessaria. Correzione collaterale: durante il controllo, il campo interno _src (già presente nei dati del bestiario ma mai usato prima per questo scopo) ha rivelato che Mantoscuro, Manto assassino e Gnomo delle profondità erano stati segnalati per errore come non-SRD in v1.12.14 (sono invece genuinamente SRD 5.2.1/5.1, confermato anche da frammenti letterali del documento SRD rimasti nei loro dati), insieme a Rakshasa già segnalato ma mai rimosso da un errore precedente: tutti e 4 rimossi da MONSTERS_KNOWN_NOT_SRD. Verificato: sintassi OK sui 15 blocchi script, nessun errore JS, nessuna regressione. v1.12.14 (2026-09-09): terza parte dell'audit di conformità SRD/Creative Commons, questa volta sui MOSTRI (400 in totale). Metodo: estratto l'elenco inglese ufficiale della SRD 5.2.1 (391 nomi, fonte dndbeyond.com/sources/dnd/free-rules/creature-stat-blocks), confronto diretto nome-per-nome (che funziona solo per i ~59 mostri il cui nome italiano coincide col nome inglese, es. "Aboleth"), poi analisi di dominio sui restanti ~341 nomi tradotti in italiano: per la stragrande maggioranza (animali generici, PNG classici come banditi/guardie/maghi, i draghi cromatici/metallici per fascia d'età, mostri "storici" come golem/idra/grifone/scheletro/zombie/vampiro) il rischio di violazione è considerato molto basso, trattandosi di contenuto open da ogni edizione OGL/SRD dal 3.5 in poi — non è stata fatta una verifica voce-per-voce di ciascuno di questi. Individuate invece 20 NUOVE creature dal nome/lore chiaramente proprietario Wizards non ancora segnalate (famiglie Illithid/Beholder/Yugoloth/Modron/Slaad e altre): Mantoscuro (Darkmantle), Manto assassino (Cloaker), Divoratore di Intelletto (Intellect Devourer), Mezzoloth, Nycaloth, Arcanaloth, Ki-rin, Empyrean, Orog, Spectator, Froghemoth, Quaggoth, Fomoriano, Cambion, Barlgura, Demone ombra, Guardiano con scudo (Shield Guardian), Tiranno della morte (Death Tyrant), Orrore uncinato (Hook Horror), Gnomo delle profondità (Svirfneblin) — aggiunte a MONSTERS_KNOWN_NOT_SRD (ora 45 mostri in totale, sommate alle 25 di v1.12.12), badge già esistente nella scheda mostro ora mostrato anche per queste. Per le ultime 4, che avevano già il nome commerciale inglese tra parentesi nel nome italiano, tolto il riferimento (stesso trattamento già dato a 10 mostri in v1.12.12), il resto del nome italiano descrittivo invariato. Non ancora verificate voce-per-voce (restano nella parte "a basso rischio ma non confermata SRD"): circa 15 razze umanoidi minori con nome proprio inglese lasciato tale e quale (es. Bugbear, Duergar, Kenku, Merfolk, Bullywug, Sahuagin, Uomo lucertola) — rischio giudicato basso/medio ma non escluso, segnalato a parte a Carmine. Nessun dato rimosso, nessuna funzionalità toccata. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK, test end-to-end via Playwright — nessun errore JS, nessuna regressione.  versione dei contenuti integrata in questa build dell'app (non cambia da sola) — v1.12.13 (2026-09-09): seconda parte dell'audit di conformità SRD/Creative Commons, mirata a incantesimi e oggetti magici (Carmine: "fai controlli più approfonditi", "non basarti solo sulle SRD ma anche su altro"). Metodo: estratto l'elenco inglese ufficiale e completo della SRD 5.2.1 (351 incantesimi, 313 oggetti magici) da dndbeyond.com/sources/dnd/... , incrociato con una traduzione italiana di terze parti su licenza CC BY 4.0 (gist GitHub) e verificato manualmente i casi dubbi/discordanti tra le due fonti, per non fidarsi di un'unica fonte. (1) SPELLS: su 405 incantesimi, individuati 61 che sono D&D ufficiale ma NON SRD (perlopiù trucchetti/utilità da Xanathar's Guide to Everything e Tasha's Cauldron of Everything ripubblicati nel 2024, es. Rintocco dei morti/Lama roboante/Modellare acqua, più alcuni incantesimi con nome d'autore come "...di Tasha"/"...di Melf") e 5 che sono homebrew originali esclusivi della classe homebrew Mago della Morte (Catena di Ossa, Comunione con gli Spiriti Inquieti, Legione del Sepolcro, Manto d'Ossa, Sussurro dell'Ossario): aggiunti SPELLS_NOT_SRD e SPELLS_HOMEBREW_ONLY, con badge di fonte ora mostrato in fondo alla scheda di ogni incantesimo. Corretti anche 3 falsi positivi emersi dal solo confronto con la traduzione di terze parti (Antipatia/simpatia, Cecità/sordità, Ingrandire/ridurre sono incantesimi SRD veri, semplicemente assenti da quella traduzione): nessuna etichetta errata applicata a loro. (2) MAGIC_ITEMS: sui 36 oggetti ufficiali (esclusi i 76 già homebrew, già etichettati), 33 confermati SRD 5.2.1 per confronto diretto con l'elenco inglese; i restanti 3 (Zampogne dei Lamenti, Ventaglio del Vento, Pietra dell'Anima Ardente, quest'ultima già descritta come "custom di esempio") etichettati come D&D ufficiale non-SRD: aggiunto MAGIC_ITEMS_NOT_SRD, badge di fonte ora mostrato in fondo alla scheda di ogni oggetto (magico o meno, solo se verificato). Nessun dato rimosso, nessuna funzionalità toccata, nessuna rinomina: solo nuovi badge informativi in coda alle schede esistenti. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK, test end-to-end via Playwright (wizard, scheda personaggio, bestiario, Compendio talenti/incantesimi/oggetti) — nessun errore JS, nessuna regressione. Restano da verificare voce-per-voce: la maggior parte dei ~375 mostri non ancora controllati singolarmente (oltre ai 25 già segnalati in v1.12.12) e i talenti generati dinamicamente in FEATS_DB.  versione dei contenuti integrata in questa build dell'app (non cambia da sola) — v1.12.12 (2026-09-09): audit di conformità SRD/Creative Commons e correzione dei claim fuorvianti, dopo verifica diretta del testo ufficiale SRD 5.2.1. Nessun dato rimosso, nessuna funzionalità toccata: solo testo/etichette corrette e nuovi badge informativi. (1) Corretti i claim generici "SRD 5.2.1 (CC BY 4.0)" nel commento d'intestazione, nell'etichetta del blocco dataset, nella card classe (mostrava "Dati SRD 5.2.1" anche per sottoclassi non-SRD) e nel tag "source" degli oggetti magici (era "SRD" per tutti, ora "Ufficiale D&D"). (2) Aggiunta SPECIES_SRD (le 9 vere specie SRD: Dragonide, Nano, Elfo, Gnomo, Goliath, Halfling, Umano, Orco, Tiefling) con badge di fonte nella scheda specie del wizard e nella scheda personaggio (le altre 44 specie non-homebrew sono D&D ufficiale ma non-SRD, es. Aasimar/Githyanki/Tabaxi). (3) Aggiunta BACKGROUNDS_SRD (i 4 veri background SRD: Accolito, Criminale, Sapiente, Soldato) con badge nella griglia di scelta del wizard (gli altri 13 background 2024 sono ufficiali ma non-SRD). (4) Aggiunta MONSTERS_KNOWN_NOT_SRD (25 mostri chiaramente proprietari verificati a campione, es. Osservatore/Flagello Mentale/Slaad/Yuan-ti/Rakshasa) con nota nella scheda del mostro — non è una verifica voce-per-voce di tutti i 400 mostri dell'array, solo dei casi più evidenti. Per 10 di questi, tolto dal nome il riferimento tra parentesi al nome proprietario inglese/marchio Wizards (es. "Osservatore (Beholder)"→"Osservatore", "Bracco delle rocce (Umber Hulk)"→"Bracco delle rocce"): riduce l'esposizione sul nome commerciale più riconoscibile senza toccare meccaniche o dati di gioco, il nome italiano descrittivo resta identico a prima. (5) La scheda talento (Compendio) ora mostra la fonte già presente nei dati (f.src) ma mai mostrata prima: SRD, homebrew, o sourcebook D&D non-SRD. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK, test end-to-end via Playwright su wizard specie/background, scheda personaggio, bestiario, Compendio talenti — nessun errore JS, nessuna regressione. Incantesimi/oggetti magici/talenti del level-up e la maggior parte dei mostri restano da verificare voce-per-voce in un secondo momento (lavoro più ampio, segnalato a parte). v1.12.11 (2026-09-08): sostituito il <select> nativo del pannello talenti con una lista custom, causa più probabile del blocco persistente (vedi commento dettagliato dentro levelUp()). v1.12.10 aveva corretto SOLO un sintomo (localStorage che si dichiarava più avanti di quanto IndexedDB potesse confermare), ma un video successivo di Carmine ha mostrato che il problema di fondo era un altro, più profondo, in applyCachedUpdateIfAny(): quella funzione decideva se riapplicare al boot la copia scaricata in precedenza confrontando la versione della cache con getAppliedVersion() (cioè con localStorage) invece che con la versione REALMENTE integrata in QUESTO documento appena caricato da Capacitor. Risultato concreto: se la cache IndexedDB conteneva davvero l'ultima versione E localStorage lo sapeva già (es. da uno swap avvenuto in una sessione precedente), la funzione concludeva "siamo già a posto" e NON riapplicava nulla — ma ad ogni riavvio vero e proprio dell'app, Capacitor ricarica sempre lo stesso bundle nativo statico (quello impacchettato nell'APK, fermo a mesi fa), non l'ultima pagina vista: l'utente restava quindi bloccato sui contenuti vecchi del bundle nativo, con le Impostazioni che però mostravano il numero di versione corretto letto da localStorage. Fix: eliminata la dipendenza da localStorage/getAppliedVersion() per QUALSIASI decisione "serve aggiornare?" — si confronta sempre e solo con questa costante ROLLONE_CONTENT_VERSION, l'unica cosa che riflette con certezza cosa sta girando in questo preciso momento. localStorage resta solo per l'etichetta informativa nelle Impostazioni, scritta subito qui sotto.
+ var ROLLONE_CONTENT_VERSION = "1.25.0"; // versione dei contenuti integrata in questa build dell'app (non cambia da sola) — v1.25.0 (15/9): undicesima milestone della roadmap Pathfinder delegata, prosegue il sistema magico con gli INCANTESIMI DI 2° RANGO. Ricercati e verificati su Archives of Nethys (2e.aonprd.com, edizione Remaster) tramite sub-agenti dedicati per ciascuna delle quattro tradizioni: 30 incantesimi Arcani, 30 Primordiali (in gran parte condivisi con l'Arcano, come già avveniva per rango 1 e Trucchetti), 33 Divini e 44 Occulti, per un totale di 137 voci di rango 2 consultabili. Stesso schema dati dei Trucchetti/rango 1 ({name, rank, traits, actions, range, targets, savingThrow, desc}). Nuova sezione "Incantesimi di 2° rango" sulla scheda personaggio (`pfSpellR2Section()`), aggiunta subito dopo quella di 1° rango, con lo stesso meccanismo di aggiunta/rimozione libera (nessun tetto di slot imposto, scelta già adottata per il rango 1: limitazione dichiarata onestamente, non ancora modellata la gestione degli slot per rango/giorno). Il Compendio Pathfinder (voce Incantesimi) ora include anche il rango 2 nei filtri e nella ricerca. Corretto anche un piccolo refuso nel Compendio: la scheda dettaglio di un incantesimo mostrava il tiro salvezza leggendo un campo dati (`save`) diverso da quello realmente usato nei database (`savingThrow`), quindi non appariva mai: ora legge il campo corretto per tutti i ranghi. Isolato come sempre dal motore D&D: nessuna variabile/funzione D&D toccata, solo nuove costanti PF_SPELLS_R2_ARCANE/PRIMAL/DIVINE/OCCULT e la nuova funzione pfSpellR2Db(trad). Copertura dichiarata onestamente: incantesimi comuni di rango 2 da Player Core/Player Core 2, non l'elenco ufficiale completo — rango 3 e superiori, slot di incantesimi per livello e le meccaniche di lancio preparato/spontaneo/di dominio/dell'ordine restano milestone future. SHA-256 di questa build: 6a4ad7c0f170d4f1c7aef549eb9032728c463a04df67cabf31a852f7fad77406. | v1.24.0 (15/9): decima milestone della roadmap Pathfinder delegata, prima funzionalità di PARITÀ DI PIATTAFORMA con D&D: il "Compendio Pathfinder". Nuova voce di menu "Compendio" (`viewPfCompendio()`), mirror concettuale del Compendio D&D esistente (`viewCompendium()`, mai toccato): un'unica schermata di sola consultazione a schede che raccoglie TUTTI i database Pathfinder già verificati nelle milestone precedenti in un solo posto navigabile, separato dalla scheda personaggio. Schede: Popoli (le 8 ascendenze con incrementi/tratti/descrizione), Retroscena (i 6 background), Classi (le 13 classi con tiri salvezza/PF per livello/accesso ad armi e armature), Abilità (le 16 abilità Pathfinder), Armi (10 armi di base), Armature (10 armature di base per categoria), Talenti (ricerca+filtro per tipo su tutti e 4 i database già integrati: 28 Generali, 63 di Ascendenza, 55 di Abilità, 98 di Classe — 244 talenti totali consultabili in un solo posto), Incantesimi (ricerca+filtro per rango/tradizione su Trucchetti+Incantesimi di 1° rango, con deduplica automatica degli incantesimi condivisi tra piu tradizioni), Regole rapide (economia delle azioni, gradi di competenza, gradi di successo, penalità da attacchi multipli, Punti Ferita e morte). Aggiunto anche un contenuto mai avuto prima nell'app: database verificato delle 42 CONDIZIONI Pathfinder (Remaster) — Accecato, Maldestro, Confuso, Morente, Distratto (Off-Guard, il nome Remaster che ha sostituito "Flat-Footed"), Nauseato, Rallentato, Stordito, Danno Persistente e le altre — ricercate e verificate su Archives of Nethys (2e.aonprd.com/Conditions.aspx) tramite un sub-agente dedicato, testo parafrasato in italiano, ogni voce indica se ha un valore numerico associato. Isolato dal Compendio D&D esistente: nessuna variabile/funzione D&D toccata, stato proprio (PF_COMP_TAB/PF_COMPF), dati propri (PF_CONDITIONS). Verificato: sintassi OK sui 15 blocchi script, test funzionale in Node sul database condizioni (42 voci, tutte con nome/descrizione/campo "valued" validi). SHA-256 di questa build: 3c00875c1d405ac7c3a9bf895dbfa5a040a5afb7aa868187d6bb79c2fe821bbe. | v1.23.0 (15/9): nona milestone della roadmap Pathfinder delegata, primi OGGETTI MAGICI Pathfinder. Aggiunto un database verificato di 40 oggetti (rune fondamentali e di proprieta per armi/armature, oggetti indossabili/tenuti, bacchette, bastoni, pozioni, un esempio di pergamena) ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti GM Core per le rune, Player Core/Player Core 2 per gli oggetti indossabili/tenuti) tramite due sub-agenti dedicati: rune d'arma (Potenza +1/+2/+3, Devastante/Devastante Superiore/Devastante Superba, Fiammeggiante, Glaciale, Fulminante, Tocco Fantasma, Ritorno), rune d'armatura (Potenza +1/+2/+3, Resistente/Resistente Superiore/Resistente Superba, Fortificazione, Scivolosa, Invisibilita), oggetti indossabili (Mantello delle Illusioni, Bracciali della Forza, Sandali Alati, Fascia della Saggezza, Collana del Fascino, Amuleto di Resistenza, Stivali Arborei, Segnavia, Guanti del Guaritore, Maniche di Conservazione), bacchette e bastoni (Bacchetta Magica generica per Missile di Magia/Guarire, Bacchetta della Continuazione, Bastone del Fuoco, Bastone della Guarigione), pozioni (Pozione di Guarigione nelle sue gradazioni, Pozione di Respiro Energetico), un esempio di Pergamena Magica e oggetti tenuti (Sacco di Contenimento, Sacco Divorante). Nuova voce di menu "Oggetti" nella sezione Pathfinder (mai toccati gli oggetti D&D esistenti: dati, stato (STATE.pfItemsExpanded) e vista (viewPfItems) sono completamente separati) con PF_ITEMS_1/PF_ITEMS_2/PF_ITEMS, ricerca per nome, filtro per livello min/max e per categoria, card che si espandono in linea al tocco mostrando prezzo, tratti, uso, ingombro, attivazione e descrizione completa. Nota tecnica onesta: diversi nomi "classici" D&D-style (Bacchetta di Missile di Magia, Cintura della Forza del Gigante, Stivali Alati, Stivali dell'Elfico, Mantello dell'Elfico, Diadema di Persuasione, Fascia della Saggezza Ispirata, Sacca Prodigiosa, Anello di Protezione/Resistenza Energetica) non esistono piu come oggetti a se stanti dopo il Remaster: sono stati sostituiti da oggetti generici (la Bacchetta Magica, il cui contenuto dipende solo dall'incantesimo caricato) o rinominati/ristrutturati (riportato onestamente nella descrizione di ogni voce). Il Sacco Divorante (oggetto maledetto) non ha un prezzo di vendita su Archives of Nethys: riportato cosi com'e invece di inventarne uno. Copertura dichiarata onestamente: e uno strumento di consultazione (non ancora un inventario personaggio collegato alla scheda) con 40 oggetti comuni, non l'intero compendio oggetti magici ufficiale Pathfinder (centinaia di voci in piu manuali) — prossime milestone della roadmap ne aggiungeranno altri, insieme a incantesimi di rango superiore e al resto del bestiario. SHA-256 di questa build: 3a2a4d8ce5721b23c016c3affb24820a2a4c1e5370cd59fb2294e58110569dbb. | v1.22.0 (15/9): ottava milestone della roadmap Pathfinder delegata, primo BESTIARIO Pathfinder. Aggiunto un database verificato di 31 creature (livello -1/+10) ricercate e verificate su Archives of Nethys (2e.aonprd.com, contenuti Monster Core/NPC Core/Bestiary/Bestiary 2/Gamemastery Guide) tramite due sub-agenti dedicati: animali (Lupo, Ratto Gigante, Orso Nero, Ragno Cacciatore, Coccodrillo), non morti (Guardia Scheletrica, Zombie Barcollante, Guardiano Mummia, Fantasma), umanoidi/PNG (Guerriero Goblin, Grande Capo Goblin, Orco Combattente, Bandito, Cultista), immondi/aberrazioni (Diavoletto, Fuoco Fatuo), draghi (Giovane Drago di Brace, Giovane Drago del Giuramento), piante/funghi (Ammasso Ambulante, Fungo Violetto, Dionea Gigante), costrutti (Armatura Animata, Scopa Animata), fatati (Folletto Sprite, Berretto Rosso, Quickling), giganti (Gigante delle Colline, Troll dei Boschi, Ogre Guerriero) ed elementali (Fuoco Errante, Cascata Vivente). Nuova voce di menu "Bestiario" nella sezione Pathfinder (mai toccato il Bestiario D&D esistente: dati, stato (STATE.pfBestiaryExpanded) e vista (viewPfBestiary) sono completamente separati) con PF_BESTIARY_1/PF_BESTIARY_2/PF_BESTIARY, ricerca per nome, filtro per livello min/max e per tratto, card che si espandono in linea al tocco mostrando lo statblock completo in formato reale PF2e (Percezione, sensi, lingue, abilità, modificatori di caratteristica, CA, tiri salvezza, PF, immunità/debolezze/resistenze, velocità, Colpi in mischia/a distanza con tratti, capacità speciali/reazioni, incantesimi innati quando presenti). Nota tecnica onesta: alcune creature richieste nella ricerca (Drago Rosso Giovane/Drago d'Argento Giovane, Troll, Ogre) non esistono più come statblock generico dopo il Remaster: sono state sostituite dalle relative versioni ufficiali rinominate (Young Cinder Dragon, Young Oath Dragon, Forest Troll, Ogre Warrior), riportato esplicitamente nel campo "source" di ciascuna voce. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che tutte le 31 creature abbiano nome/livello/CA/PF/tiri salvezza/6 modificatori di caratteristica validi. sha256 `9ecb032a0dcd4f77a40b2046770f8610e527150c0ab944a3836a9f312cfbb4f2` pubblicato su `rollone.html`+`app/index.html`+`version.json` via GitHub (upload diretto su entrambi i repo, verificato con `git clone`+`sha256sum` reali) e sulla cartella PC `Manuali base/Claude outputs/` (verificato via `device_bash`+sha256sum, entrambi i file identici). Non ancora coperto: il resto del bestiario ufficiale Pathfinder (centinaia di altre creature), oggetti magici, incantesimi di rango 2+, funzionalità di piattaforma Pathfinder (Compendio, Forgia, Esplora Dungeon, Schermo del DM, Tavolo/VTT). Nextcloud ancora non aggiornato (indirizzo mai fornito). — v1.21.0 (2026-09-15): settima milestone della roadmap Pathfinder delegata da Carmine, seconda parte del sistema di INCANTESIMI (dopo i Trucchetti di v1.20.0). Aggiunto un database verificato di Incantesimi di 1° rango per le 4 tradizioni magiche del Remaster: 30 Arcani, 30 Primordiali, 26 Divini, 41 Occulti (alcuni condivisi tra più tradizioni tramite riferimento diretto allo stesso oggetto, come per i Trucchetti), ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti Player Core/Player Core 2) tramite sub-agenti dedicati, uno per coppia di tradizioni. Nuova sezione scheda PF_SPELLS_R1_ARCANE/DIVINE/OCCULT/PRIMAL + pfSpellR1Db(trad) + pfSpellSection(wrap,c), mostrata subito dopo i Trucchetti per le stesse classi incantatrici, con lo stesso schema di picker (nome, azioni, gittata, bersagli, tiro salvezza, descrizione meccanica completa incluse le voci "Potenziato"). Usa la stessa tradizione scelta/derivata in pfCantripSection (c.pfTradition o PF_CLASS_TRADITION), quindi lo Stregone continua a scegliere la propria tradizione una sola volta per entrambe le sezioni. Copertura dichiarata onestamente: solo gli incantesimi di 1° rango (non tutta la lista ufficiale, selezione dei più iconici/utili per ogni tradizione); rango 2+ restano da fare, così come il numero esatto di incantesimi conosciuti/preparabili per livello e classe (non ancora verificato): per questo il picker non impone un tetto di slot, lasciando il giocatore libero di aggiungere quanti incantesimi il manuale gli assegna, verificandone da sé il numero — stessa filosofia onesta già adottata per i Trucchetti. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che ogni tradizione abbia il conteggio atteso di incantesimi e che ogni voce abbia nome/rango/descrizione validi. Non ancora coperti: incantesimi di rango 2+, slot di incantesimi per livello, incantesimi preparati/spontanei/di dominio/dell'ordine, bestiario Pathfinder, oggetti magici, funzionalità di piattaforma (Compendio, Forgia, Esplora Dungeon, Schermo del DM, Tavolo/VTT) per Pathfinder. — v1.20.0 (2026-09-15): sesta milestone della roadmap Pathfinder delegata da Carmine, prima parte del sistema di INCANTESIMI. Aggiunto un database verificato di Trucchetti (Cantrips, rango 0) per le 4 tradizioni magiche del Remaster: 25 Arcani, 20 Primordiali, 18 Divini, 18 Occulti (molti condivisi tra più tradizioni, come previsto dalle regole reali), ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti Player Core/Player Core 2) tramite sub-agenti dedicati, uno per coppia di tradizioni. Nuova sezione scheda PF_CANTRIPS_ARCANE/DIVINE/OCCULT/PRIMAL + pfCantripSection(wrap,c), mostrata solo per le classi incantatrici (Mago, Chierico, Bardo, Druido, Stregone, Oracolo): un picker che mostra nome, azioni, gittata, bersagli, tiro salvezza e descrizione meccanica di ogni trucchetto della tradizione della classe (PF_CLASS_TRADITION), incluso lo scaling automatico col livello descritto testualmente (es. "Potenziato (+1): il danno aumenta di..."). Lo Stregone, che nella classe reale non ha una tradizione fissa (dipende dalla Discendenza, non ancora un dato strutturato), sceglie la propria tradizione direttamente dalla scheda. Copertura dichiarata onestamente: solo i Trucchetti (rango 0); gli incantesimi veri e propri (rango 1-10, slot per rango, incantesimi preparati/spontanei/di dominio/dell'ordine ecc.) restano completamente da fare, così come il numero esatto di trucchetti conosciuti per livello per ciascuna classe (non ancora verificato): per questo il picker non impone un tetto di slot, lasciando il giocatore libero di aggiungere quanti trucchetti il manuale gli assegna, verificandone da sé il numero. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che ogni tradizione abbia il conteggio atteso di trucchetti e che ogni voce abbia nome/descrizione validi. Non ancora coperti: incantesimi di rango 1+, bestiario Pathfinder, oggetti magici, Talenti di Classe/Ascendenza/Abilità oltre il 1° livello. Nextcloud ancora non aggiornato (indirizzo mai fornito). v1.19.0 (2026-09-15): quinta milestone della roadmap Pathfinder delegata da Carmine. Aggiunto un database verificato di 98 TALENTI DI CLASSE (Class Feats) di 1° livello, uno per ciascuna delle 13 classi (Guerriero 10, Mago 5, Chierico 2, Ladro 7, Barbaro 7, Bardo 7, Campione 14, Druido 6, Monaco 16, Ranger 6, Stregone 5, Alchimista 6, Oracolo 7), ricercati e verificati su Archives of Nethys (2e.aonprd.com, contenuti Player Core/Player Core 2 Remaster) tramite sub-agenti dedicati, uno per classe o piccolo gruppo di classi. Nuova sezione scheda PF_CLASS_FEATS_L1/pfClassFeatSection(wrap,c): mostra un picker con tutti i talenti di classe di 1° livello del personaggio, con requisito informativo visibile (es. "Istinto Drago", "Musa Enigma", "Causa Redenzione") dato che sottoclassi/scelte come Istinto/Musa/Causa/Dottrina/Ordine non sono ancora tracciate come dato strutturato in questa versione dell'app: il giocatore verifica da sé il requisito, come già accade per i talenti di ascendenza. A differenza dei Talenti di Abilità (condivisi tra tutte le classi), i Talenti di Classe restano specifici della classe scelta, un database separato per ciascuna. Copertura dichiarata onestamente: solo il primo blocco di talenti (quelli disponibili al primo slot Talento di Classe, che per tutte le 13 classi si apre al 2° livello secondo la tabella già verificata in v1.16.0); gli slot di livello superiore (4°, 6°, 8°... fino al 20°) restano ad annotazione manuale tramite pfFeatNoteSection non appena il database di 1° livello per quella classe è esaurito, esattamente come già avviene per i Talenti di Ascendenza oltre il 1° livello — nessuna promessa di copertura non mantenuta. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che tutte le 13 classi di PF_CLASSES abbiano un database corrispondente in PF_CLASS_FEATS_L1 (nessuna mancante), 98 talenti totali confermati, progressione slot Talento di Classe testata (0 al 1° livello, 1 al 2°, cresce fino a 10 al 20° per tutte le classi provate). Non ancora coperti: Talenti di Classe/Ascendenza/Abilità oltre il 1° livello, incantesimi, bestiario Pathfinder, oggetti magici. Nextcloud ancora non aggiornato (indirizzo mai fornito). v1.18.0 (2026-09-15): quarta milestone della roadmap Pathfinder delegata da Carmine. Aggiunto un database verificato di 55 TALENTI DI ABILITÀ (Skill Feats) di 1° livello (grado Addestrato), ricercati e verificati sul Player Core via Archives of Nethys, coprendo tutte le 16 abilità di Pathfinder 2e incluse Furtività/Ladrocinio. A differenza dei Talenti di Classe/Ascendenza, i Talenti di Abilità sono condivisi da tutte le classi: lo stesso database serve automaticamente tutti i personaggi, indipendentemente dalla classe scelta. Sulla scheda, lo slot di Talento di Abilità (schedule già esistente da v1.16.0: ogni livello pari per la maggior parte delle classi, ogni livello per il Ladro) ora offre un vero picker filtrato dinamicamente in base a quali abilità il personaggio ha addestrate, invece del solo campo di testo libero. Per i pochi talenti con una sotto-scelta (es. Specializzazione Artigianale, Cacciatore di Terreno, Competenza del Terreno, Interprete Virtuoso) resta un campo nota per la specialità/il terreno scelto. Deduplicazione deliberata: 13 nomi che in PF2e portano sia il tratto Generale sia il tratto Abilità (es. Prova Certa, Equilibrio Saldo, Caduta Felina, Poliglotta) restano selezionabili solo dalla sezione Talenti Generali già esistente, per evitare doppioni nell'interfaccia — verificato via script che non ci sia alcuna sovrapposizione di nome tra i due database. Copertura dichiarata onestamente: solo il grado Addestrato/livello 1; i talenti di abilità che richiedono Esperto/Maestro/Leggendario (livelli più alti) non sono ancora coperti, e negli slot di livello più alto il pool di livello 1 resta comunque selezionabile come approssimazione finché non verrà aggiunto anche quel contenuto. Non ancora coperti: Talenti di Classe (restano l'ultimo grande blocco ad annotazione manuale), incantesimi, bestiario Pathfinder, oggetti magici. Verificato: sintassi OK sui 15 blocchi script, controllo automatico nessun nome duplicato tra Talenti di Abilità e Talenti Generali, nessun riferimento ad abilità inesistente, test di eleggibilità del picker su un personaggio d'esempio. v1.17.0 (2026-09-12): seconda milestone della roadmap Pathfinder delegata da Carmine ("Decido io il dettaglio, tu procedi in autonomia"). Aggiunto il primo database verificato di TALENTI DI ASCENDENZA (Ancestry Feats) di 1° livello: 63 talenti in totale, 7-10 per ciascuno degli 8 popoli già presenti (Umano, Elfo, Nano, Halfling, Gnomo, Goblin, Orco, Leshy), ricercati e verificati uno per uno sul Player Core (Remaster) tramite Archives of Nethys (2e.aonprd.com), con testo meccanico parafrasato in italiano (non copiato dal manuale) mantenendo intatti tutti i numeri di gioco. Sulla scheda personaggio, lo slot di Talento di Ascendenza di 1° livello ora offre un vero menu di selezione (PF_ANCESTRY_FEATS_L1) invece del solo campo di testo libero introdotto in v1.16.0: per i talenti che comportano un'ulteriore scelta del giocatore (es. Umano "Armi Non Convenzionali" fa scegliere un'arma, Orco "Marchio del Clan" fa scegliere un simbolo, Gnomo "Complice Animale" fa scegliere un famiglio) resta comunque un campo nota per annotare la scelta specifica, dato che il dettaglio di quelle sotto-opzioni non è ancora modellato come dato strutturato. Gli slot di Talento di Ascendenza dei livelli successivi (5°/9°/13°/17°, che richiederebbero un secondo database equivalente non ancora verificato) restano invece ad annotazione manuale, esattamente come prima: nessuna promessa di copertura non mantenuta. Non ancora coperti: Talenti di Classe e di Abilità (che restano gli slot più numerosi e ancora interamente ad annotazione manuale), incantesimi, bestiario Pathfinder, oggetti magici. Verificato: sintassi OK sui 15 blocchi script, controllo automatico che le 8 ascendenze del database talenti corrispondano esattamente alle 8 ascendenze già implementate (nessuna mancante, nessuna in eccesso), conteggio dei 63 talenti confermato. v1.16.0 (2026-09-12): prima milestone della richiesta esplicita di Carmine di portare Pathfinder a parità completa di funzioni con la sezione D&D ("voglio tutte le funzioni, regole, bestiari, oggetti, incantesimi... deve essere completa"), con delega esplicita sull'ordine di lavoro ("Decido io il dettaglio, tu procedi in autonomia"): sistema di PROGRESSIONE DI LIVELLO per i personaggi Pathfinder, prima bloccati permanentemente al 1° livello. Dati verificati contro Archives of Nethys (2e.aonprd.com) prima di essere codificati, nessuna regola inventata. (1) Corretto un bug della formula dei Punti Ferita: prima non moltiplicava mai per il livello (hpMax=PF popolo+PF/liv.+mod.Costituzione, innocuo finché esisteva solo il 1° livello, ma sbagliato non appena si sale), ora hpMax=PF popolo+livello×(PF/liv.+mod.Costituzione). (2) Aggiunta la progressione di competenza per livello di Percezione, Tiri Salvezza e Classe Difficoltà, specifica per ciascuna delle 13 classi (tabelle PF_CLASS_PROGRESSION verificate una per una sulla pagina Archives of Nethys di ogni classe), con il caso speciale del Monaco (Cammino verso la Perfezione: è il giocatore a scegliere quale tiro salvezza diventa Maestria a liv. 7 e 11 e quale diventa Leggendario a liv. 15, non una tabella fissa) e la Classe Difficoltà mostrata solo per le classi che davvero la possiedono in PF2e (le classi puramente incantatrici — Mago, Chierico, Bardo, Druido, Stregone, Oracolo — non ne hanno). (3) Aggiunto il calendario ufficiale di talenti/incrementi per livello (PF_LEVEL_SCHEDULE): Talento di Ascendenza a 1/5/9/13/17, Talento di Classe e Talento di Abilità a ogni livello pari, Talento Generale a 3/7/11/15/19, Aumento di Abilità a ogni dispari da 3 in poi, Aumento di Caratteristica a 5/10/15/20 — con l'eccezione verificata del Ladro (Talento di Abilità e Aumento di Abilità a OGNI livello, non solo ai pari/dispari). (4) Nuova sezione "Livello e progressione" sulla scheda personaggio: campo livello modificabile (1-20), Aumenti di Abilità (rispetta i vincoli ufficiali di grado minimo: da Esperto a Maestria serve livello 7+, da Maestria a Leggendario livello 15+), Aumenti di Caratteristica (4 incrementi liberi senza ripetizioni per ogni traguardo 5/10/15/20, stesso meccanismo già in uso alla creazione), il Cammino verso la Perfezione per il Monaco. (5) Aggiunto un primo database verificato di 28 Talenti Generali del Player Core (PF_GENERAL_FEATS, con requisiti minimi di livello/caratteristica/grado abilità dove previsti, es. Robustezza, Iniziativa Incredibile, Prova Certa, Recupero Rapido, Equilibrio Saldo) selezionabili direttamente dalla scheda con un picker che filtra automaticamente i talenti non ancora sbloccati. (6) Talenti di Classe, di Abilità e di Ascendenza: il database completo di questi talenti (centinaia di voci per classe) NON è ancora integrato — per onestà verso Carmine, l'app riserva comunque il numero corretto di slot per livello ma per ora permette solo di annotare a mano quale talento è stato scelto dal manuale, invece di inventare o approssimare contenuti non verificati. Non ancora coperti (prossime milestone della roadmap concordata): i database completi di Talenti di Classe/Abilità/Ascendenza, incantesimi, bestiario Pathfinder, oggetti magici, e la progressione di competenza con armi/armature ai livelli più alti (resta fissa ad Addestrato). Verificato: sintassi OK sui 15 blocchi script. v1.15.0 (2026-09-12): su richiesta esplicita di Carmine, Pathfinder diventa a tutti gli effetti "un'altra app dentro l'app", non più solo una sezione raggiungibile mentre il resto di D&D resta visibile. Aggiunto un nuovo stato STATE.rpgGame ("dnd" o "pathfinder"), richiesto ad OGNI avvio con una nuova schermata iniziale renderGameGate() (stesso pattern già in uso per la scelta Giocatore/Dungeon Master, chooseMode/renderModeGate): finché non si sceglie il gioco, l'app non mostra nessuna delle due interfacce. Il menu laterale (#tabs) ora porta due gruppi di pulsanti marcati con le classi game-dnd/game-pf: una nuova applyGameVisibility(), chiamata ad ogni render() insieme a quella già esistente per la modalità Giocatore/DM, mostra solo il gruppo del gioco attivo e nasconde per intero l'altro — nessuna voce D&D (Classi/Bestiario/Forgia/Esplora Dungeon/Tavolo/Community/Schermo DM/Compendio/Tesori/Epici) resta visibile quando si è su Pathfinder, e viceversa le 4 voci Pathfinder (Pathfinder/Impara a giocare/Crea Personaggio/Scheda) restano nascoste su D&D. Aggiunta anche una correzione di isolamento in render(): se STATE.view era rimasta su una vista dell'altro gioco (es. dopo un cambio gioco dalle Impostazioni), viene riportata automaticamente alla home del gioco ora attivo, così non resta mai raggiungibile una schermata dell'altro gioco nemmeno per un istante. La card "RPG Library" nelle Impostazioni resta il punto sempre disponibile per cambiare gioco in qualsiasi momento (ora mostra anche quale dei due è attivo e permette di passare all'altro con un click, che imposta STATE.rpgGame oltre a navigare). Corretto anche applyModeVisibility() perché non riattivasse per errore il pulsante "Schermo DM" (voce D&D) quando si è in modalità Dungeon Master ma il gioco attivo è Pathfinder. Nessuna modifica ai dati o alla logica di gioco di D&D o Pathfinder: solo instradamento/visibilità della UI. Verificato: sintassi OK sui 15 blocchi script, bilanciamento tag HTML verificato sul blocco menu modificato. v1.14.0 (2026-09-12): completamento della prima ondata della sezione Pathfinder introdotta in v1.13.0, su richiesta esplicita di Carmine ("completa l'intera sezione"). Tutti i nuovi dati verificati su Archives of Nethys (2e.aonprd.com) prima di essere inseriti, nessun dato inventato. (1) POPOLI: da 4 a 8 — aggiunti Gnomo, Goblin, Orco, Leshy (oltre a Umano/Elfo/Nano/Halfling già presenti), con incrementi/penalità corretti incluso il caso di popoli con incremento libero aggiuntivo oltre a quelli fissi (Gnomo/Goblin/Leshy: 2 incrementi fissi + 1 libero). Generalizzata pfComputeAbilities/lo step Popolo del wizard: prima gestivano l'incremento libero solo con un caso speciale per "Umano", ora un campo anc.freeCount uniforme copre qualunque combinazione (0, 1 o 2 incrementi liberi) per qualsiasi popolo attuale o futuro. (2) CLASSI: da 4 a 13 — aggiunte Barbaro, Bardo, Campione, Druido, Monaco, Ranger, Stregone, Alchimista, Oracolo (oltre a Guerriero/Mago/Chierico/Ladro): tutte le 13 classi del Player Core 1 e 2 tranne la Strega. Corretto anche un dato impreciso della release precedente: il Chierico ha Tempra addestrata (non esperta) al primo livello, verificato ora contro la fonte. (3) EQUIPAGGIAMENTO: prima assente (solo un campo note libero), ora un vero sistema con 12 armi e 10 armature di base verificate (danno, tratti, categoria, bonus CA, tetto di Destrezza, malus alle prove, prezzo), un nuovo passo del wizard per scegliere arma e armatura filtrate in base a cosa la classe scelta sa già usare, calcolo della Classe Armatura che ora usa l'armatura realmente indossata invece della formula "di base" fissa, e un tiro per colpire/danno funzionante sulla scheda (Forza o Destrezza se l'arma ha il tratto Finesse, più il bonus di competenza se l'arma rientra tra quelle della classe). Verificato con uno script di controllo automatico che ricalcola PF/CA/Percezione/Tiri Salvezza/tiro per colpire per tutte le 8×13 combinazioni di popolo e classe: nessuna eccezione, valori sempre in un intervallo plausibile. Non ancora coperti, in arrivo in aggiornamenti successivi: incantesimi, talenti, livelli oltre il primo, bestiario Pathfinder, Strega. Verificato: sintassi OK sui 15 blocchi script. v1.13.0 (2026-09-12): prima versione della sezione Pathfinder 2e (Remaster), richiesta esplicita di Carmine ("consulta la cartella Pathfinder sul cloud e inizia a costruire la sezione... mi raccomando la sezione per imparare"). Sistema tenuto volutamente ISOLATO dal D&D 5e già esistente (nuovo stato STATE.pfCharacters/STATE.pfWizard/STATE.pfCurrent/STATE.pfHowtoSection, mai STATE.characters/STATE.wizard): zero rischio di intaccare dati o logica D&D. Contenuto di questa prima versione, verificato contro Archives of Nethys (2e.aonprd.com, l'equivalente per Pathfinder 2e dell'SRD di D&D usato finora in questo progetto): (1) sezione "Impara a giocare" dedicata (PF_HOWTO_SECTIONS/viewPfLearn, stesso pattern di viewHowToPlay del D&D) con 8 argomenti pensati per chi non ha mai giocato — gradi di successo, competenza per livello, economia delle tre azioni, Percezione/Iniziativa, CA e Tiri Salvezza, i passi di creazione, glossario; (2) wizard di creazione personaggio (viewPfWizard, mirror di viewWizard) con i quattro Popoli e le quattro Classi del Set Introduttivo ufficiale (Beginner Box: Umano/Elfo/Nano/Halfling, Guerriero/Mago/Chierico/Ladro) più sei Retroscena, che applica correttamente il sistema ufficiale di incrementi/penalità alle caratteristiche (Popolo → Retroscena → Classe → 4 incrementi liberi, ricalcolato sempre da zero con pfComputeAbilities() invece che per mutazione cumulativa, per restare coerente se l'utente torna indietro e cambia scelta); (3) scheda personaggio (viewPfSheet/pfDerived) con PF, CA, Percezione, Tiri Salvezza e le 16 abilità di Pathfinder 2e, ciascuna con tiro di dado cliccabile. Non ancora coperti in questa prima versione, in arrivo in aggiornamenti successivi: altri Popoli/Classi/Retroscena, un sistema di equipaggiamento/inventario dettagliato (per ora solo un campo note libero, dichiarato esplicitamente come tale nell'interfaccia), incantesimi, talenti, livelli superiori al primo, bestiario Pathfinder. Aggiornata la card "Pathfinder" nella RPG Library da "In arrivo" a stato beta 🧪 con collegamento diretto alla nuova sezione. Verificato: sintassi OK sui 15 blocchi script. v1.12.21 (2026-09-11): fix segnalato da Carmine — dopo un'importazione di un personaggio da PDF, la successiva stampa/esportazione mostrava trattini al posto di talenti, abilità uniche e storia del personaggio. Causa: openCharacterReviewModal() (modale di revisione dopo l'importazione AI da PDF) leggeva questi tre campi dalla bozza dell'AI ma non li scriveva mai sul personaggio creato (finivano genericamente buttati dentro "notes", quando anche quello succedeva). Aggiunta ai tre campi propria area di revisione nella modale (coerente con "revisione obbligatoria" già richiesta per gli altri campi importati) e mappatura esplicita su c.feats/c.customAbilities/c.backstory alla conferma; il prompt AI ora chiede esplicitamente questi tre campi come JSON strutturato invece di scaricare tutto in notes. Non tocca in alcun modo l'esportazione PDF stessa (già corretta, leggeva già questi campi: il problema era a monte, in fase di importazione). Verificato: sintassi OK sui 15 blocchi script. v1.12.18 (2026-09-09): risolto "zoom improvviso/schermo che si rimpicciolisce" sulla card Allineamento e ruolo, segnalato ancora presente da Carmine anche dopo un'installazione pulita del v1.12.17. Causa reale (non la card in sé, riprodotta confrontando un personaggio nuovo — mai coinvolto — con un vecchio personaggio storico dell'account — sempre coinvolto): mpApplyCloudAccountState(), chiamata dalla sincronizzazione automatica dell'account dopo il login per applicare i dati scaricati dal cloud, richiama render() in modo asincrono e "fuori banda" rispetto a qualunque gesto dell'utente. Se in quel momento l'utente aveva il focus su un campo di testo (tipicamente i primi campi toccati su un personaggio appena sincronizzato, cioè proprio Tratto/Ideale/Legame/Difetto), quel render() distruggeva l'intera scheda con app.innerHTML="" mentre il campo aveva ancora il focus attivo, invece di perderlo prima in modo pulito — su Android questo lascia il browser/WebView bloccato nello stato di zoom che aveva applicato per quel campo. Fix generale (non specifico a questa card, vale per qualunque campo dell'app): render() ora toglie sempre il focus dall'elemento attivo un istante prima di svuotare #app, così il browser chiude lo stato di zoom in modo corretto; nessun dato perso, i campi salvano già ad ogni tocco con oninput/onchange. Corretta anche la causa di fondo segnalata da Carmine ("il sync del server deve correggere i dati con la versione installata sul dispositivo, altrimenti siamo sempre al punto di partenza"): un personaggio caricato da un salvataggio locale vecchio o scaricato dal cloud non veniva mai riadattato alla versione dell'app installata — se nel frattempo erano stati aggiunti nuovi campi al personaggio, quel personaggio restava con quei campi undefined invece di ereditare i valori di default della versione corrente. Aggiunta normalizeCharacterToCurrentVersion()/normalizeCharactersToCurrentVersion(), richiamata sia su ogni caricamento locale (loadState()) sia su ogni sincronizzazione dell'account dal cloud (mpApplyCloudAccountState()): completa solo i campi mancanti con i valori di default di newCharacter(), senza mai toccare un valore già presente nel salvataggio — nessun dato del giocatore modificato o perso, ma ogni personaggio sincronizzato da ora in poi si "auto-ripara" restando sempre coerente con i campi che la versione installata si aspetta, invece di riproporre lo stesso tipo di bug ad ogni nuovo campo aggiunto in futuro. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK. v1.12.17 (2026-09-09): risolve in modo strutturale (non l'ennesima toppa) il bug ricorrente "dopo un aggiornamento tornano bug già corretti in passato" segnalato di nuovo da Carmine (esempio concreto: lo zoom/i tratti caratteriali tornati come prima del fix v1.12.4), con le Impostazioni che dichiaravano comunque la versione più recente (1.12.16) — sintomo che corrisponde esattamente alla causa già inseguita a pezzi in v1.12.9/10/11 e mai chiusa del tutto: Capacitor Android, ad ogni avvio VERO dell'app (non un semplice scambio a caldo), ricarica sempre il bundle statico impacchettato nell'APK all'installazione, e il meccanismo di aggiornamento via IndexedDB+iframe-swap usato finora funziona solo se quella cache non è stata svuotata dal sistema sotto pressione di spazio (rischio documentato) e lo scambio a video riesce entro il timeout — se una delle due salta, si resta sui contenuti vecchi finché non arriva un altro controllo E lo si conferma esplicitamente. Corretto scoprendo che Capacitor offre già un canale "live update" ufficiale, incluso da sempre in @capacitor/android (nessuna nuova build/APK necessaria, verificato leggendo il sorgente del plugin core com.getcapacitor.plugin.WebView, già auto-registrato da Bridge.java): ora, ogni volta che viene scaricata/ripristinata una copia più recente, oltre allo scambio a video di sempre viene anche scritta come file vero sul disco del dispositivo tramite il plugin Filesystem (già presente nell'app, finora usato solo per import/export personaggi) e il ponte nativo viene istruito con WebView.setServerBasePath()+persistServerBasePath() a servire i contenuti da lì fin dal PROSSIMO avvio vero, prima ancora di caricare il bundle vecchio impacchettato — elimina alla radice la finestra in cui un riavvio reale può mostrare contenuti vecchi. Se in futuro viene installata una vera nuova APK, Capacitor stesso rileva il cambio di versionCode/versionName e ignora/cancella questo percorso salvato, ripartendo pulito dal bundle nuovo (verificato nel sorgente, comportamento già incluso, nessun codice aggiuntivo necessario). IndexedDB+iframe-swap restano invariati (aggiornano la sessione in corso senza dover riavviare), questa è un'aggiunta di sicurezza best-effort, mai un sostituto: se Filesystem/WebView non fossero disponibili per qualunque motivo, fallisce in silenzio e si ricade sul comportamento precedente. Verificato: sintassi OK sui 15 blocchi script, test Playwright dedicato con Filesystem/WebView nativi simulati (mkdir→writeFile su www_latest/index.html in DATA→getUri→setServerBasePath con percorso corretto senza prefisso file://→persistServerBasePath, tutti chiamati nell'ordine e con i parametri attesi sia nel percorso "conferma aggiornamento" sia in quello "ripristino da cache all'avvio"), più l'intera batteria di test già esistenti (nessuna regressione). v1.12.16 (2026-09-09): bug segnalato da Carmine, "a livello 4 ho scelto il talento iniziato alla magia oppure il marchio ed altri che mi dicevano di poter scegliere dalla lista, ma sulla scheda del personaggio non compare nulla per fare questa azione". Causa individuata: featChoiceSpec() (la funzione che decide se un talento mostra il pulsante "⚠ Completa" e una finestra di scelta) riconosceva solo 4 pattern (Aumento caratteristiche, Abile/Pluriabilità, Resiliente, Iniziato alla magia): tutti gli altri talenti che concedono incantesimi a scelta — i 26 Marchi di Eberron, i 5 talenti di Strixhaven (Iniziato di Lorehold/Prismari/Quandrix/Silverquill/Witherbloom), Adepto Elementale, Sfiorato dalle Fate, Sfiorato/Toccato dall'Ombra, Marchio Aberrante, Rampollo dei Piani Esterni — restituivano null: il talento veniva salvato correttamente sulla scheda ma cliccandoci sopra si apriva solo la scheda descrittiva in sola lettura, senza alcun modo di fare la scelta indicata dal testo del talento. Verificato via test end-to-end: prima della correzione "Sfiorato dalle Fate" e "Iniziato di Lorehold" non mostravano né pulsante né finestra funzionante. Corretto aggiungendo un nuovo tipo "spellgrant" a featChoiceSpec/resolveFeatChoices, con una tabella dedicata (FEAT_SPELLGRANT_CHOICES) per ciascuno dei talenti che richiede davvero una scelta del giocatore (trucchetto/incantesimo da una lista o da una categoria, caratteristica da incantatore, elemento, piano d'origine): ora mostrano il pulsante "⚠ Completa" e una finestra dove selezionare, e gli incantesimi scelti compaiono nella sezione "Incantesimi" della scheda come per Iniziato alla magia. La maggior parte dei Marchi di Eberron (es. Marchio del Rilevamento, Marchio della Guarigione) concede invece SOLO effetti fissi automatici (nessuna vera scelta nel testo del talento): per questi non compare alcun pulsante, comportamento corretto perché non c'è nulla da scegliere — restano comunque consultabili con un click come prima. Verificato: sintassi OK sui 15 blocchi script, test Playwright su Marchio del Rilevamento (nessun pulsante, corretto), Sfiorato dalle Fate e Iniziato di Lorehold (pulsante presente, finestra di scelta funzionante, incantesimo scelto compare in scheda), più i test già esistenti su Iniziato alla magia (nessuna regressione). v1.12.15 (2026-09-09): controllo mirato sul rischio di copyright testuale (non solo di licenza/marchio), su richiesta esplicita di Carmine dopo aver chiesto come arrivare il più vicino possibile a zero problemi legali. Riscontrato che, a differenza di tutto il resto del database (oggetti magici, mostri, sottoclassi, specie, background: tutti già in forma sintetica/parafrasata originale, verificato campionando ogni categoria), 55 dei 61 incantesimi etichettati "D&D ufficiale non-SRD" in v1.12.13 (quelli con fonte Xanathar's Guide to Everything o Tasha's Cauldron of Everything) contenevano testo copiato quasi alla lettera dai manuali, con tanto di artefatti di scansione OCR (numeri di pagina, intestazioni di capitolo, box di approfondimento estranei alla meccanica dell'incantesimo, frasi troncate a metà). Riscritte da zero tutte le 55 descrizioni in forma originale, mantenendo identiche le meccaniche di gioco (dadi, tiri salvezza, gittate, scaling ai livelli superiori): nessun dato di gioco cambiato, cambiata solo l'espressione del testo. Completati anche alcuni campi "durata"/"esecuzione" che risultavano troncati dallo stesso problema. I 3 oggetti magici non-SRD e le 45 creature non-SRD già segnalate in v1.12.13/14 sono risultati invece già in forma sintetica originale, nessuna riscrittura necessaria. Correzione collaterale: durante il controllo, il campo interno _src (già presente nei dati del bestiario ma mai usato prima per questo scopo) ha rivelato che Mantoscuro, Manto assassino e Gnomo delle profondità erano stati segnalati per errore come non-SRD in v1.12.14 (sono invece genuinamente SRD 5.2.1/5.1, confermato anche da frammenti letterali del documento SRD rimasti nei loro dati), insieme a Rakshasa già segnalato ma mai rimosso da un errore precedente: tutti e 4 rimossi da MONSTERS_KNOWN_NOT_SRD. Verificato: sintassi OK sui 15 blocchi script, nessun errore JS, nessuna regressione. v1.12.14 (2026-09-09): terza parte dell'audit di conformità SRD/Creative Commons, questa volta sui MOSTRI (400 in totale). Metodo: estratto l'elenco inglese ufficiale della SRD 5.2.1 (391 nomi, fonte dndbeyond.com/sources/dnd/free-rules/creature-stat-blocks), confronto diretto nome-per-nome (che funziona solo per i ~59 mostri il cui nome italiano coincide col nome inglese, es. "Aboleth"), poi analisi di dominio sui restanti ~341 nomi tradotti in italiano: per la stragrande maggioranza (animali generici, PNG classici come banditi/guardie/maghi, i draghi cromatici/metallici per fascia d'età, mostri "storici" come golem/idra/grifone/scheletro/zombie/vampiro) il rischio di violazione è considerato molto basso, trattandosi di contenuto open da ogni edizione OGL/SRD dal 3.5 in poi — non è stata fatta una verifica voce-per-voce di ciascuno di questi. Individuate invece 20 NUOVE creature dal nome/lore chiaramente proprietario Wizards non ancora segnalate (famiglie Illithid/Beholder/Yugoloth/Modron/Slaad e altre): Mantoscuro (Darkmantle), Manto assassino (Cloaker), Divoratore di Intelletto (Intellect Devourer), Mezzoloth, Nycaloth, Arcanaloth, Ki-rin, Empyrean, Orog, Spectator, Froghemoth, Quaggoth, Fomoriano, Cambion, Barlgura, Demone ombra, Guardiano con scudo (Shield Guardian), Tiranno della morte (Death Tyrant), Orrore uncinato (Hook Horror), Gnomo delle profondità (Svirfneblin) — aggiunte a MONSTERS_KNOWN_NOT_SRD (ora 45 mostri in totale, sommate alle 25 di v1.12.12), badge già esistente nella scheda mostro ora mostrato anche per queste. Per le ultime 4, che avevano già il nome commerciale inglese tra parentesi nel nome italiano, tolto il riferimento (stesso trattamento già dato a 10 mostri in v1.12.12), il resto del nome italiano descrittivo invariato. Non ancora verificate voce-per-voce (restano nella parte "a basso rischio ma non confermata SRD"): circa 15 razze umanoidi minori con nome proprio inglese lasciato tale e quale (es. Bugbear, Duergar, Kenku, Merfolk, Bullywug, Sahuagin, Uomo lucertola) — rischio giudicato basso/medio ma non escluso, segnalato a parte a Carmine. Nessun dato rimosso, nessuna funzionalità toccata. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK, test end-to-end via Playwright — nessun errore JS, nessuna regressione.  versione dei contenuti integrata in questa build dell'app (non cambia da sola) — v1.12.13 (2026-09-09): seconda parte dell'audit di conformità SRD/Creative Commons, mirata a incantesimi e oggetti magici (Carmine: "fai controlli più approfonditi", "non basarti solo sulle SRD ma anche su altro"). Metodo: estratto l'elenco inglese ufficiale e completo della SRD 5.2.1 (351 incantesimi, 313 oggetti magici) da dndbeyond.com/sources/dnd/... , incrociato con una traduzione italiana di terze parti su licenza CC BY 4.0 (gist GitHub) e verificato manualmente i casi dubbi/discordanti tra le due fonti, per non fidarsi di un'unica fonte. (1) SPELLS: su 405 incantesimi, individuati 61 che sono D&D ufficiale ma NON SRD (perlopiù trucchetti/utilità da Xanathar's Guide to Everything e Tasha's Cauldron of Everything ripubblicati nel 2024, es. Rintocco dei morti/Lama roboante/Modellare acqua, più alcuni incantesimi con nome d'autore come "...di Tasha"/"...di Melf") e 5 che sono homebrew originali esclusivi della classe homebrew Mago della Morte (Catena di Ossa, Comunione con gli Spiriti Inquieti, Legione del Sepolcro, Manto d'Ossa, Sussurro dell'Ossario): aggiunti SPELLS_NOT_SRD e SPELLS_HOMEBREW_ONLY, con badge di fonte ora mostrato in fondo alla scheda di ogni incantesimo. Corretti anche 3 falsi positivi emersi dal solo confronto con la traduzione di terze parti (Antipatia/simpatia, Cecità/sordità, Ingrandire/ridurre sono incantesimi SRD veri, semplicemente assenti da quella traduzione): nessuna etichetta errata applicata a loro. (2) MAGIC_ITEMS: sui 36 oggetti ufficiali (esclusi i 76 già homebrew, già etichettati), 33 confermati SRD 5.2.1 per confronto diretto con l'elenco inglese; i restanti 3 (Zampogne dei Lamenti, Ventaglio del Vento, Pietra dell'Anima Ardente, quest'ultima già descritta come "custom di esempio") etichettati come D&D ufficiale non-SRD: aggiunto MAGIC_ITEMS_NOT_SRD, badge di fonte ora mostrato in fondo alla scheda di ogni oggetto (magico o meno, solo se verificato). Nessun dato rimosso, nessuna funzionalità toccata, nessuna rinomina: solo nuovi badge informativi in coda alle schede esistenti. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK, test end-to-end via Playwright (wizard, scheda personaggio, bestiario, Compendio talenti/incantesimi/oggetti) — nessun errore JS, nessuna regressione. Restano da verificare voce-per-voce: la maggior parte dei ~375 mostri non ancora controllati singolarmente (oltre ai 25 già segnalati in v1.12.12) e i talenti generati dinamicamente in FEATS_DB.  versione dei contenuti integrata in questa build dell'app (non cambia da sola) — v1.12.12 (2026-09-09): audit di conformità SRD/Creative Commons e correzione dei claim fuorvianti, dopo verifica diretta del testo ufficiale SRD 5.2.1. Nessun dato rimosso, nessuna funzionalità toccata: solo testo/etichette corrette e nuovi badge informativi. (1) Corretti i claim generici "SRD 5.2.1 (CC BY 4.0)" nel commento d'intestazione, nell'etichetta del blocco dataset, nella card classe (mostrava "Dati SRD 5.2.1" anche per sottoclassi non-SRD) e nel tag "source" degli oggetti magici (era "SRD" per tutti, ora "Ufficiale D&D"). (2) Aggiunta SPECIES_SRD (le 9 vere specie SRD: Dragonide, Nano, Elfo, Gnomo, Goliath, Halfling, Umano, Orco, Tiefling) con badge di fonte nella scheda specie del wizard e nella scheda personaggio (le altre 44 specie non-homebrew sono D&D ufficiale ma non-SRD, es. Aasimar/Githyanki/Tabaxi). (3) Aggiunta BACKGROUNDS_SRD (i 4 veri background SRD: Accolito, Criminale, Sapiente, Soldato) con badge nella griglia di scelta del wizard (gli altri 13 background 2024 sono ufficiali ma non-SRD). (4) Aggiunta MONSTERS_KNOWN_NOT_SRD (25 mostri chiaramente proprietari verificati a campione, es. Osservatore/Flagello Mentale/Slaad/Yuan-ti/Rakshasa) con nota nella scheda del mostro — non è una verifica voce-per-voce di tutti i 400 mostri dell'array, solo dei casi più evidenti. Per 10 di questi, tolto dal nome il riferimento tra parentesi al nome proprietario inglese/marchio Wizards (es. "Osservatore (Beholder)"→"Osservatore", "Bracco delle rocce (Umber Hulk)"→"Bracco delle rocce"): riduce l'esposizione sul nome commerciale più riconoscibile senza toccare meccaniche o dati di gioco, il nome italiano descrittivo resta identico a prima. (5) La scheda talento (Compendio) ora mostra la fonte già presente nei dati (f.src) ma mai mostrata prima: SRD, homebrew, o sourcebook D&D non-SRD. Verificato: sintassi OK sui 15 blocchi script, verifica_export.py OK, test end-to-end via Playwright su wizard specie/background, scheda personaggio, bestiario, Compendio talenti — nessun errore JS, nessuna regressione. Incantesimi/oggetti magici/talenti del level-up e la maggior parte dei mostri restano da verificare voce-per-voce in un secondo momento (lavoro più ampio, segnalato a parte). v1.12.11 (2026-09-08): sostituito il <select> nativo del pannello talenti con una lista custom, causa più probabile del blocco persistente (vedi commento dettagliato dentro levelUp()). v1.12.10 aveva corretto SOLO un sintomo (localStorage che si dichiarava più avanti di quanto IndexedDB potesse confermare), ma un video successivo di Carmine ha mostrato che il problema di fondo era un altro, più profondo, in applyCachedUpdateIfAny(): quella funzione decideva se riapplicare al boot la copia scaricata in precedenza confrontando la versione della cache con getAppliedVersion() (cioè con localStorage) invece che con la versione REALMENTE integrata in QUESTO documento appena caricato da Capacitor. Risultato concreto: se la cache IndexedDB conteneva davvero l'ultima versione E localStorage lo sapeva già (es. da uno swap avvenuto in una sessione precedente), la funzione concludeva "siamo già a posto" e NON riapplicava nulla — ma ad ogni riavvio vero e proprio dell'app, Capacitor ricarica sempre lo stesso bundle nativo statico (quello impacchettato nell'APK, fermo a mesi fa), non l'ultima pagina vista: l'utente restava quindi bloccato sui contenuti vecchi del bundle nativo, con le Impostazioni che però mostravano il numero di versione corretto letto da localStorage. Fix: eliminata la dipendenza da localStorage/getAppliedVersion() per QUALSIASI decisione "serve aggiornare?" — si confronta sempre e solo con questa costante ROLLONE_CONTENT_VERSION, l'unica cosa che riflette con certezza cosa sta girando in questo preciso momento. localStorage resta solo per l'etichetta informativa nelle Impostazioni, scritta subito qui sotto.
   var APPLIED_VERSION_KEY = "rollone-applied-version"; // solo per l'etichetta "Contenuti vX" nelle Impostazioni — MAI usato per decidere se scaricare/applicare un aggiornamento (vedi commento sopra)
   var MANIFEST_URL = "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/version.json";
   var DB_NAME = "rollone-update", STORE = "html";

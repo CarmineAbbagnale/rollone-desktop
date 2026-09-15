@@ -1,10 +1,10 @@
 {
-  "version": "1.24.0",
+  "version": "1.25.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "396d179585755f778ceb43db42d7a0fb0ba210745c2119aa6679d7ccef697df6",
+  "sha256": "8fba44c75b9f99e8aa259552d0430b0f96fdcb7d3b5eec5582f3170d530ba3e4",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: nuovo Compendio (talenti, incantesimi, popoli, classi, condizioni e altro in un unico posto consultabile) dalla voce di menu \"Compendio\"."
+    "notice": "Pathfinder: aggiunti gli incantesimi di 2° rango (137 voci verificate su 4 tradizioni) sulla scheda personaggio e nel Compendio."
   }
 }
