@@ -1,10 +1,10 @@
 {
-  "version": "1.18.0",
+  "version": "1.19.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "aac17e428f5280c5104f26c04f35f7e1ba0c4f92e6c00d99d08003268da7985f",
+  "sha256": "66d2f77a4ce5eebb5e58306ea5202374b307bf6ebdb6b2b8a245e052853d3f5e",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: aggiunto un database verificato di 55 Talenti di Abilità di 1° livello, condivisi tra tutte le classi, selezionabili dalla scheda."
+    "notice": "Pathfinder: aggiunto un database verificato di 98 Talenti di Classe di 1° livello, uno per ciascuna delle 13 classi, selezionabili dalla scheda."
   }
 }
