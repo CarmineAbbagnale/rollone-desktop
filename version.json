@@ -1,10 +1,10 @@
 {
-  "version": "1.37.0",
+  "version": "1.38.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "444687ed739b06d2f3a39b8f268f1cf96133d4ba452ed463b124fac7a93c9ba0",
+  "sha256": "00da676c0148f832544daae3e45232eb17aeaa2142ac8cb8c07c74a955663185",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Fix Aasimar (rivelazione celestiale, dal 3° livello) e Schermo del DM ora anche per Pathfinder (scontro, bestiario, riferimenti rapidi)."
+    "notice": "Nuova Forgia Pathfinder (mostri, oggetti, incantesimi homebrew) e backup completo esteso ai dati Pathfinder."
   }
 }
