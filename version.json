@@ -1,10 +1,10 @@
 {
-  "version": "1.36.0",
+  "version": "1.37.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "c81e2ed568dc9770ccdcd036cedf92497ef93917d2b635d9acdb79bcfa4de29a",
+  "sha256": "444687ed739b06d2f3a39b8f268f1cf96133d4ba452ed463b124fac7a93c9ba0",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Pathfinder: bestiario 105 creature, oggetti magici 90 voci (bombe alchemiche, elisir, anelli, pergamene 4-6 rango)."
+    "notice": "Fix Aasimar (rivelazione celestiale, dal 3° livello) e Schermo del DM ora anche per Pathfinder (scontro, bestiario, riferimenti rapidi)."
   }
 }
