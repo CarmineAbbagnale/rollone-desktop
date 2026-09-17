@@ -1,10 +1,10 @@
 {
-  "version": "1.38.0",
+  "version": "1.38.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "00da676c0148f832544daae3e45232eb17aeaa2142ac8cb8c07c74a955663185",
+  "sha256": "028fd8020522ae41471e88d7e13df9f87e2d9d201c7308b4ded54e44864087dc",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Nuova Forgia Pathfinder (mostri, oggetti, incantesimi homebrew) e backup completo esteso ai dati Pathfinder."
+    "notice": "Corretto bug: Griglia tattica e Tavolo bloccati su disattivato per chi li aveva spenti in passato, senza modo di riattivarli. Ora attivabili/disattivabili di nuovo da Impostazioni."
   }
 }
