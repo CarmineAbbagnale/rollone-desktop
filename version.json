@@ -1,10 +1,10 @@
 {
-  "version": "1.50.0",
+  "version": "1.51.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "3760e80b2d2222154fc7186c081dadf1affdd3fbc2caec6dacf5a85c04841348",
+  "sha256": "09f277b385b494a37acda4ba3c6f90423f79d2195fa1b7a091be8b8862d222cd",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Login non più obbligatorio (offline senza account), ordine schermate gioco/modalità invertito, modificatori equipaggiamento ora anche su Pathfinder."
+    "notice": "Compendio oggetti magici D&D ampliato con 20 nuovi oggetti ufficiali (Sacco di Prodigi, Bracciali dell'Arcieria, Lama Fiammeggiante e altri)."
   }
 }
