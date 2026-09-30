@@ -1,10 +1,10 @@
 {
-  "version": "1.51.0",
+  "version": "1.52.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "09f277b385b494a37acda4ba3c6f90423f79d2195fa1b7a091be8b8862d222cd",
+  "sha256": "8e744532fed0b64c4d0fbe9cbbb4ebd147ac599cb2749787d7a7c2453ddcdf50",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Compendio oggetti magici D&D ampliato con 20 nuovi oggetti ufficiali (Sacco di Prodigi, Bracciali dell'Arcieria, Lama Fiammeggiante e altri)."
+    "notice": "Revisione completa: fix sicurezza sull'export/backup, correzioni regole su due oggetti magici, fix link sul sito."
   }
 }
