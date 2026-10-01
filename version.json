@@ -1,10 +1,10 @@
 {
-  "version": "1.59.0",
+  "version": "1.60.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "96c1fc033f4ee55e05f80dafbe3a5410dc2cc9a22ed54d475d318e404d7b942c",
+  "sha256": "b05dcc22b948acc647fc1ef4ae2a0aff303ab96ba56c5cfc4dd4228197c2bb6f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Novità: lista incantesimi dell'Artefice ampliata da 13 a 99, con copertura completa su tutti i livelli."
+    "notice": "Corretto: banco dei dadi 3D (ora funziona davvero) e sottoclassi (ora puoi cambiarla se sbagli)."
   }
 }
