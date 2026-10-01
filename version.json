@@ -1,10 +1,10 @@
 {
-  "version": "1.52.0",
+  "version": "1.53.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "8e744532fed0b64c4d0fbe9cbbb4ebd147ac599cb2749787d7a7c2453ddcdf50",
+  "sha256": "67c34bba93f97941e28f620d96bdb83b83430595af5394ba4c83d32b72906b4f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Revisione completa: fix sicurezza sull'export/backup, correzioni regole su due oggetti magici, fix link sul sito."
+    "notice": "Rifinitura grafica: feedback a pressione sui pulsanti, sollevamento delle card al passaggio del mouse, bagliore sui badge Homebrew, festeggiamento animato al level-up."
   }
 }
