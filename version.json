@@ -1,10 +1,10 @@
 {
-  "version": "1.55.0",
+  "version": "1.56.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "85852ebd94a46272c431df028adf69c3c41bd22ac251c87d6ed8412d98d11d6f",
+  "sha256": "140c7b003e5a89e1981d9b493564a22992edc7ce99851d8c83ba4186f601d1b8",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Schede illustrate: icone anche su Compendio Talenti (per categoria) e Privilegi di classe (icona di classe)."
+    "notice": "Corretto un bug: nella scheda di alcuni mostri D&D compariva erroneamente il testo \"null\"."
   }
 }
