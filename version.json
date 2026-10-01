@@ -1,10 +1,10 @@
 {
-  "version": "1.54.0",
+  "version": "1.55.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "96eab2c635635b38faa2854c6c402c781d511fb9cb8efd2e43537b3586f58562",
+  "sha256": "85852ebd94a46272c431df028adf69c3c41bd22ac251c87d6ed8412d98d11d6f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Schede illustrate: icone per tipologia su tutto il Bestiario (D&D e Pathfinder), icone per scuola di magia sugli incantesimi, icone per categoria sugli oggetti del Compendio."
+    "notice": "Schede illustrate: icone anche su Compendio Talenti (per categoria) e Privilegi di classe (icona di classe)."
   }
 }
