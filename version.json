@@ -1,10 +1,10 @@
 {
-  "version": "1.58.0",
+  "version": "1.59.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "e9a79fa012e99f1c4a93f3c83d117c2cddd44f9e373105b38fd5ec4d4c3c49dc",
+  "sha256": "96c1fc033f4ee55e05f80dafbe3a5410dc2cc9a22ed54d475d318e404d7b942c",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Novità: soundboard \"Suoni del tavolo\" per il master in Impostazioni e nuova sottoclasse Bardo (Collegio delle Marionette)."
+    "notice": "Novità: lista incantesimi dell'Artefice ampliata da 13 a 99, con copertura completa su tutti i livelli."
   }
 }
