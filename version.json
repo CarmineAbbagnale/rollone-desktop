@@ -1,10 +1,10 @@
 {
-  "version": "1.56.0",
+  "version": "1.57.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "140c7b003e5a89e1981d9b493564a22992edc7ce99851d8c83ba4186f601d1b8",
+  "sha256": "656f09fdad12e9ce9b8326c53155b8d60819ba78ea57751185577bac307ffc66",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Corretto un bug: nella scheda di alcuni mostri D&D compariva erroneamente il testo \"null\"."
+    "notice": "Novità: riepilogo di sessione ricercabile per il DM e banco dei dadi 3D decorativo in Impostazioni."
   }
 }
