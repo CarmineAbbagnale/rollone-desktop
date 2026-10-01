@@ -1,10 +1,10 @@
 {
-  "version": "1.53.0",
+  "version": "1.54.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "67c34bba93f97941e28f620d96bdb83b83430595af5394ba4c83d32b72906b4f",
+  "sha256": "96eab2c635635b38faa2854c6c402c781d511fb9cb8efd2e43537b3586f58562",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Rifinitura grafica: feedback a pressione sui pulsanti, sollevamento delle card al passaggio del mouse, bagliore sui badge Homebrew, festeggiamento animato al level-up."
+    "notice": "Schede illustrate: icone per tipologia su tutto il Bestiario (D&D e Pathfinder), icone per scuola di magia sugli incantesimi, icone per categoria sugli oggetti del Compendio."
   }
 }
