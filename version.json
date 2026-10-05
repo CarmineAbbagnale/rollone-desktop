@@ -1,10 +1,10 @@
 {
-  "version": "1.60.0",
+  "version": "1.61.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "b05dcc22b948acc647fc1ef4ae2a0aff303ab96ba56c5cfc4dd4228197c2bb6f",
+  "sha256": "ad3a6229468ec46632ffda32f969a90a5ff27eb50749c3f1a4ff18e34f7ad38f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Corretto: banco dei dadi 3D (ora funziona davvero) e sottoclassi (ora puoi cambiarla se sbagli)."
+    "notice": "Banco dei dadi 3D ridisegnato: dimensione corretta e integrato in ogni schermata di tiro."
   }
 }
