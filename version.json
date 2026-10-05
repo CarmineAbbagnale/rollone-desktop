@@ -1,10 +1,10 @@
 {
-  "version": "1.63.0",
+  "version": "1.64.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "1fc4d3893cee749aad1c04d5b9cb4743844b441eb4695deeba2c43e2ca9d01e0",
+  "sha256": "b7ff2e7ceaf46001e199b371d9dceef4af12df2996c0d2ad8f8c5b2e22617448",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Dado 3D corretto (ora visibile a dimensione piena) e Schermo del DM riorganizzato in gruppi tematici."
+    "notice": "Nuova identita' visiva in stile Diablo IV su tutta l'app: nero profondo, bagliore rosso sangue, bronzo e osso al posto dell'oro caldo."
   }
 }
