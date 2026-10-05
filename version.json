@@ -1,10 +1,10 @@
 {
-  "version": "1.61.0",
+  "version": "1.62.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "ad3a6229468ec46632ffda32f969a90a5ff27eb50749c3f1a4ff18e34f7ad38f",
+  "sha256": "32dd951ca7d4dd979548b4189bd7bafebf430d67ecd98c6b9b65993eef86724f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Banco dei dadi 3D ridisegnato: dimensione corretta e integrato in ogni schermata di tiro."
+    "notice": "Aggiunta la scelta manuale Normale/Vantaggio/Svantaggio ai tiri rapidi delle schede e al dado gigante del Companion."
   }
 }
