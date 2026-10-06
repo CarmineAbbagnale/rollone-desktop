@@ -1,10 +1,10 @@
 {
-  "version": "1.66.0",
+  "version": "1.66.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "a69039b3abab4295f9f4c8d5ff1cb1ebc8fa58e6cad87057a567fb2ea5fc2d96",
+  "sha256": "6bf77e69f3d1eaba797d16df240e7846dd434c9f3fd9efb07aa263df70885581",
   "apk": {
     "minVersionName": "1.12.3",
-    "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Dadi 3D fisici ora di nuovo attivi su ogni lancio: il risultato lo decide davvero la fisica (zero rischio di disallineamento), si possono toccare/trascinare per rilanciare e personalizzare (tema/materiale + colore) in Impostazioni > Dadi 3D."
+    "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
+    "notice": "Corretti 3 indirizzi rimasti agganciati al vecchio dominio del sito: redirect di login/registrazione, link alla privacy policy e chiamate al narratore IA ora puntano tutti al sito corretto."
   }
 }
