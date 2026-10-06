@@ -1,10 +1,10 @@
 {
-  "version": "1.65.0",
+  "version": "1.66.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "ca6830dd46fd605daebf0168535ab73c88288185a2e879b58459cd356683a042",
+  "sha256": "a69039b3abab4295f9f4c8d5ff1cb1ebc8fa58e6cad87057a567fb2ea5fc2d96",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Dadi 3D fisici ora spenti di default (mostravano a volte una faccia diversa dal risultato vero): l'animazione predefinita combacia sempre col numero scritto. Riattivabili in Impostazioni."
+    "notice": "Dadi 3D fisici ora di nuovo attivi su ogni lancio: il risultato lo decide davvero la fisica (zero rischio di disallineamento), si possono toccare/trascinare per rilanciare e personalizzare (tema/materiale + colore) in Impostazioni > Dadi 3D."
   }
 }
