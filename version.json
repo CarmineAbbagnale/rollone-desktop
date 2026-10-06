@@ -1,10 +1,10 @@
 {
-  "version": "1.64.0",
+  "version": "1.65.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "b7ff2e7ceaf46001e199b371d9dceef4af12df2996c0d2ad8f8c5b2e22617448",
+  "sha256": "ca6830dd46fd605daebf0168535ab73c88288185a2e879b58459cd356683a042",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/rollone-site/la-mia-app/#download",
-    "notice": "Nuova identita' visiva in stile Diablo IV su tutta l'app: nero profondo, bagliore rosso sangue, bronzo e osso al posto dell'oro caldo."
+    "notice": "Dadi 3D fisici ora spenti di default (mostravano a volte una faccia diversa dal risultato vero): l'animazione predefinita combacia sempre col numero scritto. Riattivabili in Impostazioni."
   }
 }
