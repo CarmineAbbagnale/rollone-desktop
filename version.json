@@ -1,10 +1,10 @@
 {
-  "version": "1.66.1",
+  "version": "1.67.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "6bf77e69f3d1eaba797d16df240e7846dd434c9f3fd9efb07aa263df70885581",
+  "sha256": "9e6da9d5adc053ff2d64d031c09af1103dac947643c2ab92b003333ad042c34e",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Corretti 3 indirizzi rimasti agganciati al vecchio dominio del sito: redirect di login/registrazione, link alla privacy policy e chiamate al narratore IA ora puntano tutti al sito corretto."
+    "notice": "Vista 3D del dungeon con fisica, emblema 3D del personaggio, braci animate in home e splash d'avvio, piu' un bug delle braci corretto durante il debug completo."
   }
 }
