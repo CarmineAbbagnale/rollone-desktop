@@ -1,10 +1,10 @@
 {
-  "version": "1.67.1",
+  "version": "1.67.2",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "9e6da9d5adc053ff2d64d031c09af1103dac947643c2ab92b003333ad042c34e",
+  "sha256": "0f4e665bb6904ceadb84eea556c100f360552166e9c8f61dfc18826dd7615c5f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Vista 3D del dungeon con fisica, emblema 3D del personaggio, braci animate in home e splash d'avvio, piu' un bug delle braci corretto durante il debug completo."
+    "notice": "Corretto un bug reale segnalato: cambiando colore o tema dei dadi 3D in Impostazioni, i dadi si rompevano o smettevano di rispondere. Il motore 3D ora e' persistente e aggiorna tema/colore a caldo senza mai essere ricreato."
   }
 }
