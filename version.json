@@ -1,10 +1,10 @@
 {
-  "version": "1.68.0",
+  "version": "1.68.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "2a8b736b803a55b356c6dafb5dcbcb7a17f9b074385a745fea76816cc191ceab",
+  "sha256": "a12f1ed291e4572825132e74ab310b56c35e77b9d900a283117f3a5974601429",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuova Vista 3D del dungeon: ora mostra davvero la stanza in cui vi trovate (pareti, porte, arredi, mostri animati), non piu' una stanza generica."
+    "notice": "Migliorata la qualita' grafica della Vista 3D del dungeon: pareti, pavimenti e arredi ora con geometria e texture piu' curate."
   }
 }
