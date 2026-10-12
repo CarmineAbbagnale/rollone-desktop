@@ -1,10 +1,10 @@
 {
-  "version": "1.68.1",
+  "version": "1.69.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "a12f1ed291e4572825132e74ab310b56c35e77b9d900a283117f3a5974601429",
+  "sha256": "316bd6c4998d41c2069bc3b2083fb87c947609af23e4b66fa860fe782a2cb0c7",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Migliorata la qualita' grafica della Vista 3D del dungeon: pareti, pavimenti e arredi ora con geometria e texture piu' curate."
+    "notice": "Mostri con miniature 3D vere nella Griglia tattica dello Scontro (secondo passo verso il VTT 3D completo)."
   }
 }
