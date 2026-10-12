@@ -1,10 +1,10 @@
 {
-  "version": "1.67.3",
+  "version": "1.68.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "dd875cf1b2a52b68dc12d1eb8efacefd52caaba65ccadbef994aaf7628bed0ce",
+  "sha256": "2a8b736b803a55b356c6dafb5dcbcb7a17f9b074385a745fea76816cc191ceab",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Corretto un bug reale segnalato: quando il narratore IA non era configurato (o la chiave non era piu' valida), la schermata 'Campagna AI' nascondeva anche le campagne prefatte e l'ingresso con codice, che non hanno bisogno dell'IA. Ora restano sempre disponibili."
+    "notice": "Nuova Vista 3D del dungeon: ora mostra davvero la stanza in cui vi trovate (pareti, porte, arredi, mostri animati), non piu' una stanza generica."
   }
 }
