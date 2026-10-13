@@ -1,10 +1,10 @@
 {
-  "version": "1.69.0",
+  "version": "1.70.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "316bd6c4998d41c2069bc3b2083fb87c947609af23e4b66fa860fe782a2cb0c7",
+  "sha256": "2a60686a150df8ab804dc352507bbda1944d175bb3a1ff3e38ceb933be1eb927",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Mostri con miniature 3D vere nella Griglia tattica dello Scontro (secondo passo verso il VTT 3D completo)."
+    "notice": "Nuovo: Scena 3D generata dalla narrazione in chat (Campagna AI) - terzo passo verso il VTT 3D completo."
   }
 }
