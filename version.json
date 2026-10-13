@@ -1,10 +1,10 @@
 {
-  "version": "1.70.0",
+  "version": "1.71.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "2a60686a150df8ab804dc352507bbda1944d175bb3a1ff3e38ceb933be1eb927",
+  "sha256": "425440aa52286351347eaa4f16d77b75fb284db7552772b60f58be3bf7881717",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuovo: Scena 3D generata dalla narrazione in chat (Campagna AI) - terzo passo verso il VTT 3D completo."
+    "notice": "Nuovo: sul Tavolo condiviso i mostri scelti dal bestiario ora hanno una miniatura 3D - primo passo verso il VTT 3D completo."
   }
 }
