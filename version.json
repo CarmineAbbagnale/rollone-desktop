@@ -1,10 +1,10 @@
 {
-  "version": "1.73.0",
+  "version": "1.74.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "abf8150e806948907a7f444ca11d358e8ffd40b55b2c364e928f1d9520123caa",
+  "sha256": "2638b2887a61e6d806a372fef9675c414ff5c1025f96f2c9fa38d02bf2c7e0c5",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuovo: Vista 3D del Tavolo condiviso, ricostruita dalla mappa e dalle pedine vere (sola consultazione)."
+    "notice": "Nuovo: Vista 3D del Tavolo ora si può ruotare/zoomare e le pedine si trascinano direttamente in 3D."
   }
 }
