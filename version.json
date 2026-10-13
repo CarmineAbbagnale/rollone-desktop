@@ -1,10 +1,10 @@
 {
-  "version": "1.72.0",
+  "version": "1.73.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "deecc5058f6a138c7e2853b5ecc5179476a832e7d3fcf0dff3267eda0917ed2c",
+  "sha256": "abf8150e806948907a7f444ca11d358e8ffd40b55b2c364e928f1d9520123caa",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuovo: anche gli oggetti d'arredo (forzieri, botti, casse...) possono avere una miniatura 3D sul Tavolo condiviso."
+    "notice": "Nuovo: Vista 3D del Tavolo condiviso, ricostruita dalla mappa e dalle pedine vere (sola consultazione)."
   }
 }
