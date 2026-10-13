@@ -1,10 +1,10 @@
 {
-  "version": "1.71.0",
+  "version": "1.72.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "425440aa52286351347eaa4f16d77b75fb284db7552772b60f58be3bf7881717",
+  "sha256": "deecc5058f6a138c7e2853b5ecc5179476a832e7d3fcf0dff3267eda0917ed2c",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuovo: sul Tavolo condiviso i mostri scelti dal bestiario ora hanno una miniatura 3D - primo passo verso il VTT 3D completo."
+    "notice": "Nuovo: anche gli oggetti d'arredo (forzieri, botti, casse...) possono avere una miniatura 3D sul Tavolo condiviso."
   }
 }
