@@ -1,10 +1,10 @@
 {
-  "version": "1.74.0",
+  "version": "1.75.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "2638b2887a61e6d806a372fef9675c414ff5c1025f96f2c9fa38d02bf2c7e0c5",
+  "sha256": "7383b7a95bb3239f7fff9996ac44d5d1ee44f2e7046f283a349635b3e814baec",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuovo: Vista 3D del Tavolo ora si può ruotare/zoomare e le pedine si trascinano direttamente in 3D."
+    "notice": "Fix: la Vista 3D del Tavolo ora rispetta nebbia di guerra e illuminazione dinamica."
   }
 }
