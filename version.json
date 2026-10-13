@@ -1,10 +1,10 @@
 {
-  "version": "1.76.0",
+  "version": "1.76.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "15ebf8ef388b13c350cbce5d13a36d52816c64dbcad2915af403bfb530591b14",
+  "sha256": "e2e380bf8ae8b135fc3345f7952a7c9d480811c288b611b4bf5327e566abe665",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Novita': i disegni a mano libera del DM ora compaiono anche nella Vista 3D del Tavolo."
+    "notice": "Correzione urgente: risolto un refresh continuo su Android/iOS causato da un bug nel controllo versione."
   }
 }
