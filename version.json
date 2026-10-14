@@ -1,10 +1,10 @@
 {
-  "version": "1.77.0",
+  "version": "1.78.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "6ecdee7cd8dc437e7b0eca440977b5b1c1f67c1f6932351d4934a028ffb1e750",
+  "sha256": "7719626c9a64d400527d8cea60cdb390026d480d15134f30fde69560efe17d82",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Nuovo: un primo editor di muri nella Vista 3D del Tavolo condiviso (solo DM, crea nuovi muri trascinando sul pavimento)."
+    "notice": "Corretto: il lanciatore di dadi della RPG Companion ora mostra sempre il risultato e si chiude da solo dopo il lancio."
   }
 }
