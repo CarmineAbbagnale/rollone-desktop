@@ -1,10 +1,10 @@
 {
-  "version": "1.76.1",
+  "version": "1.77.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "e2e380bf8ae8b135fc3345f7952a7c9d480811c288b611b4bf5327e566abe665",
+  "sha256": "6ecdee7cd8dc437e7b0eca440977b5b1c1f67c1f6932351d4934a028ffb1e750",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Correzione urgente: risolto un refresh continuo su Android/iOS causato da un bug nel controllo versione."
+    "notice": "Nuovo: un primo editor di muri nella Vista 3D del Tavolo condiviso (solo DM, crea nuovi muri trascinando sul pavimento)."
   }
 }
