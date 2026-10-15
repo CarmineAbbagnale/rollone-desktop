@@ -1,10 +1,10 @@
 {
-  "version": "1.78.0",
+  "version": "1.79.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "7719626c9a64d400527d8cea60cdb390026d480d15134f30fde69560efe17d82",
+  "sha256": "be101962b19895fd8316a46cd2e3a22c7cd7e122786fd1d33343fac659f311bc",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Corretto: il lanciatore di dadi della RPG Companion ora mostra sempre il risultato e si chiude da solo dopo il lancio."
+    "notice": "Editor muri 3D: ora è possibile anche cancellare un muro, non solo crearlo."
   }
 }

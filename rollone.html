@@ -27610,11 +27610,14 @@ async function openTable3DView(c,map,tokens,opts){
   const h=dungeon3dHostEl(); h.classList.add("show");
   const status=document.getElementById("dungeon3dStatus");
   const canvasWrap=document.getElementById("dungeon3dCanvas"); canvasWrap.innerHTML="";
-  // pulsante "Modifica muri" (v1.77.0): la barra in alto e' condivisa con le altre viste 3D
-  // (dungeon/scena di campagna), quindi va rimosso un eventuale residuo di un'apertura precedente
-  // della Vista 3D del Tavolo prima di aggiungerne uno nuovo, altrimenti si duplica ad ogni apertura.
+  // pulsanti "Modifica muri"/"Cancella muri" (v1.77.0/v1.79.0): la barra in alto e' condivisa con
+  // le altre viste 3D (dungeon/scena di campagna), quindi vanno rimossi eventuali residui di
+  // un'apertura precedente della Vista 3D del Tavolo prima di aggiungerne di nuovi, altrimenti si
+  // duplicano ad ogni apertura.
   const existingWallBtn=document.getElementById("dungeon3dWallEditBtn");
   if(existingWallBtn&&existingWallBtn.parentNode) existingWallBtn.parentNode.removeChild(existingWallBtn);
+  const existingEraseBtn=document.getElementById("dungeon3dWallEraseBtn");
+  if(existingEraseBtn&&existingEraseBtn.parentNode) existingEraseBtn.parentNode.removeChild(existingEraseBtn);
   if(!map.layout){
     status.textContent="Questa mappa usa un'immagine caricata, senza una griglia di muri nota: la Vista 3D (che ha bisogno di sapere dov'è un muro) non è disponibile qui, resta il Tavolo 2D qui sopra.";
     return;
@@ -27635,7 +27638,7 @@ async function openTable3DView(c,map,tokens,opts){
     ? "Trascina per ruotare la vista, rotellina/pizzico per lo zoom: le pedine che puoi controllare si spostano trascinandole direttamente qui."
     : "Vista di sola consultazione: trascina per ruotare, rotellina per lo zoom (per spostare le pedine serve un permesso che qui non hai).")
     +(restrictVisibility&&(fogActive||lightingActive)?" Le zone non ancora rivelate/illuminate restano scure, come sul Tavolo 2D.":"")
-    +(isDm&&canEdit?" DM: con «🧱 Modifica muri» attivo, trascinare sul pavimento crea nuovi muri nella cella sotto il puntatore (solo creazione in questa versione, non ancora cancellazione); mentre è attivo non si ruota la vista né si spostano pedine, disattivalo per tornare a orbitare.":"");
+    +(isDm&&canEdit?" DM: con «🧱 Modifica muri» attivo, trascinare sul pavimento crea un muro nella cella sotto il puntatore; con «🧹 Cancella muri» attivo, trascinare sul pavimento cancella invece un muro già presente (nessun valore «porta» distinto in questa mappa: cancellare un muro apre semplicemente un passaggio). Le due modalità sono alternative, mai insieme, e mentre una è attiva non si ruota la vista né si spostano pedine: disattivala per tornare a orbitare.":"");
   const w=canvasWrap.clientWidth||800, hgt=canvasWrap.clientHeight||500;
   const renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
@@ -27652,9 +27655,16 @@ async function openTable3DView(c,map,tokens,opts){
   const floor=new THREE.Mesh(floorGeo,floorMat); floor.rotation.x=-Math.PI/2; floor.position.set(mapW/2,0,mapD/2);
   scene.add(floor); toDispose.push(floor);
   // muri: un blocco per ogni cella "1" del layout, su InstancedMesh (anche con migliaia di celle
-  // l'istanziazione GPU resta leggera, a differenza di migliaia di mesh separate).
+  // l'istanziazione GPU resta leggera, a differenza di migliaia di mesh separate). L'editor di
+  // cancellazione (v1.79.0) deve poter "spegnere" una singola istanza quando l'utente cancella un
+  // muro che era già presente qui all'apertura della vista (diverso dai muri creati in questa
+  // stessa sessione con «Modifica muri», che sono mesh singole proprie in newWallMeshes più sotto):
+  // si tiene quindi una mappa cella→indice istanza, cosi' cancellare costa una singola
+  // setMatrixAt con scala zero, non la ricostruzione di tutto l'InstancedMesh.
   let wallCount=0;
   for(let r=0;r<map.rows;r++) for(let cIdx=0;cIdx<map.cols;cIdx++){ if(map.layout[r]&&map.layout[r][cIdx]===1) wallCount++; }
+  let originalWallMesh=null; const originalWallIndex=new Map();
+  const zeroScaleM4=new THREE.Matrix4().makeScale(0,0,0);
   if(wallCount){
     const wallGeo=new THREE.BoxGeometry(cell*0.98,TABLE3D_WALL_H,cell*0.98);
     const wallMat=new THREE.MeshStandardMaterial({color:0x5a5248,roughness:0.9});
@@ -27663,10 +27673,13 @@ async function openTable3DView(c,map,tokens,opts){
     for(let r=0;r<map.rows;r++) for(let cIdx=0;cIdx<map.cols;cIdx++){
       if(!(map.layout[r]&&map.layout[r][cIdx]===1)) continue;
       m4.setPosition((cIdx+0.5)*cell,TABLE3D_WALL_H/2,(r+0.5)*cell);
-      wallMesh.setMatrixAt(i++,m4);
+      wallMesh.setMatrixAt(i,m4);
+      originalWallIndex.set(r+"_"+cIdx,i);
+      i++;
     }
     wallMesh.instanceMatrix.needsUpdate=true;
     scene.add(wallMesh); toDispose.push(wallMesh);
+    originalWallMesh=wallMesh;
   }
   // occlusori di nebbia/illuminazione (v1.75.0): un blocco scuro e opaco su ogni cella non rivelata/
   // non illuminata per chi ha restrictVisibility attivo, alto quanto basta da coprire muro e
@@ -27763,35 +27776,78 @@ async function openTable3DView(c,map,tokens,opts){
   const dragRing=new THREE.Mesh(new THREE.RingGeometry(cell*0.42,cell*0.52,28),new THREE.MeshBasicMaterial({color:0xf3d16a,side:THREE.DoubleSide,transparent:true,opacity:0.85,depthWrite:false}));
   dragRing.rotation.x=-Math.PI/2; dragRing.visible=false;
   scene.add(dragRing); toDispose.push(dragRing);
-  // Editor di MURI (v1.77.0): primo pezzo del pezzo piu' grande ancora aperto del quarto macro-
-  // obiettivo (VTT 3D), dopo pedine (v1.74.0), nebbia/illuminazione (v1.75.0) e disegni (v1.76.0).
-  // Solo il DM lo vede (stessa famiglia di permesso di mpGenerateMapLayout). SOLO CREAZIONE in
-  // questa versione, dichiarato anche nello status qui sopra: cancellare un muro o una porta resta
-  // per le prossime sessioni, non promesso qui. Scrive sulla STESSA map.layout gia' usata dal
-  // Tavolo 2D, tramite la nuova mpUpdateLayout(map,layout) (stesso schema di mpUpdateFog/
-  // mpUpdateDrawings definite piu' in alto, nessuna nuova colonna DB, nessuna nuova policy RLS).
-  let wallEditMode=false, wallDragging=false, layoutDirty=false, wallEditBtn=null;
+  // Editor di MURI (v1.77.0 creazione, v1.79.0 anche cancellazione): pezzo piu' grande ancora
+  // aperto del quarto macro-obiettivo (VTT 3D), dopo pedine (v1.74.0), nebbia/illuminazione
+  // (v1.75.0) e disegni (v1.76.0). Solo il DM lo vede (stessa famiglia di permesso di
+  // mpGenerateMapLayout). wallEditMode e' ora una modalita' a tre stati invece di un booleano:
+  // null (disattivato), "paint" (crea, comportamento invariato da v1.77.0) o "erase" (cancella,
+  // nuovo in questa versione) - le due modalita' sono mutuamente esclusive, mai attive insieme,
+  // per non rendere ambiguo cosa succede quando si trascina sul pavimento. Scrive sulla STESSA
+  // map.layout gia' usata dal Tavolo 2D, tramite mpUpdateLayout(map,layout) (stesso schema di
+  // mpUpdateFog/mpUpdateDrawings definite piu' in alto, nessuna nuova colonna DB, nessuna nuova
+  // policy RLS) sia per creare che per cancellare.
+  let wallEditMode=null, wallDragging=false, layoutDirty=false, wallEditBtn=null, wallEraseBtn=null;
   const wallPreview=new THREE.Mesh(new THREE.BoxGeometry(cell*0.98,TABLE3D_WALL_H,cell*0.98),new THREE.MeshBasicMaterial({color:0x4aa3e0,transparent:true,opacity:0.45,depthWrite:false}));
-  wallPreview.visible=false; scene.add(wallPreview); toDispose.push(wallPreview);
-  const newWallMeshes=[];
+  const erasePreview=new THREE.Mesh(new THREE.BoxGeometry(cell*0.98,TABLE3D_WALL_H,cell*0.98),new THREE.MeshBasicMaterial({color:0xd0423a,transparent:true,opacity:0.5,depthWrite:false}));
+  wallPreview.visible=false; erasePreview.visible=false;
+  scene.add(wallPreview); scene.add(erasePreview); toDispose.push(wallPreview); toDispose.push(erasePreview);
+  const newWallMeshes=[]; // mesh singole create in questa sessione con "paint" (geometria/materiale condivisi, mai per-istanza)
+  const newWallByCell=new Map(); // cella→mesh: serve a "erase" per rimuovere al volo un muro appena creato in questa stessa sessione
   const wallGeoSingle=new THREE.BoxGeometry(cell*0.98,TABLE3D_WALL_H,cell*0.98);
   const wallMatSingle=new THREE.MeshStandardMaterial({color:0x5a5248,roughness:0.9});
   function cellToWorld(colIdx,rowIdx){ return {x:(colIdx+0.5)*cell,z:(rowIdx+0.5)*cell}; }
   function paintWallAt(colIdx,rowIdx){
     if(colIdx<0||colIdx>=map.cols||rowIdx<0||rowIdx>=map.rows) return;
-    if(map.layout[rowIdx]&&map.layout[rowIdx][colIdx]===1) return; // SOLO CREAZIONE: una cella gia' muro resta com'e', nessuna sovrascrittura
+    if(map.layout[rowIdx]&&map.layout[rowIdx][colIdx]===1) return; // una cella gia' muro resta com'e', nessuna sovrascrittura
     map.layout[rowIdx][colIdx]=1; layoutDirty=true;
     const wm=new THREE.Mesh(wallGeoSingle,wallMatSingle);
     const pos=cellToWorld(colIdx,rowIdx);
     wm.position.set(pos.x,TABLE3D_WALL_H/2,pos.z);
     scene.add(wm); newWallMeshes.push(wm);
+    newWallByCell.set(rowIdx+"_"+colIdx,wm);
+  }
+  // Cancellazione (v1.79.0): richiesta rimasta onestamente aperta da v1.77.0 ("cancellazione muri
+  // e porte restano per le prossime sessioni"). Verificato leggendo mpGenerateMapLayout/
+  // mapCanvasWidget prima di scrivere codice, non assunto: la mappa condivisa (Tavolo) non ha mai
+  // avuto un valore distinto per "porta" nel suo layout, solo 0 (pavimento) e 1 (muro) - quindi non
+  // esiste una cella "porta" diversa da una cella "muro" da trattare separatamente. Cancellare un
+  // muro apre di fatto un passaggio, che e' esattamente come questa griglia rappresenta oggi un
+  // varco: dichiarato onestamente nello status qui sopra, invece di inventare un terzo valore di
+  // cella non richiesto esplicitamente e non supportato altrove (Tavolo 2D, generatore dungeon,
+  // nebbia/illuminazione).
+  function eraseWallAt(colIdx,rowIdx){
+    if(colIdx<0||colIdx>=map.cols||rowIdx<0||rowIdx>=map.rows) return;
+    if(!(map.layout[rowIdx]&&map.layout[rowIdx][colIdx]===1)) return; // nessun muro qui: nulla da cancellare
+    map.layout[rowIdx][colIdx]=0; layoutDirty=true;
+    const key=rowIdx+"_"+colIdx;
+    // caso 1: muro creato in QUESTA sessione con "paint" - e' una mesh singola propria, si rimuove
+    // direttamente dalla scena (geometria/materiale sono condivisi con le altre, non vanno smaltiti qui).
+    const freshMesh=newWallByCell.get(key);
+    if(freshMesh){
+      scene.remove(freshMesh); newWallByCell.delete(key);
+      const idx=newWallMeshes.indexOf(freshMesh); if(idx>=0) newWallMeshes.splice(idx,1);
+      return;
+    }
+    // caso 2: muro che era gia' presente all'apertura della vista - vive come una singola istanza
+    // dentro l'InstancedMesh costruito piu' in alto; si "spegne" solo quella istanza azzerandone la
+    // matrice (scala zero, invisibile e senza volume), senza toccare le altre migliaia di istanze.
+    const idx2=originalWallIndex.get(key);
+    if(idx2!=null && originalWallMesh){
+      originalWallMesh.setMatrixAt(idx2,zeroScaleM4);
+      originalWallMesh.instanceMatrix.needsUpdate=true;
+    }
   }
   if(isDm&&canEdit){
     const bar=h.children[0]; // barra in alto condivisa fra le viste 3D, vedi dungeon3dHostEl()
-    wallEditBtn=el("button",{id:"dungeon3dWallEditBtn",class:"btn ghost sm",onclick:()=>{
-      wallEditMode=!wallEditMode; wallDragging=false; controls.enabled=true; wallPreview.visible=false;
-      wallEditBtn.textContent=wallEditMode?"🧱 Modifica muri (attivo)":"🧱 Modifica muri";
-    }},"🧱 Modifica muri");
+    function setWallMode(mode){
+      wallEditMode=(wallEditMode===mode)?null:mode; wallDragging=false; controls.enabled=true;
+      wallPreview.visible=false; erasePreview.visible=false;
+      wallEditBtn.textContent=wallEditMode==="paint"?"🧱 Modifica muri (attivo)":"🧱 Modifica muri";
+      wallEraseBtn.textContent=wallEditMode==="erase"?"🧹 Cancella muri (attivo)":"🧹 Cancella muri";
+    }
+    wallEditBtn=el("button",{id:"dungeon3dWallEditBtn",class:"btn ghost sm",onclick:()=>setWallMode("paint")},"🧱 Modifica muri");
+    wallEraseBtn=el("button",{id:"dungeon3dWallEraseBtn",class:"btn ghost sm",onclick:()=>setWallMode("erase")},"🧹 Cancella muri");
+    bar.insertBefore(wallEraseBtn,bar.firstChild);
     bar.insertBefore(wallEditBtn,bar.firstChild);
   }
   // camera e OrbitControls (v1.74.0): inquadratura iniziale identica a prima (automatica sull'intera
@@ -27831,18 +27887,19 @@ async function openTable3DView(c,map,tokens,opts){
       return tokenEntries.find(te=>te.pick===hits[0].object)||null;
     }
     const onDown=(e)=>{
-      // editor muri (v1.77.0): mutex con trascinamento pedine/orbit camera, stessa tecnica di
-      // capture pointerdown/move/up gia' in uso per le pedine - quando questa modalita' e' attiva
-      // ogni pressione sul pavimento serve a disegnare, mai a spostare una pedina o a ruotare la
-      // vista (bisogna disattivarla col pulsante per tornare a orbitare, limite dichiarato nello
-      // status qui sopra).
+      // editor muri (v1.77.0 creazione, v1.79.0 cancellazione): mutex con trascinamento pedine/
+      // orbit camera, stessa tecnica di capture pointerdown/move/up gia' in uso per le pedine -
+      // quando una delle due modalita' e' attiva ogni pressione sul pavimento serve a creare o
+      // cancellare un muro (secondo la modalita' attiva), mai a spostare una pedina o a ruotare la
+      // vista (bisogna disattivare la modalita' col pulsante per tornare a orbitare, limite
+      // dichiarato nello status qui sopra).
       if(wallEditMode){
         setNdc(e); raycaster.setFromCamera(ndc,camera);
         if(!raycaster.ray.intersectPlane(groundPlane,hitPt)) return;
         const colIdx=Math.max(0,Math.min(map.cols-1,Math.floor(hitPt.x/cell)));
         const rowIdx=Math.max(0,Math.min(map.rows-1,Math.floor(hitPt.z/cell)));
         wallDragging=true; controls.enabled=false;
-        paintWallAt(colIdx,rowIdx);
+        if(wallEditMode==="erase") eraseWallAt(colIdx,rowIdx); else paintWallAt(colIdx,rowIdx);
         dom.setPointerCapture(e.pointerId);
         e.stopPropagation(); e.preventDefault();
         return;
@@ -27860,8 +27917,17 @@ async function openTable3DView(c,map,tokens,opts){
         const colIdx=Math.max(0,Math.min(map.cols-1,Math.floor(hitPt.x/cell)));
         const rowIdx=Math.max(0,Math.min(map.rows-1,Math.floor(hitPt.z/cell)));
         const pos=cellToWorld(colIdx,rowIdx);
-        wallPreview.visible=true; wallPreview.position.set(pos.x,TABLE3D_WALL_H/2,pos.z);
-        if(wallDragging){ paintWallAt(colIdx,rowIdx); e.stopPropagation(); e.preventDefault(); }
+        if(wallEditMode==="erase"){
+          wallPreview.visible=false;
+          erasePreview.visible=true; erasePreview.position.set(pos.x,TABLE3D_WALL_H/2,pos.z);
+        } else {
+          erasePreview.visible=false;
+          wallPreview.visible=true; wallPreview.position.set(pos.x,TABLE3D_WALL_H/2,pos.z);
+        }
+        if(wallDragging){
+          if(wallEditMode==="erase") eraseWallAt(colIdx,rowIdx); else paintWallAt(colIdx,rowIdx);
+          e.stopPropagation(); e.preventDefault();
+        }
         return;
       }
       if(!dragEntry) return;
@@ -27917,13 +27983,16 @@ async function openTable3DView(c,map,tokens,opts){
     if(DUNGEON3D_STATE_LISTENERS){ DUNGEON3D_STATE_LISTENERS(); DUNGEON3D_STATE_LISTENERS=null; }
     controls.dispose();
     toDispose.forEach(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(mm=>mm.dispose()); } });
-    // editor muri (v1.77.0): i muri creati in questa sessione sono mesh singole fuori da toDispose
-    // (condividono una geometria/materiale unico, mai registrati per instanza per evitare dispose
-    // ripetuti inutili), vanno rimosse dalla scena e la geometria/materiale condiviso va liberato
-    // una sola volta qui; il pulsante va staccato dalla barra condivisa fra le viste 3D.
+    // editor muri (v1.77.0 creazione, v1.79.0 cancellazione): i muri creati in questa sessione sono
+    // mesh singole fuori da toDispose (condividono una geometria/materiale unico, mai registrati per
+    // instanza per evitare dispose ripetuti inutili - e un muro creato e poi cancellato nella stessa
+    // sessione non è mai arrivato qui, già rimosso da eraseWallAt), vanno rimosse dalla scena e la
+    // geometria/materiale condiviso va liberato una sola volta qui; entrambi i pulsanti vanno
+    // staccati dalla barra condivisa fra le viste 3D.
     newWallMeshes.forEach(wm=>scene.remove(wm));
     wallGeoSingle.dispose(); wallMatSingle.dispose();
     if(wallEditBtn&&wallEditBtn.parentNode) wallEditBtn.parentNode.removeChild(wallEditBtn);
+    if(wallEraseBtn&&wallEraseBtn.parentNode) wallEraseBtn.parentNode.removeChild(wallEraseBtn);
     renderer.dispose();
   }};
 }
@@ -41373,7 +41442,8 @@ function removeDarkGift(character, giftName) {
 // installare, nessuna richiesta di reinstallazione.
 (function(){
   if (!window.Capacitor) return;
- var ROLLONE_CONTENT_VERSION = "1.78.0"; // v1.78.0 (14/10): corretto un bug segnalato da Carmine ("il lanciatore in RPG companion non funziona, non mostra il risultato ne fa vedere le cose in 3d come tutto il resto"). Causa reale: il dado gigante della schermata "RPG Companion" (companionRollPanel) chiama lo stesso motore di lancio fisico del resto dell'app (doRoll/throwPhysicalDice), che apre un overlay 3D a tutto schermo (diceBox3dHostEl, gia' usato dal pannello Dadi del DM) - ma quell'overlay, a differenza del pannello del DM, non veniva mai richiuso da solo dopo il lancio, e il Companion non scriveva mai il risultato al suo interno: il giocatore restava quindi davanti a uno schermo nero (vuoto, se i dadi fisici non facevano in tempo a caricarsi) con il vero risultato nascosto dietro, finche' non trovava da se' il piccolo pulsante "Chiudi". Corretto con una nuova funzione condivisa, closeDiceBox3DOverlay(), richiamata subito dopo ogni lancio dal Companion: richiude l'overlay con un breve ritardo se il lancio e' stato fisico (cosi' si vedono comunque i dadi fermi un istante prima che spariscano), subito se si e' ricaduti sul generatore casuale. Il pannello Dadi del DM (diceWidget) non e' stato toccato: resta un vero tavolo persistente, richiuso solo a mano, perche' pensato per piu' lanci consecutivi senza interruzioni. Riprodotto il bug con un test dedicato prima della correzione (overlay che restava aperto all'infinito, nessun testo scritto al suo interno, sia col lancio fisico riuscito sia con la rete bloccata) e verificato che sparisce con la correzione in entrambi i casi. Verificato: node --check su tutti i 14 blocchi; rieseguita l'intera regressione (navigazione base, editor muri v1.77.0, trascinamento pedine/orbit camera v1.74.0, nebbia/illuminazione v1.75.0, disegno libero v1.76.0, VTT 3D), zero errori console in tutti i test. sha256: 6db9c72bb022d6f4639ebe08c6af6c2d8cdcdc9d1ec492f48b570997a67ae028.
+ var ROLLONE_CONTENT_VERSION = "1.79.0"; // v1.79.0 (14/10, notte, sessione pianificata senza accesso in scrittura a GitHub - lavoro pronto e testato ma pubblicato il 15/10 da Carmine in chat): seguito dell'editor di MURI del quarto e ultimo macro-obiettivo (VTT 3D), dopo la sola creazione di v1.77.0. Aggiunta la CANCELLAZIONE di muri nella Vista 3D del Tavolo, punto lasciato esplicitamente aperto da v1.77.0 ("cancellazione muri e porte restano per le prossime sessioni"). Nuovo pulsante "🧹 Cancella muri" accanto a "🧱 Modifica muri" (solo DM): le due modalità sono alternative fra loro, mai attive insieme, e trascinare sul pavimento con "Cancella muri" attivo cancella il muro nella cella sotto il puntatore, scrivendo sulla STESSA map.layout tramite la stessa mpUpdateLayout(map,layout) già usata per la creazione (nessuna nuova colonna DB, nessuna nuova policy RLS). ONESTA' verificata leggendo il codice prima di scrivere, non assunta: questa mappa condivisa non ha mai avuto un valore "porta" distinto da "muro" nel suo layout (solo 0/pavimento e 1/muro) - quindi non esiste una cella porta da cancellare separatamente da una cella muro; cancellare un muro apre semplicemente un passaggio, unico modo in cui questa griglia rappresenta oggi un varco. Un vero concetto di porta (apribile/richiudibile, non solo un buco nel muro) resta lavoro futuro dello stesso editor, non promesso qui. Tecnico: un muro cancellato che era presente all'apertura della vista vive come una singola istanza di un InstancedMesh condiviso - cancellarlo "spegne" solo quella istanza con una matrice a scala zero (setMatrixAt mirato, instanceMatrix.needsUpdate=true), senza ricostruire le altre migliaia di istanze; un muro creato e poi cancellato nella STESSA sessione è invece una mesh singola propria (newWallByCell), rimossa direttamente dalla scena. Nessuna migrazione DB, nessuna nuova dipendenza. Verificato: node --check sui 16 blocchi (una sola riga "var ROLLONE_CONTENT_VERSION" attiva, controllo di processo rispettato dopo il bug reale della v1.76.1); suite Playwright dedicata (creazione+cancellazione sulla stessa cella con verifica del layout e del conteggio delle chiamate a mpUpdateLayout, cancellazione di un muro creato nella stessa sessione, cancellazione di un muro preesistente nell'InstancedMesh, mutua esclusione fra le due modalità nei due sensi, cancellare una cella vuota non genera chiamate) tutta verde; rieseguita la regressione sulle funzionalità esistenti della stessa vista (trascinamento pedine/orbit camera v1.74.0, nebbia di guerra v1.75.0, rifiuto onesto per mappa a immagine, stress test su mappa 60x60) e un controllo di avvio/navigazione di base dell'app, zero errori console in tutti i test. Lavoro preparato da una sessione notturna pianificata senza accesso in scrittura a GitHub, pubblicato il giorno dopo da Carmine in chat; risincronizzato anche fumblerpg-site/app/index.html, rimasto fermo a v1.76.1 nonostante un version.json che dichiarava falsamente v1.78.0. sha256: 14b50a58fb578c0db0ed9b9a65ee6fa6e613f807b33696f3eb817d00b283f3c5.
+// v1.78.0 (14/10): corretto un bug segnalato da Carmine ("il lanciatore in RPG companion non funziona, non mostra il risultato ne fa vedere le cose in 3d come tutto il resto"). Causa reale: il dado gigante della schermata "RPG Companion" (companionRollPanel) chiama lo stesso motore di lancio fisico del resto dell'app (doRoll/throwPhysicalDice), che apre un overlay 3D a tutto schermo (diceBox3dHostEl, gia' usato dal pannello Dadi del DM) - ma quell'overlay, a differenza del pannello del DM, non veniva mai richiuso da solo dopo il lancio, e il Companion non scriveva mai il risultato al suo interno: il giocatore restava quindi davanti a uno schermo nero (vuoto, se i dadi fisici non facevano in tempo a caricarsi) con il vero risultato nascosto dietro, finche' non trovava da se' il piccolo pulsante "Chiudi". Corretto con una nuova funzione condivisa, closeDiceBox3DOverlay(), richiamata subito dopo ogni lancio dal Companion: richiude l'overlay con un breve ritardo se il lancio e' stato fisico (cosi' si vedono comunque i dadi fermi un istante prima che spariscano), subito se si e' ricaduti sul generatore casuale. Il pannello Dadi del DM (diceWidget) non e' stato toccato: resta un vero tavolo persistente, richiuso solo a mano, perche' pensato per piu' lanci consecutivi senza interruzioni. Riprodotto il bug con un test dedicato prima della correzione (overlay che restava aperto all'infinito, nessun testo scritto al suo interno, sia col lancio fisico riuscito sia con la rete bloccata) e verificato che sparisce con la correzione in entrambi i casi. Verificato: node --check su tutti i 14 blocchi; rieseguita l'intera regressione (navigazione base, editor muri v1.77.0, trascinamento pedine/orbit camera v1.74.0, nebbia/illuminazione v1.75.0, disegno libero v1.76.0, VTT 3D), zero errori console in tutti i test. sha256: 6db9c72bb022d6f4639ebe08c6af6c2d8cdcdc9d1ec492f48b570997a67ae028.
 // v1.76.1 (13/10, CORREZIONE URGENTE): bug reale segnalato da Carmine ("l'app va in refresh continuo con lampi di luce"), su Android/iOS subito dopo l'aggiornamento alla v1.76.0. Causa trovata: la mia stessa correzione della v1.76.0 aveva lasciato per sbaglio DUE dichiarazioni attive di "var ROLLONE_CONTENT_VERSION" una dietro l'altra invece di trasformare la vecchia in un commento storico come tutte le precedenti, quindi a runtime vinceva la seconda e il documento credeva sempre di essere ancora alla 1.75.0, mai alla 1.76.0 realmente pubblicata. Dentro l'app nativa questo innescava un ciclo infinito e silenzioso: applyCachedUpdateIfAny() gira ad ogni avvio e confronta la versione nella cache locale con ROLLONE_CONTENT_VERSION di QUESTO documento; vedendo sempre "1.76.0 (cache) e' piu' nuovo di 1.75.0 (documento)", anche appena dopo aver appena applicato quello stesso identico contenuto, riapplicava lo scambio via iframe all'infinito, da cui il refresh continuo e i lampi (lo sfondo scuro dell'iframe che compare e scompare ad ogni scambio). FIX: rimossa la dichiarazione duplicata, resta una sola "var ROLLONE_CONTENT_VERSION" attiva, tutte le altre voci di versione precedenti restano commenti storici come sempre fatto prima. ONESTA': la causa e' un mio errore nella sessione precedente (uno script di sostituzione che ha prepeso la nuova riga invece di sostituire la vecchia), non un problema dell'idea della v1.76.0 in se'; il meccanismo di aggiornamento automatico in se' (gia' in uso da mesi) resta corretto, qui si e' solo rotto un singolo presupposto su cui si basa (che esista UNA sola versione dichiarata per documento). Verificato: node --check su tutti i 14 blocchi; confermata con un test Playwright dedicato (finta piattaforma Capacitor, manifest mockato) che con la correzione il conteggio delle richieste al manifest resta stabile nel tempo invece di continuare a salire; rieseguita l'intera suite di regressione (editor 3D, nebbia/illuminazione, disegni liberi, miniature, stress test 60x60), zero errori console. sha256: 047ce278332ab60a71bca7ebd6f2e3af5da4ac5d8210f8da99e9b00ac63e35b0.
  // v1.75.0 (13/10): correzione di coerenza nello stesso quarto e ultimo pezzo (VTT 3D). La Vista 3D del Tavolo (editor interattivo da v1.74.0) ignorava completamente nebbia di guerra e illuminazione dinamica: un giocatore che la apriva vedeva sempre l'intera mappa e tutte le pedine, bypassando quello che il DM aveva deciso di rivelare o no sul Tavolo 2D (stesso sistema, mapCanvasWidget, gia' rispettato li' da tempo). Corretto applicando la STESSA regola gia' in uso sul Tavolo 2D (il DM vede sempre tutto, salvo quando sta usando "Vista giocatore" per controllare cosa vede davvero il tavolo): per chi ha questa restrizione attiva, le celle non ancora rivelate (nebbia) o non illuminate (lighting, le due modalita' restano mutuamente esclusive come sul 2D) vengono coperte da un blocco scuro opaco (stesso colore "#0a0805" del riempimento usato dal canvas 2D, su InstancedMesh per restare leggero anche su mappe grandi), e le pedine che si trovano in una cella coperta non vengono proprio costruite nella scena (stesso risultato del 2D, dove la nebbia disegnata sopra le nasconde). Approfittando della stessa passata di codice, allineata anche un'altra incoerenza minore: le pedine segnate "nascoste al tavolo" dal DM (t.hidden, un PNG segreto per esempio) ora appaiono semi-trasparenti in Vista 3D per il DM, come gia' succede sul Tavolo 2D (ai giocatori non arrivano proprio, RLS invariata) - qui semplificata a sola trasparenza, senza il contorno tratteggiato/icona occhio del 2D (la vista 3D non ha ancora un sistema di overlay per quei dettagli). ONESTA': resta un controllo lato client, non una vera barriera di sicurezza server-side - stesso identico livello di fiducia gia' in uso sul Tavolo 2D da prima di questa versione, nessuna novita' su quel fronte, solo parita' fra le due viste. La vista resta un'istantanea al momento dell'apertura (nessun aggiornamento in tempo reale se il DM rivela nuove celle mentre qualcuno ha la vista 3D aperta, stesso limite gia' noto di v1.73.0/v1.74.0). Verificato: node --check sui 14 blocchi; test Playwright dedicato con mappa 8x6, nebbia su meta' mappa e due pedine (una in zona rivelata, una no) nei tre casi reali - DM a vista piena (entrambe visibili, nessun blocco scuro), DM con "Vista giocatore" simulata e giocatore vero (in entrambi i casi la pedina in zona non rivelata sparisce e la meta' mappa risulta coperta), screenshot a conferma visiva di tutti e tre; nessuna regressione sul trascinamento/orbit camera di v1.74.0, sulle miniature mostro/oggetto, sullo stress test 60x60 (~1.15s, invariato) ne' sul rifiuto onesto per mappa a immagine; zero errori console in tutti i test. sha256: 3233288a93df1867e2408edbbf72b7864c07f554ce6a91ccf66c9ce73421d494.
 // v1.74.0 (13/10): quarto passo dello stesso quarto e ultimo pezzo (VTT 3D), primo vero editor interattivo sopra la Vista 3D del Tavolo di v1.73.0 (che restava sola consultazione). Due novita': 1) camera orbitabile con OrbitControls (libreria ufficiale three.js, stesso CDN delle altre librerie, caricata solo qui on demand): si ruota/inclina trascinando, si zooma con rotellina o pizzico, bersaglio fissato al centro mappa, angolo verticale limitato per non finire sotto il pavimento; 2) le pedine che l'utente puo' davvero controllare (stessa regola di permesso gia' in uso sul Tavolo 2D, mapCanvasWidget.canControl: il DM su qualunque pedina, un giocatore solo sulle proprie assegnate via controlled_by) si trascinano ORA direttamente in questa vista 3D: il trascinamento segue un raggio dal puntatore fino al piano del pavimento, si aggancia alla stessa griglia di celle del Tavolo 2D, e al rilascio chiama la STESSA mpMoveToken(id,col,row) gia' usata dal Tavolo 2D (nessuna funzione nuova di scrittura, nessuna nuova colonna sul database, stessa regola di permesso/RLS lato Supabase). Tecnico: gli eventi pointerdown/move/up vengono intercettati in fase di capture sull'elemento canvas, prima che OrbitControls (che li ascolta in fase normale sullo stesso elemento) possa avviare una rotazione: se il puntatore ha colpito una pedina trascinabile si disabilita OrbitControls per la durata del trascinamento e si ferma la propagazione dell'evento, altrimenti l'evento passa inalterato a OrbitControls, quindi nessun conflitto fra ruotare la vista e spostare una pedina sullo stesso tasto del mouse. Una pick mesh invisibile per pedina (cilindro trasparente a opacita' zero, tenuto visibile per restare raycastabile: three.js ignora gli oggetti con visible=false) individua il bersaglio del trascinamento senza dover raycastare le mesh GLTF vere, piu' complesse e con pivot non sempre centrati. ONESTA' che resta valida: il trascinamento 3D copre solo lo spostamento, non ancora nebbia di guerra/disegno libero/illuminazione (restano solo sul Tavolo 2D), le miniature restano in posa statica anche mentre vengono trascinate, nessuna vista 3D per le mappe a immagine (nessuna griglia muri nota in quel caso): questo pezzo del quarto macro obiettivo resta quindi un editor parziale, ma e' il primo vero spostamento di pedine dentro la vista 3D chiesto da Carmine, non solo una vista di sola consultazione. Verificato: node --check su tutti i 14 blocchi script; test Playwright dedicato con mappa 8x6 e due pedine (il trascinamento di una pedina trascinabile genera la chiamata mpMoveToken con le coordinate di griglia corrette, un trascinamento su un punto vuoto del canvas NON genera nessuna chiamata, screenshot prima/dopo), stress test 60x60 invariato (circa 1.4s, nessuna regressione di prestazioni con OrbitControls aggiunto), test di rifiuto onesto per mappa a immagine invariato, nessuna regressione sulle miniature mostro/oggetto (v1.71.0/v1.72.0) ne' sulla navigazione di base, zero errori console in tutti i test. sha256: 4911571baca06328d29e62dca246334e1dcad4863c7ae92182451d538288971f.
