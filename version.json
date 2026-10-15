@@ -1,10 +1,10 @@
 {
-  "version": "1.79.0",
+  "version": "1.79.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "be101962b19895fd8316a46cd2e3a22c7cd7e122786fd1d33343fac659f311bc",
+  "sha256": "00a5919b3490d9ad7e8803e09a5296c39878d6f295e601a36529f47c76b7892c",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Editor muri 3D: ora è possibile anche cancellare un muro, non solo crearlo."
+    "notice": "Corretto il dado della RPG Companion: non si sovrappone più con l'overlay 3D, che ora resta visibile col risultato finché non lo chiudi tu."
   }
 }
