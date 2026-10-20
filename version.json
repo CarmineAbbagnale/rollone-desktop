@@ -1,10 +1,10 @@
 {
-  "version": "1.80.0",
+  "version": "1.80.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "7216d045696b38b0ad27c6e830ebd85b25a416d7ba28c243360c0dada6bf342f",
+  "sha256": "d948ecf77b55a6eabca655f378e477ef001368696b938d45b2cb4e3e8971cf80",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Il progetto ora si chiama Mythrender (prima Fumble RPG): cambiato solo il nome, nessun dato perso. Corretto anche un bug nello Scontro: aggiungere un mostro e chiudere la finestra con la X invece di \"Fatto\" ora mostra sempre la pedina sulla griglia."
+    "notice": "Sostituita l'icona dell'app con il nuovo logo di Mythrender (drago e d20). Solo l'immagine e' cambiata, nessun dato perso."
   }
 }
