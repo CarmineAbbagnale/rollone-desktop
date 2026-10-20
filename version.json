@@ -1,10 +1,10 @@
 {
-  "version": "1.80.1",
+  "version": "1.81.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "d948ecf77b55a6eabca655f378e477ef001368696b938d45b2cb4e3e8971cf80",
+  "sha256": "5de08d630ac64199c9cad7aed2f9147ead374d18bfcb56873ea068200c6685ca",
   "apk": {
     "minVersionName": "1.12.3",
-    "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Sostituita l'icona dell'app con il nuovo logo di Mythrender (drago e d20). Solo l'immagine e' cambiata, nessun dato perso."
+    "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
+    "notice": "Il sito ora si chiama mythrender-site (prima fumblerpg-site): solo l'indirizzo e' cambiato, nessun dato o account perso. Aggiornato anche il link di accesso per conferma email e recupero password."
   }
 }
