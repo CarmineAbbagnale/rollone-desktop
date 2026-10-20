@@ -1,10 +1,10 @@
 {
-  "version": "1.79.1",
+  "version": "1.80.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "00a5919b3490d9ad7e8803e09a5296c39878d6f295e601a36529f47c76b7892c",
+  "sha256": "7216d045696b38b0ad27c6e830ebd85b25a416d7ba28c243360c0dada6bf342f",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/fumblerpg-site/la-mia-app/#download",
-    "notice": "Corretto il dado della RPG Companion: non si sovrappone più con l'overlay 3D, che ora resta visibile col risultato finché non lo chiudi tu."
+    "notice": "Il progetto ora si chiama Mythrender (prima Fumble RPG): cambiato solo il nome, nessun dato perso. Corretto anche un bug nello Scontro: aggiungere un mostro e chiudere la finestra con la X invece di \"Fatto\" ora mostra sempre la pedina sulla griglia."
   }
 }
