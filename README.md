@@ -1,6 +1,6 @@
-# RollOne: repository di aggiornamenti
+# Mythrender: repository di aggiornamenti
 
-Repository di distribuzione per RollOne (ora Fumble RPG, compagno D&D 5e e Pathfinder 2e). Sito ufficiale: https://carmineabbagnale.github.io/fumblerpg-site/
+Repository di distribuzione per Mythrender (già RollOne, poi Fumble RPG), compagno D&D 5e e Pathfinder 2e. Sito ufficiale: https://carmineabbagnale.github.io/fumblerpg-site/
 
 - `version.json`: manifest controllato dall'app ad ogni avvio (Windows, macOS, Android) per verificare se è disponibile un aggiornamento dei contenuti.
 - `rollone.html`: contenuto dell'app, scaricato automaticamente quando la versione cambia.
