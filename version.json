@@ -1,10 +1,10 @@
 {
-  "version": "1.81.1",
+  "version": "1.82.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "677e52390a183c62ed5e0dec4a9d11f394ccbf9dada38c8c497ab6dc5ef94512",
+  "sha256": "9a5368e45883b10168a0e6f69c7fa6207db6e378ec0261ce1fc0f0a04d5cede8",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Corretto un bug importante: il backup/esportazione dati in Impostazioni non salvava i personaggi Pathfinder ne' molte altre informazioni (campagne, dungeon, impostazioni). Ora il backup e' completo."
+    "notice": "Corretto il wizard Pathfinder (nome bloccato), aggiunte descrizioni complete alla scheda PDF e un export PDF per Pathfinder (non esisteva), migliorate le viste 3D (ombre, ridimensionamento, risparmio batteria in background)."
   }
 }

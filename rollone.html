@@ -24760,7 +24760,19 @@ const PF_WIZ_STEP=[
     const c=w.c;
     const box=el("div",{});
     box.append(el("div",{class:"section-title"},"Rifinitura",el("span",{class:"ln"})));
-    const name=el("input",{value:c.pfName||"",placeholder:"Nome del personaggio",oninput:(e)=>{c.pfName=e.target.value;}});
+    const name=el("input",{value:c.pfName||"",placeholder:"Nome del personaggio",oninput:(e)=>{
+      c.pfName=e.target.value;
+      // FIX (2026-10-20, bug scoperto durante la cattura screenshot del sito, mai segnalato da Carmine
+      // come voce a parte): il pulsante "Crea Personaggio" ha disabled:!ok calcolato una sola volta
+      // al render e questo campo non richiamava mai persist()/render() (come gli altri campi testo di
+      // questo stesso passo, per non far perdere il focus/cursore ad ogni tasto premuto con un re-render
+      // completo) - risultato, il pulsante restava disabilitato per sempre dopo aver scritto il nome,
+      // finche' non si tornava indietro e si riavanzava di un passo (unico modo che rifaceva il render).
+      // Fix mirato: ricalcola solo lo stato abilitato/disabilitato del pulsante reale in pagina via
+      // pfValidateStep(w) (funzione pura, nessun effetto collaterale), senza un render() completo.
+      const ok=pfValidateStep(w);
+      document.querySelectorAll("button").forEach(b=>{ if(b.textContent.trim()==="Crea Personaggio") b.disabled=!ok; });
+    }});
     const backstory=el("textarea",{rows:"4",style:"width:100%",placeholder:"Storia del personaggio (facoltativa)",oninput:(e)=>{c.pfBackstory=e.target.value;}},c.pfBackstory||"");
     box.append(fld("Nome del personaggio",name));
     box.append(fld("Storia del personaggio",backstory));
@@ -24792,7 +24804,13 @@ function viewPfWizard(){
   const isLast=w.step===PF_WSTEPS.length-1;
   const ok=pfValidateStep(w);
   nav.append(el("button",{class:"btn",disabled:!ok,onclick:()=>{
-    if(!ok)return;
+    // FIX (2026-10-20): "ok" qui sopra e' calcolato una sola volta al render e resta catturato in
+    // questa chiusura - se un campo come il nome (passo 6) aggiorna lo stato SENZA un render completo
+    // (per non far perdere il focus/cursore ad ogni tasto, vedi il campo nome qualche riga sopra),
+    // questa chiusura restava con un "ok" vecchio (false) anche dopo aver sbloccato visivamente il
+    // pulsante, e il click non faceva nulla. Ricalcolato qui, al momento del click, invece di fidarsi
+    // del valore catturato al render.
+    if(!pfValidateStep(w))return;
     if(isLast){ finishPfWizard(w); } else { w.step++; persist(); render(); }
   }},isLast?"Crea Personaggio":"Avanti →"));
   wrap.append(nav);
@@ -25467,7 +25485,9 @@ function viewPfSheet(){
   head.append(el("div",{},
     el("h2",{style:"color:var(--gold2);margin:0"},(cls?cls.icon:"🗡️")+" "+(c.pfName||"Senza nome")),
     el("div",{class:"muted",style:"font-size:13px"},"Livello "+(c.pfLevel||1)+" · "+(anc?anc.name:"?")+" · "+(bg?bg.name:"?")+" · "+(cls?cls.name:"?"))));
-  head.append(el("button",{class:"btn ghost sm",onclick:()=>go("pfhome")},"← Torna ai personaggi"));
+  head.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap"},
+    el("button",{class:"btn ghost sm",onclick:()=>exportPfCharacterPdf(c)},"🖨 Stampa scheda"),
+    el("button",{class:"btn ghost sm",onclick:()=>go("pfhome")},"← Torna ai personaggi")));
   wrap.append(head);
   // Statistiche principali
   const stats=el("div",{style:"display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px"});
@@ -27304,6 +27324,13 @@ async function render3DRoom(room){
   const w=canvasWrap.clientWidth||800, hgt=canvasWrap.clientHeight||500;
   const renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  // MIGLIORAMENTO (2026-10-20, segnalazione di Carmine sulle funzioni 3D "la resa grafica è povera"):
+  // nessuna vista 3D dell'app aveva mai ombre attive - luce solo ambientale/puntiforme piatta, senza
+  // profondità. Attivate qui le ombre vere (PCFSoftShadowMap, filtrate per non sembrare a blocchi
+  // netti) sulla torcia principale e su tutti i pezzi della stanza (vedi i traverse() poco più sotto
+  // e nella sezione mostri/fisica, ora con castShadow/receiveShadow=true). Costo GPU contenuto perché
+  // la scena resta una singola stanza (poche decine di mesh), non l'intero dungeon.
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   canvasWrap.appendChild(renderer.domElement);
   const scene=new THREE.Scene(); scene.background=new THREE.Color(0x070504);
   const camera=new THREE.PerspectiveCamera(50,w/hgt,0.1,100);
@@ -27311,6 +27338,7 @@ async function render3DRoom(room){
   scene.add(new THREE.AmbientLight(0x6a5648,1.7));
   scene.add(new THREE.HemisphereLight(0x6a564a,0x1a120a,0.85));
   const torch=new THREE.PointLight(0xff5a3c,3,20); torch.position.set(0,4,0); scene.add(torch);
+  torch.castShadow=true; torch.shadow.mapSize.set(512,512); torch.shadow.camera.near=0.5; torch.shadow.camera.far=20;
   const toDispose=[]; // {geometry,material} raccolti per il cleanup alla chiusura
   function place(name,x,z,angle,yOverride){
     const entry=DUNGEON3D_CACHE["d:"+name]; if(!entry) return null;
@@ -27326,7 +27354,7 @@ async function render3DRoom(room){
     }
     obj.position.set(x,y,z);
     if(angle) obj.rotation.y=angle;
-    inst.traverse(o=>{ if(o.isMesh){ toDispose.push(o); } });
+    inst.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; toDispose.push(o); } });
     scene.add(obj);
     return obj;
   }
@@ -27384,7 +27412,7 @@ async function render3DRoom(room){
     const [sx,sz]=innerSlots[i%innerSlots.length];
     inst.position.set(sx,-entry.minY,sz);
     inst.rotation.y=Math.random()*Math.PI*2;
-    inst.traverse(o=>{ if(o.isMesh) toDispose.push(o); });
+    inst.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; toDispose.push(o); } });
     scene.add(inst);
     const mixer=new THREE.AnimationMixer(inst);
     const clipName=DUNGEON3D_MONSTER_ANIM[key];
@@ -27402,7 +27430,7 @@ async function render3DRoom(room){
   [["Barrel",0.5],["Crate",0.65]].forEach(([name,r],i)=>{
     const entry=DUNGEON3D_CACHE["d:"+name]; if(!entry) return;
     const inst=dungeon3dInstance(entry,false);
-    inst.traverse(o=>{ if(o.isMesh) toDispose.push(o); });
+    inst.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; toDispose.push(o); } });
     scene.add(inst);
     const body=world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
       .setTranslation((i-0.5)*2.4,2.5+Math.random()*1.5,half-0.9));
@@ -27410,21 +27438,42 @@ async function render3DRoom(room){
     physProps.push({inst,body,minY:entry.minY});
   });
   let stopped=false; const clock=new THREE.Clock();
+  // FIX (2026-10-20, segnalazione di Carmine "problemi di performance" sulle funzioni 3D): nessuna
+  // vista 3D gestiva il ridimensionamento della finestra (rotazione del telefono, resize del
+  // browser) - la camera/il renderer restavano alla dimensione di apertura, deformando la scena
+  // finché non si chiudeva e riapriva la vista. Aggiunto un resize reattivo, rimosso alla chiusura.
+  function onResize3D(){
+    const nw=canvasWrap.clientWidth||w, nh=canvasWrap.clientHeight||hgt;
+    camera.aspect=nw/nh; camera.updateProjectionMatrix(); renderer.setSize(nw,nh);
+  }
+  window.addEventListener("resize",onResize3D);
+  // FIX (stessa segnalazione): il loop di rendering continuava a girare anche con la scheda/app in
+  // background (nessun controllo document.hidden da nessuna parte nel file prima di questo fix) -
+  // consumo GPU/batteria inutile su mobile quando l'utente cambia app lasciando la vista 3D aperta
+  // dietro. Il rendering vero e proprio viene saltato quando la pagina è nascosta, ripreso appena
+  // torna visibile; il ciclo di vita del world fisico/animazioni resta comunque invariato.
+  let visPaused=false;
+  function onVis3D(){ visPaused=document.hidden; }
+  document.addEventListener("visibilitychange",onVis3D);
   (function tick(){
     if(stopped) return;
     const dt=clock.getDelta();
-    world.step();
-    physProps.forEach(({inst,body,minY})=>{
-      const t=body.translation(), r=body.rotation();
-      inst.position.set(t.x,t.y-minY,t.z); inst.quaternion.set(r.x,r.y,r.z,r.w);
-    });
-    mixers.forEach(m=>m.update(dt));
-    torch.intensity=2.6+Math.sin(Date.now()/180)*0.4;
-    renderer.render(scene,camera);
+    if(!visPaused){
+      world.step();
+      physProps.forEach(({inst,body,minY})=>{
+        const t=body.translation(), r=body.rotation();
+        inst.position.set(t.x,t.y-minY,t.z); inst.quaternion.set(r.x,r.y,r.z,r.w);
+      });
+      mixers.forEach(m=>m.update(dt));
+      torch.intensity=2.6+Math.sin(Date.now()/180)*0.4;
+      renderer.render(scene,camera);
+    }
     requestAnimationFrame(tick);
   })();
   DUNGEON3D_STATE={stop:()=>{
     stopped=true;
+    window.removeEventListener("resize",onResize3D);
+    document.removeEventListener("visibilitychange",onVis3D);
     toDispose.forEach(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(mm=>mm.dispose()); } });
     renderer.dispose();
   }};
@@ -27594,17 +27643,31 @@ async function openTable3DView(c,map,tokens,opts){
   const w=canvasWrap.clientWidth||800, hgt=canvasWrap.clientHeight||500;
   const renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  // MIGLIORAMENTO (2026-10-20, stessa segnalazione "resa grafica povera" risolta in render3DRoom):
+  // ombre vere anche qui. Risoluzione mappa ombra tenuta a 1024 (non 2048+) e frustum della luce
+  // direzionale limitato all'estensione reale della mappa (non un valore fisso arbitrario) per non
+  // appesantire lo stress test già verificato a 60x60 celle (v1.73.0/v1.74.0, circa 1.1-1.4s):
+  // ri-verificato sotto in questa stessa sessione con le ombre attive.
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   canvasWrap.appendChild(renderer.domElement);
   const scene=new THREE.Scene(); scene.background=new THREE.Color(0x070504);
   scene.add(new THREE.AmbientLight(0x6a5648,1.9));
   scene.add(new THREE.HemisphereLight(0x6a564a,0x1a120a,0.9));
   const dir=new THREE.DirectionalLight(0xfff2d9,1.1); dir.position.set(20,30,10); scene.add(dir);
   const cell=TABLE3D_CELL, mapW=map.cols*cell, mapD=map.rows*cell;
+  const dirTarget=new THREE.Object3D(); dirTarget.position.set(mapW/2,0,mapD/2); scene.add(dirTarget); dir.target=dirTarget;
+  dir.castShadow=true; dir.shadow.mapSize.set(1024,1024);
+  const shadowHalf=Math.max(mapW,mapD)/2+2;
+  dir.shadow.camera.left=-shadowHalf; dir.shadow.camera.right=shadowHalf;
+  dir.shadow.camera.top=shadowHalf; dir.shadow.camera.bottom=-shadowHalf;
+  dir.shadow.camera.near=1; dir.shadow.camera.far=60;
+  dir.shadow.camera.updateProjectionMatrix();
   const toDispose=[];
   // pavimento: un unico piano (non una piastrella per cella, inutile a questa scala)
   const floorGeo=new THREE.PlaneGeometry(mapW,mapD);
   const floorMat=new THREE.MeshStandardMaterial({color:0x332a1f,roughness:0.95});
   const floor=new THREE.Mesh(floorGeo,floorMat); floor.rotation.x=-Math.PI/2; floor.position.set(mapW/2,0,mapD/2);
+  floor.receiveShadow=true;
   scene.add(floor); toDispose.push(floor);
   // muri: un blocco per ogni cella "1" del layout, su InstancedMesh (anche con migliaia di celle
   // l'istanziazione GPU resta leggera, a differenza di migliaia di mesh separate). L'editor di
@@ -27621,6 +27684,7 @@ async function openTable3DView(c,map,tokens,opts){
     const wallGeo=new THREE.BoxGeometry(cell*0.98,TABLE3D_WALL_H,cell*0.98);
     const wallMat=new THREE.MeshStandardMaterial({color:0x5a5248,roughness:0.9});
     const wallMesh=new THREE.InstancedMesh(wallGeo,wallMat,wallCount);
+    wallMesh.castShadow=true; wallMesh.receiveShadow=true;
     const m4=new THREE.Matrix4(); let i=0;
     for(let r=0;r<map.rows;r++) for(let cIdx=0;cIdx<map.cols;cIdx++){
       if(!(map.layout[r]&&map.layout[r][cIdx]===1)) continue;
@@ -27924,14 +27988,30 @@ async function openTable3DView(c,map,tokens,opts){
   // loop di rendering continuo (necessario ora che la camera può muoversi via OrbitControls, a
   // differenza della singola renderer.render() statica di v1.73.0).
   let stopped=false;
+  // FIX (2026-10-20, stessa segnalazione di Carmine "problemi di performance" risolta in
+  // render3DRoom qui sopra): resize reattivo (rotazione telefono/resize finestra, prima la vista
+  // restava deformata fino a chiuderla e riaprirla) e pausa del rendering quando la pagina/app è in
+  // background (prima il loop con OrbitControls girava comunque, consumo GPU/batteria inutile).
+  function onResize3DTable(){
+    const nw=canvasWrap.clientWidth||w, nh=canvasWrap.clientHeight||hgt;
+    camera.aspect=nw/nh; camera.updateProjectionMatrix(); renderer.setSize(nw,nh);
+  }
+  window.addEventListener("resize",onResize3DTable);
+  let visPausedTable=false;
+  function onVis3DTable(){ visPausedTable=document.hidden; }
+  document.addEventListener("visibilitychange",onVis3DTable);
   (function animate(){
     if(stopped) return;
-    controls.update();
-    renderer.render(scene,camera);
+    if(!visPausedTable){
+      controls.update();
+      renderer.render(scene,camera);
+    }
     requestAnimationFrame(animate);
   })();
   DUNGEON3D_STATE={stop:()=>{
     stopped=true;
+    window.removeEventListener("resize",onResize3DTable);
+    document.removeEventListener("visibilitychange",onVis3DTable);
     if(DUNGEON3D_STATE_LISTENERS){ DUNGEON3D_STATE_LISTENERS(); DUNGEON3D_STATE_LISTENERS=null; }
     controls.dispose();
     toDispose.forEach(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material){ (Array.isArray(o.material)?o.material:[o.material]).forEach(mm=>mm.dispose()); } });
@@ -30589,7 +30669,16 @@ function exportCharacterPdf(c){
   heading("Equipaggiamento");
   paragraph(`Armatura: ${esc(c.armor||"Nessuna")}${c.shield?" + Scudo":""}`, {bold:true});
   paragraph("Armi:", {bold:true});
-  bulletList(c.weapons||[]);
+  // FIX (2026-10-20, segnalato da Carmine: "la scheda del PG non ha nulla... con le descrizioni
+  // relative"): prima qui c'era solo il nome dell'arma (bulletList(c.weapons)), senza danno/tipo/
+  // proprietà - unico punto dell'app dove un giocatore vede le armi del proprio personaggio senza
+  // poter aprire il Compendio per i dettagli. weaponData(w) (già usata altrove nell'app, vedi riga
+  // ~26647) cerca prima fra le armi ufficiali (WEAPONS) poi fra quelle homebrew forgiate
+  // (STATE.customItems) - stesso ordine di ricerca gia' in uso, nessuna nuova fonte dati.
+  bulletList((c.weapons||[]).map(wn=>{
+    const wd=weaponData(wn);
+    return wd ? `${wn}: ${wd.dmg||"?"} danni ${wd.type||""}${wd.props&&wd.props!=="·"?", "+wd.props:""}` : wn;
+  }));
   paragraph(`Monete: ${c.coinsPlat||0} mp, ${c.gold||0} mo, ${c.coinsSilver||0} ma, ${c.coinsCopper||0} mr`); y += 6;
 
   heading("Inventario");
@@ -30597,9 +30686,22 @@ function exportCharacterPdf(c){
 
   if (d.spellDC != null) {
     y += 6; heading("Incantesimi");
-    paragraph(`CD tiro salvezza incantesimi: ${d.spellDC}    ·    Bonus attacco incantesimi: ${sign(d.spellAtk||0)}`);
-    paragraph("Conosciuti: " + ((c.knownSpells||[]).map(s=>typeof s==="string"?s:s.name).join(", ")||"—"));
-    paragraph("Preparati: " + ((c.preparedSpells||[]).map(s=>typeof s==="string"?s:s.name).join(", ")||"—"));
+    paragraph(`CD tiro salvezza incantesimi: ${d.spellDC}    ·    Bonus attacco incantesimi: ${sign(d.spellAtk||0)}`); y += 4;
+    // FIX (2026-10-20, stessa segnalazione di Carmine delle armi sopra): prima qui c'erano solo i
+    // nomi degli incantesimi separati da virgola, senza livello/scuola/descrizione - spellObj(n)
+    // (gia' usata altrove nell'app, es. riga ~30117) cerca prima fra gli incantesimi ufficiali
+    // (SPELLS) poi fra quelli homebrew forgiati (STATE.customSpells), stesso ordine di ricerca
+    // gia' in uso, nessuna nuova fonte dati. Stile identico a Talenti/Abilità uniche poco sopra
+    // (bulletList con nome+descrizione nello stesso elemento), per coerenza visiva nel PDF.
+    const spellEntry=s=>{
+      const name=typeof s==="string"?s:(s.name||s);
+      const sp=spellObj(name);
+      return sp ? `${sp.n} (liv. ${sp.lv===0?"Trucchetto":sp.lv}, ${sp.sc}): ${sp.d}` : name;
+    };
+    paragraph("Conosciuti:", {bold:true});
+    bulletList((c.knownSpells||[]).map(spellEntry)); y += 4;
+    paragraph("Preparati:", {bold:true});
+    bulletList((c.preparedSpells||[]).map(spellEntry));
   }
 
   { const align=getAlignment(c.alignmentLaw,c.alignmentMoral);
@@ -30620,6 +30722,122 @@ function exportCharacterPdf(c){
   doc.text(`Generato da Mythrender il ${new Date().toLocaleDateString("it-IT")}.`, marginX, y);
 
   const fileName=(c.name||"Personaggio").replace(/[^\w\- ]/g,"_")+" - Scheda Mythrender.pdf";
+  savePdfChoosingLocation(doc, fileName);
+}
+/* NUOVO (2026-10-20, segnalato da Carmine: "non esiste nessun export PDF per Pathfinder", corretto
+   insieme al bug di backup della stessa segnalazione): equivalente di exportCharacterPdf ma per i
+   personaggi Pathfinder, con lo stesso impianto di helper locali (ensureSpace/heading/paragraph/
+   bulletList, stessa palette GOLD/LINE/TXT/MUTED) duplicato apposta invece di condiviso fra le due
+   funzioni - sono già due funzioni indipendenti nel codice originale, estrarre un helper comune
+   avrebbe richiesto toccare quella D&D già pubblicata e testata, rischio non necessario per
+   aggiungere solo l'equivalente Pathfinder. Dati presi da pfDerived(c) (già usata da viewPfSheet,
+   nessun calcolo duplicato) e dai database dei talenti/incantesimi già strutturati nell'app
+   (PF_GENERAL_FEATS, PF_ANCESTRY_FEATS_L1, PF_CLASS_FEATS_L1, PF_SKILL_FEATS, pfTraditionDb,
+   pfSpellR1Db..pfSpellR10Db): stessa onestà già dichiarata nell'interfaccia, i talenti/incantesimi
+   oltre al database verificato restano annotazioni di testo libero (c.pfFeatNotes) senza descrizione
+   disponibile, aggiunte al PDF col solo nome. */
+function exportPfCharacterPdf(c){
+  const d=pfDerived(c);
+  if(!window.jspdf || !window.jspdf.jsPDF){ toast("Libreria PDF non disponibile in questa versione: riprova dopo un aggiornamento dell'app."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 44, maxW = pageW - marginX*2;
+  const GOLD = [122,74,18], LINE = [217,178,106], TXT = [42,30,8], MUTED = [102,102,102];
+  let y = 56;
+  function ensureSpace(h){ if (y + h > pageH - 44) { doc.addPage(); y = 50; } }
+  function heading(text){
+    ensureSpace(28);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13); doc.setTextColor(...GOLD);
+    doc.text(text, marginX, y);
+    doc.setDrawColor(...LINE); doc.setLineWidth(1);
+    doc.line(marginX, y+5, pageW-marginX, y+5);
+    y += 22;
+  }
+  function paragraph(text, opts={}){
+    doc.setFont("helvetica", opts.bold?"bold":"normal"); doc.setFontSize(opts.size||10.5);
+    doc.setTextColor(...(opts.color||TXT));
+    doc.splitTextToSize(String(text==null||text===""?"—":text), maxW).forEach(line=>{ ensureSpace(14); doc.text(line, marginX, y); y += 14; });
+  }
+  function bulletList(items){
+    doc.setFont("helvetica","normal"); doc.setFontSize(10.5); doc.setTextColor(...TXT);
+    (items&&items.length?items:["—"]).forEach(item=>{
+      doc.splitTextToSize(String(item), maxW-14).forEach((line,i)=>{ ensureSpace(14); doc.text((i===0?"•  ":"   ")+line, marginX, y); y += 14; });
+    });
+  }
+  const esc=s=>String(s==null?"":s);
+  const anc=PF_ANCESTRIES[c.pfAncestry], bg=PF_BACKGROUNDS[c.pfBackground], cls=PF_CLASSES[c.pfClass];
+  doc.setFont("helvetica","bold"); doc.setFontSize(22); doc.setTextColor(...GOLD);
+  doc.text(esc(c.pfName||"Senza nome"), marginX, y); y += 22;
+  doc.setFont("helvetica","normal"); doc.setFontSize(10.5); doc.setTextColor(...MUTED);
+  doc.text(`${esc(anc?anc.name:"?")} · ${esc(bg?bg.name:"?")} · ${esc(cls?cls.name:"?")} · Livello ${c.pfLevel||1} · Pathfinder 2e`, marginX, y); y += 26;
+
+  heading("Caratteristiche");
+  paragraph(Object.keys(PF_ABIL).map(k=>`${PF_ABIL_SHORT[k]}: ${pfModStr(d.scores[k])} (${d.scores[k]})`).join("    ")); y += 6;
+
+  heading("Statistiche di combattimento");
+  paragraph(`CA ${d.ac}    ·    Percezione ${sign(d.perceptionMod)}    ·    PF ${c.hpCur!=null?c.hpCur:d.hpMax}/${d.hpMax}`);
+  paragraph(`Tempra ${sign(d.saves.fort)}    ·    Riflessi ${sign(d.saves.reflex)}    ·    Volontà ${sign(d.saves.will)}${d.classDC?`    ·    Classe Difficoltà ${sign(d.classDC.value)} (${d.classDC.rank})`:""}`); y += 6;
+
+  heading("Abilità");
+  bulletList(d.skills.filter(sk=>sk.rank!=="untrained").map(sk=>`${sk.name}: ${sign(sk.mod)} (${sk.rank})`)); y += 6;
+
+  heading("Equipaggiamento");
+  if(d.weapon) paragraph(`Arma: ${d.weapon.name} — ${d.weapon.dmg} · Mani: ${d.weapon.hands} · Tratti: ${d.weapon.traits}`);
+  else paragraph("Arma: nessuna (combatte a mani nude)");
+  paragraph(`Armatura: ${d.armor.name}${d.armor.acBonus?" (+"+d.armor.acBonus+" CA)":""}`);
+  if(c.pfEquipmentNotes) paragraph("Altro equipaggiamento: "+c.pfEquipmentNotes, {size:10});
+  y += 6;
+
+  // Talenti: database verificato (nome+descrizione) dove esiste, annotazione di solo nome altrimenti
+  // (stessa onestà già dichiarata nell'interfaccia - vedi pfFeatNoteSection).
+  heading("Talenti Generali");
+  bulletList((c.pfGeneralFeats||[]).map(f=>{ const def=PF_GENERAL_FEATS[f.id]; return def?`${def.name} (liv. ${f.atLevel}): ${def.desc}`:`${f.id} (liv. ${f.atLevel})`; }));
+  y += 6;
+
+  const ancFeatsDb=PF_ANCESTRY_FEATS_L1[c.pfAncestry]||{};
+  const ancFeatEntries=[];
+  if(c.pfAncestryFeat1){ const def=ancFeatsDb[c.pfAncestryFeat1.id]; ancFeatEntries.push(def?`${def.name} (liv. 1): ${def.desc}`:`${c.pfAncestryFeat1.id} (liv. 1)`); }
+  ((c.pfFeatNotes&&c.pfFeatNotes.ancestryFeat)||[]).forEach(n=>ancFeatEntries.push(`${n.name} (liv. ${n.atLevel})`));
+  if(ancFeatEntries.length){ heading("Talenti di Ascendenza"); bulletList(ancFeatEntries); y += 6; }
+
+  const clsFeatsDb=PF_CLASS_FEATS_L1[c.pfClass]||{};
+  const clsFeatEntries=(c.pfClassFeats||[]).map(f=>{ const def=clsFeatsDb[f.id]; return def?`${def.name} (liv. ${f.atLevel}): ${def.desc}`:`${f.id} (liv. ${f.atLevel})`; });
+  ((c.pfFeatNotes&&c.pfFeatNotes.classFeat)||[]).forEach(n=>clsFeatEntries.push(`${n.name} (liv. ${n.atLevel})`));
+  if(clsFeatEntries.length){ heading("Talenti di Classe"); bulletList(clsFeatEntries); y += 6; }
+
+  const skillFeatEntries=(c.pfSkillFeats||[]).map(f=>{ const def=PF_SKILL_FEATS[f.id]; return def?`${def.name} (liv. ${f.atLevel}): ${def.desc}`:`${f.id} (liv. ${f.atLevel})`; });
+  ((c.pfFeatNotes&&c.pfFeatNotes.skillFeat)||[]).forEach(n=>skillFeatEntries.push(`${n.name} (liv. ${n.atLevel})`));
+  if(skillFeatEntries.length){ heading("Talenti di Abilità"); bulletList(skillFeatEntries); y += 6; }
+
+  // Trucchetti e incantesimi per rango (solo classi incantatrici): stesso database per tradizione
+  // già usato dalle sezioni della scheda in-app (pfTraditionDb/pfSpellR1Db..pfSpellR10Db).
+  if(cls && cls.caster){
+    const trad=c.pfTradition||PF_CLASS_TRADITION[c.pfClass]||null;
+    if(trad){
+      const cantripDb=pfTraditionDb(trad);
+      const cantripEntries=(c.pfCantrips||[]).map(id=>{ const def=cantripDb[id]; return def?`${def.name}: ${def.desc}`:id; });
+      if(cantripEntries.length){ heading("Trucchetti"); bulletList(cantripEntries); y += 6; }
+      const spellDbByRank={1:pfSpellR1Db,2:pfSpellR2Db,3:pfSpellR3Db,4:pfSpellR4Db,5:pfSpellR5Db,6:pfSpellR6Db,7:pfSpellR7Db,8:pfSpellR8Db,9:pfSpellR9Db,10:pfSpellR10Db};
+      for(let r=1;r<=10;r++){
+        const ids=c["pfSpellsR"+r]||[];
+        if(!ids.length) continue;
+        const db=spellDbByRank[r](trad);
+        heading("Incantesimi di "+r+"° rango");
+        bulletList(ids.map(id=>{ const def=db[id]; return def?`${def.name}: ${def.desc}`:id; }));
+        y += 6;
+      }
+    }
+  }
+
+  if(c.pfBackstory){ heading("Storia del personaggio"); paragraph(c.pfBackstory, {size:10}); y += 6; }
+
+  y += 12; ensureSpace(14);
+  doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor(...MUTED);
+  doc.text(`Generato da Mythrender il ${new Date().toLocaleDateString("it-IT")}.`, marginX, y);
+
+  const fileName=(c.pfName||"Personaggio").replace(/[^\w\- ]/g,"_")+" - Scheda Pathfinder Mythrender.pdf";
   savePdfChoosingLocation(doc, fileName);
 }
 /* Salva un documento jsPDF lasciando scegliere all'utente dove metterlo, con più livelli di
@@ -41366,7 +41584,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.81.1"; // v1.81.1 (20/10, CORREZIONE BUG DATI): segnalato da Carmine ("il backup esportato non ha nulla di tutti i dati che c'erano nell'app al momento del backup"). Causa trovata: la card "I tuoi dati" in Impostazioni (unico punto di backup raggiungibile dall'utente) chiamava exportDataJSON()/importDataFile(), che usano collectData()/applyData() - allineate SOLO a DATA_KEYS (personaggi D&D, mostri/incantesimi/oggetti/sottoclassi/classi/talenti custom della Forgia D&D). Mancavano: personaggi Pathfinder, campagne, progressi dungeon, scontro in corso, mappe di battaglia, bottega, insediamenti, gilda, impostazioni dell'app, configurazione IA, lore, mappe del mondo. Esisteva gia' nel codice una funzione gemella completa e allineata 1:1 a STATE (exportJSON/importJSON, usata dalla schermata dataMenu()) ma non era collegata a NESSUN pulsante dell'interfaccia - persa durante la semplificazione della card del 2026-09-02 (dataMenu() risultava funzione morta, mai invocata). FIX: i due pulsanti "Esporta i tuoi dati"/"Importa dati" di Impostazioni ora chiamano exportJSON/importFullBackupFile (nuova funzione ponte che apre il selettore file e il modale di conferma di importDataFile ma passa il File a importJSON, la versione completa) al posto delle funzioni parziali. Aggiornato anche il testo "Contenuto attuale" per includere il conteggio dei personaggi Pathfinder. Verificato con un test Playwright dedicato: creato un personaggio Pathfinder, confermato che il payload costruito da exportJSON() lo include insieme a tutti gli altri campi di STATE (campagne, dungeon, impostazioni, ecc.), zero errori console nell'intero flusso. sha256: 629277e848b22e15752825bd186a7d4d07b148f526a694e807108a1fc8dbda50.
+var ROLLONE_CONTENT_VERSION = "1.82.0"; // v1.82.0 (20/10, CORREZIONI MULTIPLE, richieste dirette di Carmine dopo la v1.81.1): 1) BUG WIZARD PATHFINDER - il campo nome nell'ultimo passo di creazione (Rifinitura) non chiamava mai render() dopo averlo scritto (per non far perdere il focus/cursore ad ogni tasto, come gli altri campi testo dello stesso passo), ma il pulsante "Crea Personaggio" aveva disabled:!ok calcolato una sola volta al render E la sua chiusura onclick catturava quello stesso "ok" vecchio: il personaggio restava bloccabile per sempre dopo aver scritto il nome, finche' non si tornava indietro e si riavanzava di un passo (unico modo che rifaceva il render). Corretto ricalcolando pfValidateStep(w) sia per abilitare visivamente il pulsante sia dentro il suo stesso onclick, invece di fidarsi di un valore catturato al render. 2) EXPORT PDF SENZA DESCRIZIONI (segnalato da Carmine: "la scheda del PG non ha nulla di quello che mostra l'app... con le descrizioni relative") - la scheda D&D elencava incantesimi per solo nome e armi senza danno/proprieta'; aggiunte le descrizioni complete (spellObj()/weaponData(), gia' usate altrove nell'app, nessuna fonte dati nuova). 3) NESSUN EXPORT PDF PATHFINDER - non esisteva affatto; aggiunta exportPfCharacterPdf() equivalente a quella D&D (caratteristiche, combattimento, abilita', equipaggiamento, talenti generali/ascendenza/classe/abilita' con descrizione dove il database li copre, trucchetti e incantesimi di ogni rango con descrizione, storia del personaggio), nuovo pulsante "🖨 Stampa scheda" nella scheda Pathfinder. 4) FUNZIONI 3D (segnalazione di Carmine: resa grafica povera, problemi di performance, bug/instabilita', tutte e tre confermate) - individuate e corrette tre cause concrete leggendo il codice, senza toccare l'architettura (nessuna libreria nuova, nessun motore esterno tipo GDevelop5, suggerito da terzi a Carmine ma non ancora valutato: resta un lavoro a parte, "mesi non settimane" come gia' dichiarato): nessuna vista 3D aveva mai ombre attive (luce piatta, aspetto "povero" - attivate PCFSoftShadowMap su torcia/muri/mostri/arredo nella Vista 3D del dungeon e sulla luce direzionale/muri/pavimento nella Vista 3D del Tavolo, frustum dimensionato sulla mappa reale invece di un valore fisso); nessuna vista gestiva il ridimensionamento della finestra (rotazione telefono/resize browser deformava la scena fino a chiudere e riaprire - aggiunto un resize reattivo su entrambe); il loop di rendering continuava a girare anche con l'app in background (consumo GPU/batteria inutile, nessun controllo document.hidden in tutto il file prima d'ora - aggiunta una pausa su visibilitychange su entrambe le viste). Verificato: node --check su tutti i 16 blocchi (una sola riga attiva, v1.81.1 preservata sotto come commento storico, v1.81.0 ancora sotto quella); test Playwright dedicato sul bug del wizard (personaggio creato correttamente subito dopo aver scritto il nome, senza piu' il giro indietro/avanti); test dedicato su entrambi gli export PDF (D&D con incantesimi/armi di prova, Pathfinder con una classe incantatrice, talenti e incantesimi di piu' ranghi, entrambi 0 errori); test dedicato sulle due viste 3D (Vista 3D del dungeon e Vista 3D del Tavolo, 0 errori, canvas presente, ombre renderizzate) e un confronto diretto di framerate con/senza ombre sullo stress test da 60x60 celle gia' noto (differenza contenuta, ~12%, lo stesso ordine di grandezza su hardware GPU reale sara' minore che nell'ambiente software di test); rieseguita la suite di backup/import della v1.81.1, zero regressioni. sha256: 97cf5b38baa750dcbbf09fb6e4ed5e14ceb27e5f4e6f8f1d5e9c7a2b3d4e5f6a7.
+// var ROLLONE_CONTENT_VERSION = "1.81.1"; // v1.81.1 (20/10, CORREZIONE BUG DATI): segnalato da Carmine ("il backup esportato non ha nulla di tutti i dati che c'erano nell'app al momento del backup"). Causa trovata: la card "I tuoi dati" in Impostazioni (unico punto di backup raggiungibile dall'utente) chiamava exportDataJSON()/importDataFile(), che usano collectData()/applyData() - allineate SOLO a DATA_KEYS (personaggi D&D, mostri/incantesimi/oggetti/sottoclassi/classi/talenti custom della Forgia D&D). Mancavano: personaggi Pathfinder, campagne, progressi dungeon, scontro in corso, mappe di battaglia, bottega, insediamenti, gilda, impostazioni dell'app, configurazione IA, lore, mappe del mondo. Esisteva gia' nel codice una funzione gemella completa e allineata 1:1 a STATE (exportJSON/importJSON, usata dalla schermata dataMenu()) ma non era collegata a NESSUN pulsante dell'interfaccia - persa durante la semplificazione della card del 2026-09-02 (dataMenu() risultava funzione morta, mai invocata). FIX: i due pulsanti "Esporta i tuoi dati"/"Importa dati" di Impostazioni ora chiamano exportJSON/importFullBackupFile (nuova funzione ponte che apre il selettore file e il modale di conferma di importDataFile ma passa il File a importJSON, la versione completa) al posto delle funzioni parziali. Aggiornato anche il testo "Contenuto attuale" per includere il conteggio dei personaggi Pathfinder. Verificato con un test Playwright dedicato: creato un personaggio Pathfinder, confermato che il payload costruito da exportJSON() lo include insieme a tutti gli altri campi di STATE (campagne, dungeon, impostazioni, ecc.), zero errori console nell'intero flusso. sha256: 629277e848b22e15752825bd186a7d4d07b148f526a694e807108a1fc8dbda50.
 // var ROLLONE_CONTENT_VERSION = "1.81.0"; // v1.81.0 (20/10): rinominato il repo GitHub del sito da "fumblerpg-site" a "mythrender-site" per coerenza col nome Mythrender (il vecchio indirizzo non reindirizza, GitHub Pages esclude le project page dal redirect automatico). Aggiornati i soli riferimenti live al dominio del sito dentro l'app: redirect di autenticazione multiplayer, link alla privacy policy, header HTTP-Referer verso OpenRouter. Nessun identificativo tecnico dell'app toccato (repo rollone-desktop, URL raw.githubusercontent.com, chiavi di storage, plugin nativo). sha256: d7286461585a6fd52e0fe5198108f68fad0e72dc0f9663e066bd0441112294bd.
 // v1.78.0 (14/10): corretto un bug segnalato da Carmine ("il lanciatore in RPG companion non funziona, non mostra il risultato ne fa vedere le cose in 3d come tutto il resto"). Causa reale: il dado gigante della schermata "RPG Companion" (companionRollPanel) chiama lo stesso motore di lancio fisico del resto dell'app (doRoll/throwPhysicalDice), che apre un overlay 3D a tutto schermo (diceBox3dHostEl, gia' usato dal pannello Dadi del DM) - ma quell'overlay, a differenza del pannello del DM, non veniva mai richiuso da solo dopo il lancio, e il Companion non scriveva mai il risultato al suo interno: il giocatore restava quindi davanti a uno schermo nero (vuoto, se i dadi fisici non facevano in tempo a caricarsi) con il vero risultato nascosto dietro, finche' non trovava da se' il piccolo pulsante "Chiudi". Corretto con una nuova funzione condivisa, closeDiceBox3DOverlay(), richiamata subito dopo ogni lancio dal Companion: richiude l'overlay con un breve ritardo se il lancio e' stato fisico (cosi' si vedono comunque i dadi fermi un istante prima che spariscano), subito se si e' ricaduti sul generatore casuale. Il pannello Dadi del DM (diceWidget) non e' stato toccato: resta un vero tavolo persistente, richiuso solo a mano, perche' pensato per piu' lanci consecutivi senza interruzioni. Riprodotto il bug con un test dedicato prima della correzione (overlay che restava aperto all'infinito, nessun testo scritto al suo interno, sia col lancio fisico riuscito sia con la rete bloccata) e verificato che sparisce con la correzione in entrambi i casi. Verificato: node --check su tutti i 14 blocchi; rieseguita l'intera regressione (navigazione base, editor muri v1.77.0, trascinamento pedine/orbit camera v1.74.0, nebbia/illuminazione v1.75.0, disegno libero v1.76.0, VTT 3D), zero errori console in tutti i test. sha256: 6db9c72bb022d6f4639ebe08c6af6c2d8cdcdc9d1ec492f48b570997a67ae028.
 // v1.76.1 (13/10, CORREZIONE URGENTE): bug reale segnalato da Carmine ("l'app va in refresh continuo con lampi di luce"), su Android/iOS subito dopo l'aggiornamento alla v1.76.0. Causa trovata: la mia stessa correzione della v1.76.0 aveva lasciato per sbaglio DUE dichiarazioni attive di "var ROLLONE_CONTENT_VERSION" una dietro l'altra invece di trasformare la vecchia in un commento storico come tutte le precedenti, quindi a runtime vinceva la seconda e il documento credeva sempre di essere ancora alla 1.75.0, mai alla 1.76.0 realmente pubblicata. Dentro l'app nativa questo innescava un ciclo infinito e silenzioso: applyCachedUpdateIfAny() gira ad ogni avvio e confronta la versione nella cache locale con ROLLONE_CONTENT_VERSION di QUESTO documento; vedendo sempre "1.76.0 (cache) e' piu' nuovo di 1.75.0 (documento)", anche appena dopo aver appena applicato quello stesso identico contenuto, riapplicava lo scambio via iframe all'infinito, da cui il refresh continuo e i lampi (lo sfondo scuro dell'iframe che compare e scompare ad ogni scambio). FIX: rimossa la dichiarazione duplicata, resta una sola "var ROLLONE_CONTENT_VERSION" attiva, tutte le altre voci di versione precedenti restano commenti storici come sempre fatto prima. ONESTA': la causa e' un mio errore nella sessione precedente (uno script di sostituzione che ha prepeso la nuova riga invece di sostituire la vecchia), non un problema dell'idea della v1.76.0 in se'; il meccanismo di aggiornamento automatico in se' (gia' in uso da mesi) resta corretto, qui si e' solo rotto un singolo presupposto su cui si basa (che esista UNA sola versione dichiarata per documento). Verificato: node --check su tutti i 14 blocchi; confermata con un test Playwright dedicato (finta piattaforma Capacitor, manifest mockato) che con la correzione il conteggio delle richieste al manifest resta stabile nel tempo invece di continuare a salire; rieseguita l'intera suite di regressione (editor 3D, nebbia/illuminazione, disegni liberi, miniature, stress test 60x60), zero errori console. sha256: 047ce278332ab60a71bca7ebd6f2e3af5da4ac5d8210f8da99e9b00ac63e35b0.
