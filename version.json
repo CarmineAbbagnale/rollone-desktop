@@ -3,8 +3,8 @@
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
   "sha256": "0141bc952f263123056d23d9aadb6b8d41fb9a339b188736e6d4619dee557a36",
   "apk": {
-    "minVersionName": "1.12.3",
+    "minVersionName": "1.13.0",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Aggiunto un sistema di qualità 3D adattivo: l'app rileva le capacità del dispositivo (mobile/PC, CPU, scheda grafica) e regola automaticamente ombre e risoluzione nelle viste 3D (dadi, dungeon, Tavolo) per restare leggera su telefoni e non far surriscaldare il dispositivo, mantenendo tutta la qualità su PC con scheda dedicata."
+    "notice": "Nuovo pacchetto Android (Mythrender-1.13.0.apk): finalmente nome \"Mythrender\" e icona corretta sulla schermata home, non più i vecchi \"Fumble RPG\". Stessa firma e stesso ID app di sempre: si aggiorna senza bisogno di disinstallare."
   }
 }
