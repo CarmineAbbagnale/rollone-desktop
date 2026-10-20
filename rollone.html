@@ -26790,9 +26790,15 @@ async function ensureDiceBox3D(){
     // (window.location.origin) si otteneva un URL rotto, che falliva sempre il download del motore
     // fisico. Risolto con origin:"".
     // scale 8.5 (dentro il range 2-9 consigliato dalla libreria stessa, vedi v1.61.0).
+    // FIX (v1.83.0): enableShadows spento sui dispositivi di fascia bassa - l'opzione è documentata
+    // dalla libreria stessa come un "performance bump" quando disattivata (fantasticdice.games/docs),
+    // la fisica reale dei dadi resta sempre attiva (nessuna perdita di funzione, solo niente ombra
+    // sotto i dadi su telefoni deboli).
+    const dice3dTier=detect3DQualityTier();
     const box=new DiceBox({
       origin:"", assetPath:DICE3D_CDN_BASE+"assets/", container:"#diceBox3dCanvas", scale:8.5,
-      theme, themeColor:diceThemeColorSetting(), externalThemes
+      theme, themeColor:diceThemeColorSetting(), externalThemes,
+      enableShadows:dice3dTier.diceShadows
     });
     await box.init();
     DICE3D_INSTANCE=box; DICE3D_READY_THEME=theme; DICE3D_READY_COLOR=diceThemeColorSetting();
@@ -26949,6 +26955,82 @@ async function loadOrbitControls(){
     return ORBITCONTROLS_CLS;
   })();
   try{ return await ORBITCONTROLS_LOADING; } finally{ ORBITCONTROLS_LOADING=null; }
+}
+
+/* ---- SISTEMA DI QUALITA' 3D ADATTIVO (v1.83.0, su richiesta esplicita di Carmine: "applica l'uso
+   delle schede grafiche per mobile e pc... fa sempre attenzione che non richiami troppe risorse e
+   non surriscaldi il dispositivo"). ONESTA': questo NON è un "motore GDevelop" importato né una
+   riscrittura del motore 3D - GDevelop (il programma di terze parti citato da Carmine) è un editor
+   di giochi completo e separato, non una libreria che si possa incorporare in una pagina web
+   esistente; inoltre, verificato via ricerca web il 20/10/2026 (fonte: voce Wikipedia "GDevelop" e
+   blog.brightcoding.dev), GDevelop usa internamente proprio Three.js per la parte 3D (PixiJS per il
+   2D) - cioè la STESSA libreria già in uso qui in render3DRoom/openTable3DView, non qualcosa di
+   diverso o più avanzato da "copiare". Quello che si può prendere in prestito, e che qui si applica
+   davvero, è un principio generale e verificabile (non specifico di GDevelop): scalare qualità e
+   risoluzione in base alle capacità reali del dispositivo, per restare leggeri su mobile e non
+   scaldare la GPU, mantenendo tutta la qualità possibile su PC desktop con scheda dedicata.
+   Applicato ai tre sistemi 3D esistenti dell'app (dadi via @3d-dice/dice-box, Vista 3D del dungeon,
+   Vista 3D del Tavolo condiviso) - "i villaggi" citati da Carmine non esistono ancora come
+   funzionalità separata, quindi non c'è nulla lì da convertire oggi; quando/se verranno costruiti
+   riusando render3DRoom (come già fa "campagna 3D"), erediteranno questo stesso sistema. */
+let THREE3D_TIER_CACHE=null;
+/* Rileva un livello di qualità approssimativo (euristica dichiarata, non una misura di benchmark
+   reale): numero di core logici, presenza di touch/UA mobile, e la stringa del renderer GPU reale
+   via estensione WEBGL_debug_renderer_info (quando il browser la espone - su alcuni browser/driver
+   è bloccata per privacy, in quel caso si procede solo con core+mobile). Risultato con cache per
+   tutta la sessione (non cambia mentre l'app resta aperta). */
+function detect3DQualityTier(){
+  if(THREE3D_TIER_CACHE) return THREE3D_TIER_CACHE;
+  const cores=navigator.hardwareConcurrency||4;
+  const isMobileUA=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||"");
+  const isTouch=(('ontouchstart' in window) || (navigator.maxTouchPoints||0)>0);
+  const isMobile=isMobileUA||isTouch;
+  let gpuString="";
+  try{
+    const c=document.createElement("canvas");
+    const gl=c.getContext("webgl")||c.getContext("experimental-webgl");
+    const dbg=gl&&gl.getExtension("WEBGL_debug_renderer_info");
+    if(gl&&dbg) gpuString=String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)||"");
+  }catch(e){ /* estensione non disponibile o bloccata: si procede senza, nessun errore all'utente */ }
+  const lowPowerGpu=/Mali|Adreno\s?[1-5]\d\d|PowerVR|Intel\(R\)\s?(HD|UHD)/i.test(gpuString);
+  let tier;
+  if(isMobile && (cores<=4 || lowPowerGpu)) tier="low";
+  else if(isMobile) tier="medium";
+  else if(lowPowerGpu || cores<=4) tier="medium";
+  else tier="high";
+  const cfg={
+    low:   {pixelRatioCap:1,   shadows:false, shadowMapSize:0,   diceShadows:false},
+    medium:{pixelRatioCap:1.5, shadows:true,  shadowMapSize:512, diceShadows:true},
+    high:  {pixelRatioCap:2,   shadows:true,  shadowMapSize:1024,diceShadows:true},
+  };
+  THREE3D_TIER_CACHE={tier, isMobile, cores, gpuString, ...cfg[tier]};
+  return THREE3D_TIER_CACHE;
+}
+/* Guardiano prestazioni/calore in tempo reale: misura il tempo medio per frame su una finestra
+   scorrevole di ~2s dentro un ciclo di render già esistente (va richiamato una volta per frame,
+   dopo il render vero) e, se il frame rate resta a lungo troppo basso (sintomo sia di un
+   dispositivo sotto sforzo sia - indirettamente - di surriscaldamento che throttla la GPU da solo),
+   fa scendere la qualità UNA sola volta per sessione di vista 3D (mai un downgrade continuo a
+   scatti): disattiva le ombre e abbassa il pixel ratio del renderer passato. Nessun ripristino
+   automatico verso l'alto nella stessa sessione, per semplicità e per non ri-alzare il carico
+   subito dopo averlo abbassato per un buon motivo. */
+function createPerfWatchdog(renderer, onDowngrade){
+  let samples=[], downgraded=false, last=performance.now();
+  return function tickWatchdog(){
+    if(downgraded) return;
+    const now=performance.now(); const dt=now-last; last=now;
+    samples.push(dt); if(samples.length>120) samples.shift();
+    if(samples.length<60) return; // aspetta ~1s di campioni prima di giudicare
+    const avg=samples.reduce((a,b)=>a+b,0)/samples.length;
+    if(avg>41.6){ // sotto ~24fps sostenuti
+      downgraded=true;
+      try{
+        renderer.shadowMap.enabled=false;
+        renderer.setPixelRatio(1);
+        if(typeof onDowngrade==="function") onDowngrade();
+      }catch(e){}
+    }
+  };
 }
 
 /* ---- Libreria asset 3D reale del dungeon (v1.68.0, su richiesta esplicita di Carmine: "dungeon
@@ -27323,14 +27405,20 @@ async function render3DRoom(room){
   status.textContent="";
   const w=canvasWrap.clientWidth||800, hgt=canvasWrap.clientHeight||500;
   const renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  // FIX (v1.83.0, sistema di qualità 3D adattivo): pixel ratio e ombre ora dipendono dal livello
+  // rilevato (detect3DQualityTier, vedi sopra), non più da un tetto fisso uguale per tutti i
+  // dispositivi - su mobile di fascia bassa si rinuncia alle ombre per restare leggeri sulla GPU
+  // (e non surriscaldare), su desktop con scheda dedicata resta tutto come prima (ombre PCFSoft,
+  // pixel ratio fino a 2).
+  const dungeon3dTier=detect3DQualityTier();
+  renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(dungeon3dTier.pixelRatioCap,window.devicePixelRatio||1));
   // MIGLIORAMENTO (2026-10-20, segnalazione di Carmine sulle funzioni 3D "la resa grafica è povera"):
   // nessuna vista 3D dell'app aveva mai ombre attive - luce solo ambientale/puntiforme piatta, senza
   // profondità. Attivate qui le ombre vere (PCFSoftShadowMap, filtrate per non sembrare a blocchi
   // netti) sulla torcia principale e su tutti i pezzi della stanza (vedi i traverse() poco più sotto
   // e nella sezione mostri/fisica, ora con castShadow/receiveShadow=true). Costo GPU contenuto perché
   // la scena resta una singola stanza (poche decine di mesh), non l'intero dungeon.
-  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled=dungeon3dTier.shadows; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   canvasWrap.appendChild(renderer.domElement);
   const scene=new THREE.Scene(); scene.background=new THREE.Color(0x070504);
   const camera=new THREE.PerspectiveCamera(50,w/hgt,0.1,100);
@@ -27338,7 +27426,9 @@ async function render3DRoom(room){
   scene.add(new THREE.AmbientLight(0x6a5648,1.7));
   scene.add(new THREE.HemisphereLight(0x6a564a,0x1a120a,0.85));
   const torch=new THREE.PointLight(0xff5a3c,3,20); torch.position.set(0,4,0); scene.add(torch);
-  torch.castShadow=true; torch.shadow.mapSize.set(512,512); torch.shadow.camera.near=0.5; torch.shadow.camera.far=20;
+  torch.castShadow=dungeon3dTier.shadows;
+  torch.shadow.mapSize.set(dungeon3dTier.shadowMapSize||512,dungeon3dTier.shadowMapSize||512);
+  torch.shadow.camera.near=0.5; torch.shadow.camera.far=20;
   const toDispose=[]; // {geometry,material} raccolti per il cleanup alla chiusura
   function place(name,x,z,angle,yOverride){
     const entry=DUNGEON3D_CACHE["d:"+name]; if(!entry) return null;
@@ -27455,6 +27545,10 @@ async function render3DRoom(room){
   let visPaused=false;
   function onVis3D(){ visPaused=document.hidden; }
   document.addEventListener("visibilitychange",onVis3D);
+  // FIX (v1.83.0): guardiano prestazioni/calore - se il frame rate resta a lungo troppo basso
+  // (dispositivo sotto sforzo, possibile throttling termico della GPU), abbassa la qualità una
+  // sola volta per questa sessione di vista 3D (vedi createPerfWatchdog, sistema condiviso).
+  const perfWatchdog=createPerfWatchdog(renderer, ()=>{ torch.shadow.mapSize.set(256,256); });
   (function tick(){
     if(stopped) return;
     const dt=clock.getDelta();
@@ -27467,6 +27561,7 @@ async function render3DRoom(room){
       mixers.forEach(m=>m.update(dt));
       torch.intensity=2.6+Math.sin(Date.now()/180)*0.4;
       renderer.render(scene,camera);
+      perfWatchdog();
     }
     requestAnimationFrame(tick);
   })();
@@ -27642,13 +27737,18 @@ async function openTable3DView(c,map,tokens,opts){
     +(isDm&&canEdit?" DM: con «🧱 Modifica muri» attivo, trascinare sul pavimento crea un muro nella cella sotto il puntatore; con «🧹 Cancella muri» attivo, trascinare sul pavimento cancella invece un muro già presente (nessun valore «porta» distinto in questa mappa: cancellare un muro apre semplicemente un passaggio). Le due modalità sono alternative, mai insieme, e mentre una è attiva non si ruota la vista né si spostano pedine: disattivala per tornare a orbitare.":"");
   const w=canvasWrap.clientWidth||800, hgt=canvasWrap.clientHeight||500;
   const renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  // FIX (v1.83.0, sistema di qualità 3D adattivo, vedi detect3DQualityTier): su una mappa condivisa
+  // fino a 60x60 celle il costo delle ombre è già il collo di bottiglia principale (vedi nota sotto),
+  // quindi qui conta ancora di più restare leggeri sui dispositivi deboli - pixel ratio e ombre
+  // dipendono dal livello rilevato, non più da un tetto fisso uguale per tutti.
+  const table3dTier=detect3DQualityTier();
+  renderer.setSize(w,hgt); renderer.setPixelRatio(Math.min(table3dTier.pixelRatioCap,window.devicePixelRatio||1));
   // MIGLIORAMENTO (2026-10-20, stessa segnalazione "resa grafica povera" risolta in render3DRoom):
   // ombre vere anche qui. Risoluzione mappa ombra tenuta a 1024 (non 2048+) e frustum della luce
   // direzionale limitato all'estensione reale della mappa (non un valore fisso arbitrario) per non
   // appesantire lo stress test già verificato a 60x60 celle (v1.73.0/v1.74.0, circa 1.1-1.4s):
   // ri-verificato sotto in questa stessa sessione con le ombre attive.
-  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled=table3dTier.shadows; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   canvasWrap.appendChild(renderer.domElement);
   const scene=new THREE.Scene(); scene.background=new THREE.Color(0x070504);
   scene.add(new THREE.AmbientLight(0x6a5648,1.9));
@@ -27656,7 +27756,8 @@ async function openTable3DView(c,map,tokens,opts){
   const dir=new THREE.DirectionalLight(0xfff2d9,1.1); dir.position.set(20,30,10); scene.add(dir);
   const cell=TABLE3D_CELL, mapW=map.cols*cell, mapD=map.rows*cell;
   const dirTarget=new THREE.Object3D(); dirTarget.position.set(mapW/2,0,mapD/2); scene.add(dirTarget); dir.target=dirTarget;
-  dir.castShadow=true; dir.shadow.mapSize.set(1024,1024);
+  dir.castShadow=table3dTier.shadows;
+  dir.shadow.mapSize.set(table3dTier.shadowMapSize||512,table3dTier.shadowMapSize||512);
   const shadowHalf=Math.max(mapW,mapD)/2+2;
   dir.shadow.camera.left=-shadowHalf; dir.shadow.camera.right=shadowHalf;
   dir.shadow.camera.top=shadowHalf; dir.shadow.camera.bottom=-shadowHalf;
@@ -28000,11 +28101,15 @@ async function openTable3DView(c,map,tokens,opts){
   let visPausedTable=false;
   function onVis3DTable(){ visPausedTable=document.hidden; }
   document.addEventListener("visibilitychange",onVis3DTable);
+  // FIX (v1.83.0): stesso guardiano prestazioni/calore della Vista 3D del dungeon - qui ancora più
+  // rilevante, dato che una mappa grande (fino a 60x60 celle) è già il caso più pesante dell'app.
+  const perfWatchdogTable=createPerfWatchdog(renderer, ()=>{ dir.shadow.mapSize.set(256,256); });
   (function animate(){
     if(stopped) return;
     if(!visPausedTable){
       controls.update();
       renderer.render(scene,camera);
+      perfWatchdogTable();
     }
     requestAnimationFrame(animate);
   })();
@@ -41584,7 +41689,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.82.0"; // v1.82.0 (20/10, CORREZIONI MULTIPLE, richieste dirette di Carmine dopo la v1.81.1): 1) BUG WIZARD PATHFINDER - il campo nome nell'ultimo passo di creazione (Rifinitura) non chiamava mai render() dopo averlo scritto (per non far perdere il focus/cursore ad ogni tasto, come gli altri campi testo dello stesso passo), ma il pulsante "Crea Personaggio" aveva disabled:!ok calcolato una sola volta al render E la sua chiusura onclick catturava quello stesso "ok" vecchio: il personaggio restava bloccabile per sempre dopo aver scritto il nome, finche' non si tornava indietro e si riavanzava di un passo (unico modo che rifaceva il render). Corretto ricalcolando pfValidateStep(w) sia per abilitare visivamente il pulsante sia dentro il suo stesso onclick, invece di fidarsi di un valore catturato al render. 2) EXPORT PDF SENZA DESCRIZIONI (segnalato da Carmine: "la scheda del PG non ha nulla di quello che mostra l'app... con le descrizioni relative") - la scheda D&D elencava incantesimi per solo nome e armi senza danno/proprieta'; aggiunte le descrizioni complete (spellObj()/weaponData(), gia' usate altrove nell'app, nessuna fonte dati nuova). 3) NESSUN EXPORT PDF PATHFINDER - non esisteva affatto; aggiunta exportPfCharacterPdf() equivalente a quella D&D (caratteristiche, combattimento, abilita', equipaggiamento, talenti generali/ascendenza/classe/abilita' con descrizione dove il database li copre, trucchetti e incantesimi di ogni rango con descrizione, storia del personaggio), nuovo pulsante "🖨 Stampa scheda" nella scheda Pathfinder. 4) FUNZIONI 3D (segnalazione di Carmine: resa grafica povera, problemi di performance, bug/instabilita', tutte e tre confermate) - individuate e corrette tre cause concrete leggendo il codice, senza toccare l'architettura (nessuna libreria nuova, nessun motore esterno tipo GDevelop5, suggerito da terzi a Carmine ma non ancora valutato: resta un lavoro a parte, "mesi non settimane" come gia' dichiarato): nessuna vista 3D aveva mai ombre attive (luce piatta, aspetto "povero" - attivate PCFSoftShadowMap su torcia/muri/mostri/arredo nella Vista 3D del dungeon e sulla luce direzionale/muri/pavimento nella Vista 3D del Tavolo, frustum dimensionato sulla mappa reale invece di un valore fisso); nessuna vista gestiva il ridimensionamento della finestra (rotazione telefono/resize browser deformava la scena fino a chiudere e riaprire - aggiunto un resize reattivo su entrambe); il loop di rendering continuava a girare anche con l'app in background (consumo GPU/batteria inutile, nessun controllo document.hidden in tutto il file prima d'ora - aggiunta una pausa su visibilitychange su entrambe le viste). Verificato: node --check su tutti i 16 blocchi (una sola riga attiva, v1.81.1 preservata sotto come commento storico, v1.81.0 ancora sotto quella); test Playwright dedicato sul bug del wizard (personaggio creato correttamente subito dopo aver scritto il nome, senza piu' il giro indietro/avanti); test dedicato su entrambi gli export PDF (D&D con incantesimi/armi di prova, Pathfinder con una classe incantatrice, talenti e incantesimi di piu' ranghi, entrambi 0 errori); test dedicato sulle due viste 3D (Vista 3D del dungeon e Vista 3D del Tavolo, 0 errori, canvas presente, ombre renderizzate) e un confronto diretto di framerate con/senza ombre sullo stress test da 60x60 celle gia' noto (differenza contenuta, ~12%, lo stesso ordine di grandezza su hardware GPU reale sara' minore che nell'ambiente software di test); rieseguita la suite di backup/import della v1.81.1, zero regressioni. sha256: 97cf5b38baa750dcbbf09fb6e4ed5e14ceb27e5f4e6f8f1d5e9c7a2b3d4e5f6a7.
+var ROLLONE_CONTENT_VERSION = "1.83.0"; // v1.83.0 (20/10, sistema di qualita' 3D adattivo, su richiesta esplicita di Carmine dopo aver citato GDevelop5: "ridefinisci il motore 3D in base a GDevelop5... sfrutta la sua struttura funzionale per tutte le parti 3d... applica l'uso delle schede grafiche per mobile e pc... non surriscaldi il dispositivo"). ONESTA' dichiarata: GDevelop5 e' un programma/editor di giochi completo e separato, non una libreria incorporabile in una pagina web esistente - verificato via ricerca web (voce Wikipedia "GDevelop" + blog.brightcoding.dev) che il suo motore usa PixiJS per il 2D e Three.js per il 3D, cioe' la STESSA libreria gia' in uso qui, non qualcosa di diverso da "importare". Una riscrittura reale del motore 3D su quel modello resta un lavoro a parte ("mesi non settimane", gia' dichiarato in precedenza), non fatto oggi. Fatto invece, concreto e verificabile: un sistema condiviso di qualita' 3D adattiva applicato a tutte e tre le superfici 3D oggi esistenti nell'app (dadi via @3d-dice/dice-box, Vista 3D del dungeon, Vista 3D del Tavolo condiviso - "i villaggi" citati da Carmine non esistono ancora come funzionalita', quindi non c'e' nulla li' da convertire). Nuova funzione detect3DQualityTier(): rileva un livello approssimativo (basso/medio/alto) da core CPU, presenza touch/mobile e la stringa GPU reale (quando il browser la espone via WEBGL_debug_renderer_info), e imposta di conseguenza il tetto del pixel ratio, se attivare le ombre e la risoluzione della mappa ombre - su dispositivi deboli niente ombre e pixel ratio piu' basso per restare leggeri sulla GPU, su desktop con scheda dedicata tutto come prima. Applicato a: ensureDiceBox3D (enableShadows, opzione gia' documentata dalla libreria stessa come "performance bump" se disattivata), render3DRoom (Vista 3D del dungeon), openTable3DView (Vista 3D del Tavolo, incluso lo stress test a 60x60 celle gia' noto). Aggiunto anche un guardiano prestazioni in tempo reale (createPerfWatchdog): se il framerate resta sostenuto basso per circa un secondo (sintomo di un dispositivo sotto sforzo o di throttling termico della GPU), abbassa automaticamente ombre e pixel ratio una sola volta per quella sessione di vista 3D, senza oscillare su e giu'. Verificato: node --check su tutti i 14 blocchi script, test Playwright dedicato sulla funzione di rilevamento (cache corretta, nessun errore anche quando l'estensione GPU non e' disponibile), sulle due viste 3D con il sistema attivo (dungeon e stress test Tavolo 60x60, zero errori, canvas presente), e sul guardiano prestazioni isolato (simulazione di 70 frame lenti → downgrade applicato una sola volta; simulazione di 70 frame a 60fps → nessun downgrade, come atteso). sha256: 00000000000000000000000000000000000000000000000000000000000000.
+// var ROLLONE_CONTENT_VERSION = "1.82.0"; // v1.82.0 (20/10, CORREZIONI MULTIPLE, richieste dirette di Carmine dopo la v1.81.1): 1) BUG WIZARD PATHFINDER - il campo nome nell'ultimo passo di creazione (Rifinitura) non chiamava mai render() dopo averlo scritto (per non far perdere il focus/cursore ad ogni tasto, come gli altri campi testo dello stesso passo), ma il pulsante "Crea Personaggio" aveva disabled:!ok calcolato una sola volta al render E la sua chiusura onclick catturava quello stesso "ok" vecchio: il personaggio restava bloccabile per sempre dopo aver scritto il nome, finche' non si tornava indietro e si riavanzava di un passo (unico modo che rifaceva il render). Corretto ricalcolando pfValidateStep(w) sia per abilitare visivamente il pulsante sia dentro il suo stesso onclick, invece di fidarsi di un valore catturato al render. 2) EXPORT PDF SENZA DESCRIZIONI (segnalato da Carmine: "la scheda del PG non ha nulla di quello che mostra l'app... con le descrizioni relative") - la scheda D&D elencava incantesimi per solo nome e armi senza danno/proprieta'; aggiunte le descrizioni complete (spellObj()/weaponData(), gia' usate altrove nell'app, nessuna fonte dati nuova). 3) NESSUN EXPORT PDF PATHFINDER - non esisteva affatto; aggiunta exportPfCharacterPdf() equivalente a quella D&D (caratteristiche, combattimento, abilita', equipaggiamento, talenti generali/ascendenza/classe/abilita' con descrizione dove il database li copre, trucchetti e incantesimi di ogni rango con descrizione, storia del personaggio), nuovo pulsante "🖨 Stampa scheda" nella scheda Pathfinder. 4) FUNZIONI 3D (segnalazione di Carmine: resa grafica povera, problemi di performance, bug/instabilita', tutte e tre confermate) - individuate e corrette tre cause concrete leggendo il codice, senza toccare l'architettura (nessuna libreria nuova, nessun motore esterno tipo GDevelop5, suggerito da terzi a Carmine ma non ancora valutato: resta un lavoro a parte, "mesi non settimane" come gia' dichiarato): nessuna vista 3D aveva mai ombre attive (luce piatta, aspetto "povero" - attivate PCFSoftShadowMap su torcia/muri/mostri/arredo nella Vista 3D del dungeon e sulla luce direzionale/muri/pavimento nella Vista 3D del Tavolo, frustum dimensionato sulla mappa reale invece di un valore fisso); nessuna vista gestiva il ridimensionamento della finestra (rotazione telefono/resize browser deformava la scena fino a chiudere e riaprire - aggiunto un resize reattivo su entrambe); il loop di rendering continuava a girare anche con l'app in background (consumo GPU/batteria inutile, nessun controllo document.hidden in tutto il file prima d'ora - aggiunta una pausa su visibilitychange su entrambe le viste). Verificato: node --check su tutti i 16 blocchi (una sola riga attiva, v1.81.1 preservata sotto come commento storico, v1.81.0 ancora sotto quella); test Playwright dedicato sul bug del wizard (personaggio creato correttamente subito dopo aver scritto il nome, senza piu' il giro indietro/avanti); test dedicato su entrambi gli export PDF (D&D con incantesimi/armi di prova, Pathfinder con una classe incantatrice, talenti e incantesimi di piu' ranghi, entrambi 0 errori); test dedicato sulle due viste 3D (Vista 3D del dungeon e Vista 3D del Tavolo, 0 errori, canvas presente, ombre renderizzate) e un confronto diretto di framerate con/senza ombre sullo stress test da 60x60 celle gia' noto (differenza contenuta, ~12%, lo stesso ordine di grandezza su hardware GPU reale sara' minore che nell'ambiente software di test); rieseguita la suite di backup/import della v1.81.1, zero regressioni. sha256: 97cf5b38baa750dcbbf09fb6e4ed5e14ceb27e5f4e6f8f1d5e9c7a2b3d4e5f6a7.
 // var ROLLONE_CONTENT_VERSION = "1.81.1"; // v1.81.1 (20/10, CORREZIONE BUG DATI): segnalato da Carmine ("il backup esportato non ha nulla di tutti i dati che c'erano nell'app al momento del backup"). Causa trovata: la card "I tuoi dati" in Impostazioni (unico punto di backup raggiungibile dall'utente) chiamava exportDataJSON()/importDataFile(), che usano collectData()/applyData() - allineate SOLO a DATA_KEYS (personaggi D&D, mostri/incantesimi/oggetti/sottoclassi/classi/talenti custom della Forgia D&D). Mancavano: personaggi Pathfinder, campagne, progressi dungeon, scontro in corso, mappe di battaglia, bottega, insediamenti, gilda, impostazioni dell'app, configurazione IA, lore, mappe del mondo. Esisteva gia' nel codice una funzione gemella completa e allineata 1:1 a STATE (exportJSON/importJSON, usata dalla schermata dataMenu()) ma non era collegata a NESSUN pulsante dell'interfaccia - persa durante la semplificazione della card del 2026-09-02 (dataMenu() risultava funzione morta, mai invocata). FIX: i due pulsanti "Esporta i tuoi dati"/"Importa dati" di Impostazioni ora chiamano exportJSON/importFullBackupFile (nuova funzione ponte che apre il selettore file e il modale di conferma di importDataFile ma passa il File a importJSON, la versione completa) al posto delle funzioni parziali. Aggiornato anche il testo "Contenuto attuale" per includere il conteggio dei personaggi Pathfinder. Verificato con un test Playwright dedicato: creato un personaggio Pathfinder, confermato che il payload costruito da exportJSON() lo include insieme a tutti gli altri campi di STATE (campagne, dungeon, impostazioni, ecc.), zero errori console nell'intero flusso. sha256: 629277e848b22e15752825bd186a7d4d07b148f526a694e807108a1fc8dbda50.
 // var ROLLONE_CONTENT_VERSION = "1.81.0"; // v1.81.0 (20/10): rinominato il repo GitHub del sito da "fumblerpg-site" a "mythrender-site" per coerenza col nome Mythrender (il vecchio indirizzo non reindirizza, GitHub Pages esclude le project page dal redirect automatico). Aggiornati i soli riferimenti live al dominio del sito dentro l'app: redirect di autenticazione multiplayer, link alla privacy policy, header HTTP-Referer verso OpenRouter. Nessun identificativo tecnico dell'app toccato (repo rollone-desktop, URL raw.githubusercontent.com, chiavi di storage, plugin nativo). sha256: d7286461585a6fd52e0fe5198108f68fad0e72dc0f9663e066bd0441112294bd.
 // v1.78.0 (14/10): corretto un bug segnalato da Carmine ("il lanciatore in RPG companion non funziona, non mostra il risultato ne fa vedere le cose in 3d come tutto il resto"). Causa reale: il dado gigante della schermata "RPG Companion" (companionRollPanel) chiama lo stesso motore di lancio fisico del resto dell'app (doRoll/throwPhysicalDice), che apre un overlay 3D a tutto schermo (diceBox3dHostEl, gia' usato dal pannello Dadi del DM) - ma quell'overlay, a differenza del pannello del DM, non veniva mai richiuso da solo dopo il lancio, e il Companion non scriveva mai il risultato al suo interno: il giocatore restava quindi davanti a uno schermo nero (vuoto, se i dadi fisici non facevano in tempo a caricarsi) con il vero risultato nascosto dietro, finche' non trovava da se' il piccolo pulsante "Chiudi". Corretto con una nuova funzione condivisa, closeDiceBox3DOverlay(), richiamata subito dopo ogni lancio dal Companion: richiude l'overlay con un breve ritardo se il lancio e' stato fisico (cosi' si vedono comunque i dadi fermi un istante prima che spariscano), subito se si e' ricaduti sul generatore casuale. Il pannello Dadi del DM (diceWidget) non e' stato toccato: resta un vero tavolo persistente, richiuso solo a mano, perche' pensato per piu' lanci consecutivi senza interruzioni. Riprodotto il bug con un test dedicato prima della correzione (overlay che restava aperto all'infinito, nessun testo scritto al suo interno, sia col lancio fisico riuscito sia con la rete bloccata) e verificato che sparisce con la correzione in entrambi i casi. Verificato: node --check su tutti i 14 blocchi; rieseguita l'intera regressione (navigazione base, editor muri v1.77.0, trascinamento pedine/orbit camera v1.74.0, nebbia/illuminazione v1.75.0, disegno libero v1.76.0, VTT 3D), zero errori console in tutti i test. sha256: 6db9c72bb022d6f4639ebe08c6af6c2d8cdcdc9d1ec492f48b570997a67ae028.
