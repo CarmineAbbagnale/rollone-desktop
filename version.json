@@ -6,5 +6,10 @@
     "minVersionName": "1.13.0",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
     "notice": "Nuovo pacchetto Android (Mythrender-1.13.0.apk): finalmente nome \"Mythrender\" e icona corretta sulla schermata home, non più i vecchi \"Fumble RPG\". Stessa firma e stesso ID app di sempre: si aggiorna senza bisogno di disinstallare."
+  },
+  "desktop": {
+    "minVersionName": "1.8.0",
+    "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
+    "notice": "Nuovo installer desktop (Windows/macOS v1.8.0): finalmente nome \"Mythrender\" e icona corretta, non più i vecchi \"RollOne Setup\". Stesso contenuto auto-aggiornante di sempre: basta scaricare e installare una volta sola."
   }
 }
