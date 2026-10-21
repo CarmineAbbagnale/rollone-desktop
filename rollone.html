@@ -1728,10 +1728,27 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .rpg-cell-monster.boss{width:76%;height:76%}
 .rpg-cell-chest{width:54%;height:54%;filter:drop-shadow(0 0 3px rgba(212,175,88,.5))}
 .rpg-cell.chest{background-color:color-mix(in srgb, #d4af58 10%, var(--rpg-dungeon-floor, var(--panelA)))}
-.rpg-dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,48px);gap:6px;justify-content:center;margin:14px 0}
+/* Mostro "sveglio" che insegue (rpgTickMonsters, mon.alert): lieve alone rosso pulsante, per rendere
+   visibile a colpo d'occhio che il dungeon "vive" e quel nemico si sta muovendo verso l'eroe. */
+.rpg-cell.monster.alert{animation:rpgAlertPulse 1s ease-in-out infinite alternate}
+@keyframes rpgAlertPulse{from{box-shadow:inset 0 0 6px rgba(200,40,40,.25)}to{box-shadow:inset 0 0 14px rgba(220,60,60,.65)}}
+.rpg-dungeon-controls{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin:14px 0}
+.rpg-dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,48px);gap:6px;justify-content:center;margin:0}
 .rpg-dpad-btn{border:1px solid var(--line);background:var(--panel);color:var(--rpg-gold-bright);
   border-radius:10px;font-size:18px;cursor:pointer}
 .rpg-dpad-btn:active{background:var(--navactiveA)}
+/* Rotellina a 360° per il movimento da smartphone (rpgJoystickEl): trascinare in qualunque direzione
+   fa muovere il personaggio in tempo reale, lo stesso tasto con cui lo si può anche solo toccare una
+   volta per fare un passo. Stile coerente con la palette pixel-fantasy studiata su base44 (anello
+   dorato traslucido su base scura). */
+.rpg-joystick-base{position:relative;width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%, rgba(201,162,39,.08), rgba(6,8,15,.9) 70%);
+  border:1px solid rgba(201,162,39,.4);touch-action:none;cursor:pointer;flex-shrink:0}
+.rpg-joystick-ring{position:absolute;inset:8px;border-radius:50%;border:1px dashed rgba(201,162,39,.35)}
+.rpg-joystick-knob{position:absolute;top:50%;left:50%;width:34px;height:34px;border-radius:50%;
+  margin:-17px 0 0 -17px;background:linear-gradient(#f0d48a 0%, #c9a227 60%, #8a6a17 100%);
+  border:1px solid rgba(0,0,0,.4);box-shadow:0 2px 6px rgba(0,0,0,.6);
+  transition:transform .08s linear;pointer-events:none}
 
 /* ---- adventure log (diario narrato, presente nel prototipo base44 e qui replicato) ---- */
 .rpg-adventure-log{background:linear-gradient(180deg,var(--panel),var(--panelA));border:1px solid var(--line);
@@ -1811,6 +1828,7 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
   .rpg-combat-actions{grid-template-columns:1fr 1fr}
   .rpg-hero-card{flex-direction:row}
 }
+
 </style>
 
 <!-- Multiplayer opzionale (Supabase): salvataggio cloud e sincronizzazione in tempo reale delle
@@ -5586,7 +5604,12 @@ function rpgRollShopWares(level){
 const RPG_CRAFT = {
   potionFromHerbs:{herbs:3, gold:20},
   weaponFromOre:{ore:5, gold:100},
-  armorFromOre:{ore:4, gold:80}
+  armorFromOre:{ore:4, gold:80},
+  // "Affila/Rinforza": azione vista nella Forgia di base44 ("Hone to +1"), separata dal salto di
+  // tier sopra. Costo cresce col +N già raggiunto; limite +5 per non svalutare la progressione.
+  honeWeapon:{ore:2, gold:70},
+  honeArmor:{ore:2, gold:60},
+  honeMax:5
 };
 
 /* ---- Genera una nuova missione della gilda per il livello corrente ---- */
@@ -5654,6 +5677,10 @@ function rpgDerivedHero(hero, inventory){
   }
   const weaponItem = find(hero.equipment && hero.equipment.weapon);
   const armorItem = find(hero.equipment && hero.equipment.armor);
+  // L'armatura "affilata" alla Forgia (item.plus, vedi rpgViewForge) aggiunge CA diretta, come nella
+  // schermata Forge di base44 ("Hone to +1" -> "+1 AC"): prima non veniva sommata qui, restava solo
+  // esposta come armorPlus senza alcun effetto reale sulla CA calcolata.
+  ac += (armorItem && armorItem.plus)||0;
   const maxHp = rpgMaxHp(hero);
   return Object.assign({}, hero, {
     ac, atkBonus, dmgBonus,
@@ -5848,6 +5875,60 @@ function rpgGenerateDungeonMap(depth, dungeon){
   }
   return { w:W, h:H, grid, playerX:start[0], playerY:start[1], stairsX:stairs[0], stairsY:stairs[1],
     monsters, monsterCount:Object.keys(monsters).length, bossFloor:isBossFloor, chests };
+}
+
+/* ---- IA mostri in tempo reale (richiesta esplicita di Carmine dopo lo studio di base44: lì il
+   dungeon è a turni e i mostri restano fermi finché non li si urta; qui invece "vive" da sola anche
+   senza input del giocatore). Chiamata a intervalli regolari da rpg_ui.js finché si è nella vista
+   dungeon e non si è in combattimento:
+   - un mostro entro RPG_MONSTER_DETECT_RADIUS caselle (Manhattan, senza controllo di visuale reale:
+     semplificazione accettata per una griglia così piccola) si "sveglia" (mon.alert=true) e resta
+     sveglio per sempre da quel momento, inseguendo l'eroe di una casella a tick lungo l'asse con
+     distanza maggiore (poi l'altro, per non restare bloccato in un vicolo cieco a L);
+   - un mostro non sveglio vaga a caso con probabilità RPG_MONSTER_WANDER_CHANCE per tick, per dare
+     comunque l'impressione di un dungeon "vivo" anche lontano dal giocatore;
+   - un mostro non scavalca mai un altro mostro né la cella delle scale di partenza del giocatore in
+     modo anomalo: semplicemente se la cella scelta è occupata prova l'opzione successiva, altrimenti
+     resta fermo per quel tick.
+   Ritorna {key, mon} se un mostro ha raggiunto la cella del giocatore (scontro da avviare), altrimenti
+   null. */
+const RPG_MONSTER_DETECT_RADIUS = 3;
+const RPG_MONSTER_WANDER_CHANCE = 0.35;
+function rpgTickMonsters(map){
+  const px = map.playerX, py = map.playerY, playerKey = px+","+py;
+  const occupied = new Set(Object.keys(map.monsters));
+  for(const [key, mon] of Object.entries(map.monsters)){
+    if(map.monsters[key] !== mon) continue; // già spostato in questo stesso tick da un'iterazione precedente
+    const [cx,cy] = key.split(",").map(Number);
+    const dist = Math.abs(cx-px)+Math.abs(cy-py);
+    if(!mon.alert && dist<=RPG_MONSTER_DETECT_RADIUS) mon.alert = true;
+    const tryMove = (ddx,ddy)=>{
+      if(ddx===0 && ddy===0) return false;
+      const nx=cx+ddx, ny=cy+ddy;
+      if(nx<0||ny<0||nx>=map.w||ny>=map.h||map.grid[ny][nx]===0) return false;
+      const nkey = nx+","+ny;
+      if(nkey===key) return false;
+      if(nkey!==playerKey && occupied.has(nkey)) return false;
+      occupied.delete(key); delete map.monsters[key];
+      map.monsters[nkey] = mon; occupied.add(nkey);
+      if(nkey===playerKey) return "hit";
+      return true;
+    };
+    if(mon.alert){
+      const dx = Math.sign(px-cx), dy = Math.sign(py-cy);
+      const options = Math.abs(px-cx) >= Math.abs(py-cy) ? [[dx,0],[0,dy]] : [[0,dy],[dx,0]];
+      for(const [ddx,ddy] of options){
+        const r = tryMove(ddx,ddy);
+        if(r==="hit") return {key:playerKey, mon};
+        if(r) break;
+      }
+    } else if(Math.random() < RPG_MONSTER_WANDER_CHANCE){
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      for(let i=dirs.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [dirs[i],dirs[j]]=[dirs[j],dirs[i]]; }
+      for(const [ddx,ddy] of dirs){ if(tryMove(ddx,ddy)) break; }
+    }
+  }
+  return null;
 }
 /* =========================================================================
    MYTHRENDER RPG — interfaccia (sezione "Avventura" > "Dungeon della Discesa")
@@ -6229,11 +6310,38 @@ function rpgViewForge(){
     const item=rpgMakeArmor(nextTier); STATE.rpg.inventory.push(item); STATE.rpg.hero.equipment.armor=item.id;
     rpgGo("forge"); toast("Nuova armatura forgiata: "+item.name);
   }
+  // "Affila/Rinforza" (vista in base44 come "Hone to +1"): a differenza del salto di tier sopra, qui
+  // non si cambia oggetto, si incrementa il "+N" dell'arma/armatura già indossata (weaponPlus/
+  // armorPlus nel motore), fino a RPG_CRAFT.honeMax, con costo che cresce ad ogni affilatura.
+  function honeWeapon(){
+    const item = STATE.rpg.inventory.find(i=>i.id===STATE.rpg.hero.equipment.weapon);
+    if(!item) return toast("Non hai un'arma equipaggiata.");
+    const plus = item.plus||0;
+    if(plus>=RPG_CRAFT.honeMax) return toast("Quest'arma è già al massimo dell'affilatura.");
+    const c = RPG_CRAFT.honeWeapon, cost = {ore:c.ore+plus, gold:c.gold+plus*25};
+    if(hero.ore<cost.ore||hero.gold<cost.gold) return toast("Serve più minerale o oro.");
+    STATE.rpg.hero.ore-=cost.ore; STATE.rpg.hero.gold-=cost.gold; item.plus=plus+1;
+    rpgGo("forge"); toast(item.name+" affilata a +"+item.plus+".");
+  }
+  function honeArmor(){
+    const item = STATE.rpg.inventory.find(i=>i.id===STATE.rpg.hero.equipment.armor);
+    if(!item) return toast("Non hai un'armatura equipaggiata.");
+    const plus = item.plus||0;
+    if(plus>=RPG_CRAFT.honeMax) return toast("Quest'armatura è già al massimo del rinforzo.");
+    const c = RPG_CRAFT.honeArmor, cost = {ore:c.ore+plus, gold:c.gold+plus*25};
+    if(hero.ore<cost.ore||hero.gold<cost.gold) return toast("Serve più minerale o oro.");
+    STATE.rpg.hero.ore-=cost.ore; STATE.rpg.hero.gold-=cost.gold; item.plus=plus+1;
+    rpgGo("forge"); toast(item.name+" rinforzata a +"+item.plus+".");
+  }
+  const weaponItem = STATE.rpg.inventory.find(i=>i.id===STATE.rpg.hero.equipment.weapon);
+  const armorItem = STATE.rpg.inventory.find(i=>i.id===STATE.rpg.hero.equipment.armor);
   const content = el("div",{},
     el("h3",{class:"rpg-title"},"🔨 La Forgia"),
     el("p",{class:"muted"},"Trasforma il minerale raccolto nei dungeon in equipaggiamento migliore."),
     el("div",{class:"rpg-shop-row"}, el("div",{},"Forgia arma superiore", el("div",{class:"muted small"},"⛏ "+RPG_CRAFT.weaponFromOre.ore+" + 🪙 "+RPG_CRAFT.weaponFromOre.gold)), el("button",{class:"btn sm",onclick:craftWeapon},"Forgia")),
+    weaponItem ? el("div",{class:"rpg-shop-row"}, el("div",{},"Affila "+weaponItem.name+" (ora +"+(weaponItem.plus||0)+")", el("div",{class:"muted small"},"⛏ "+(RPG_CRAFT.honeWeapon.ore+(weaponItem.plus||0))+" + 🪙 "+(RPG_CRAFT.honeWeapon.gold+(weaponItem.plus||0)*25))), el("button",{class:"btn sm",onclick:honeWeapon,disabled:(weaponItem.plus||0)>=RPG_CRAFT.honeMax},"Affila +1")) : null,
     el("div",{class:"rpg-shop-row"}, el("div",{},"Forgia armatura superiore", el("div",{class:"muted small"},"⛏ "+RPG_CRAFT.armorFromOre.ore+" + 🪙 "+RPG_CRAFT.armorFromOre.gold)), el("button",{class:"btn sm",onclick:craftArmor},"Forgia")),
+    armorItem ? el("div",{class:"rpg-shop-row"}, el("div",{},"Rinforza "+armorItem.name+" (ora +"+(armorItem.plus||0)+")", el("div",{class:"muted small"},"⛏ "+(RPG_CRAFT.honeArmor.ore+(armorItem.plus||0))+" + 🪙 "+(RPG_CRAFT.honeArmor.gold+(armorItem.plus||0)*25))), el("button",{class:"btn sm",onclick:honeArmor,disabled:(armorItem.plus||0)>=RPG_CRAFT.honeMax},"Rinforza +1")) : null,
     el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
@@ -6320,9 +6428,21 @@ function rpgViewDungeonSelect(){
 }
 
 /* ================= GRIGLIA DEL DUNGEON (stanze/corridoi, bump-to-fight, scale) =================
-   Stessa mappa/regole del prototipo base44: ci si muove sulla griglia, urtare un mostro avvia il
-   combattimento, le scale scendono di profondità quando la mappa è ripulita. Due modi di muoversi,
-   entrambi attivi: tastiera (frecce/WASD, invariata rispetto a prima) e D-pad a tocco. */
+   A differenza del prototipo base44 (a turni, mostri fermi finché non li si urta), qui il dungeon
+   "vive" in tempo reale: vedi rpgTickMonsters (motore) e il battito in setInterval più sotto. Tre
+   modi di muoversi, tutti attivi insieme: tastiera (frecce/WASD), D-pad a bottoni, e rotellina a
+   360° trascinabile col dito (rpgJoystickEl). */
+/* Avvia lo scontro contro un mostro sulla griglia del dungeon, sia quando è l'eroe a "urtarlo"
+   muovendosi (monsterInitiated=false) sia quando è il mostro stesso a raggiungere l'eroe durante il
+   tick in tempo reale (monsterInitiated=true, vedi rpgTickMonsters). */
+function rpgEngageMonster(key, enemy, monsterInitiated){
+  STATE.rpg._combatCellKey = key;
+  const verb = monsterInitiated ? " ti assale!" : " ti blocca il passo.";
+  STATE.rpg.combat = { enemy, log:[{text:(enemy.boss?"Il guardiano ":"Un ")+enemy.name+verb}], turnBusy:false };
+  rpgLog((enemy.boss?"Il guardiano ":"Un ")+enemy.name+verb);
+  if(enemy.boss) rpgSfxPlay("rpg-boss");
+  rpgGo("combat");
+}
 function rpgMoveDungeon(dx,dy){
   if(!STATE.rpg || STATE.rpg.screen!=="dungeon" || STATE.rpg.combat) return;
   const map = STATE.rpg.dungeonMap; if(!map) return;
@@ -6330,12 +6450,7 @@ function rpgMoveDungeon(dx,dy){
   if(nx<0||ny<0||nx>=map.w||ny>=map.h||map.grid[ny][nx]===0) return;
   const key=nx+","+ny;
   if(map.monsters[key]){
-    const enemy = map.monsters[key];
-    STATE.rpg._combatCellKey = key;
-    STATE.rpg.combat = { enemy, log:[{text:"Un "+enemy.name+" ti blocca il passo."}], turnBusy:false };
-    rpgLog((enemy.boss?"Il guardiano ":"Un ")+enemy.name+" ti blocca il passo.");
-    if(enemy.boss) rpgSfxPlay("rpg-boss");
-    rpgGo("combat");
+    rpgEngageMonster(key, map.monsters[key], false);
     return;
   }
   map.playerX=nx; map.playerY=ny;
@@ -6375,6 +6490,73 @@ if(typeof document!=="undefined" && !window.__rpgKeyboardBound){
     if(map){ e.preventDefault(); rpgMoveDungeon(map[0],map[1]); }
   });
 }
+/* Dungeon "vivo" in tempo reale (richiesta esplicita di Carmine, in sostituzione del dungeon a turni
+   di base44): un battito regolare fa muovere/svegliare i mostri anche senza che il giocatore prema
+   nulla, indipendentemente da quante volte la vista viene ridisegnata nel frattempo — per questo lo
+   stato di trascinamento del joystick vive su STATE.rpg._joyDir (letto/scritto qui) e non in variabili
+   locali alla singola istanza DOM del joystick, che altrimenti verrebbe ricreata (e "scattare al
+   centro") ad ogni render() causato dal tick stesso. */
+if(typeof window!=="undefined" && !window.__rpgMonsterLoopBound){
+  window.__rpgMonsterLoopBound = true;
+  let rpgTickN = 0;
+  setInterval(()=>{
+    if(!STATE || !STATE.rpg || STATE.view!=="rpg" || STATE.rpg.screen!=="dungeon" || STATE.rpg.combat) return;
+    const map = STATE.rpg.dungeonMap; if(!map) return;
+    const hit = rpgTickMonsters(map);
+    if(hit){ rpgEngageMonster(hit.key, hit.mon, true); return; }
+    rpgTickN++;
+    if(rpgTickN % 3 === 0) persist(); // salva ogni 3 battiti (~1.6s), non ad ogni singolo tick
+    render();
+  }, 550);
+  window.addEventListener("pointerup", ()=>{ if(STATE && STATE.rpg) STATE.rpg._joyDir=null; });
+  window.addEventListener("pointercancel", ()=>{ if(STATE && STATE.rpg) STATE.rpg._joyDir=null; });
+  setInterval(()=>{
+    if(!STATE || !STATE.rpg || !STATE.rpg._joyDir) return;
+    if(STATE.view!=="rpg" || STATE.rpg.screen!=="dungeon" || STATE.rpg.combat) return;
+    rpgMoveDungeon(STATE.rpg._joyDir[0], STATE.rpg._joyDir[1]);
+  }, 260);
+}
+/* Rotellina/joystick a 360° per il movimento da smartphone: qualunque angolo di tocco viene mappato
+   su una delle 4 direzioni cardinali (la griglia del dungeon ha solo corridoi ortogonali, quindi le
+   diagonali non porterebbero mai da nessuna parte). Mantenuto ANCHE il D-pad a bottoni sotto, per chi
+   preferisce toccare frecce singole invece di trascinare. */
+function rpgJoystickDir(clientX, clientY, rect){
+  const dx = clientX-(rect.left+rect.width/2), dy = clientY-(rect.top+rect.height/2);
+  const dist = Math.hypot(dx,dy);
+  if(dist<12) return null; // zona morta centrale
+  const angle = Math.atan2(dy,dx)*180/Math.PI;
+  if(angle>=-45 && angle<45) return [1,0];
+  if(angle>=45 && angle<135) return [0,1];
+  if(angle>=135 || angle<-135) return [-1,0];
+  return [0,-1];
+}
+function rpgJoystickEl(){
+  function onDown(e){
+    const rect = e.currentTarget.getBoundingClientRect();
+    STATE.rpg._joyDir = rpgJoystickDir(e.clientX, e.clientY, rect);
+    if(STATE.rpg._joyDir) rpgMoveDungeon(STATE.rpg._joyDir[0], STATE.rpg._joyDir[1]);
+    render();
+    function onMove(ev){
+      const p = ev.touches ? ev.touches[0] : ev;
+      STATE.rpg._joyDir = rpgJoystickDir(p.clientX, p.clientY, rect);
+      const knob = document.querySelector(".rpg-joystick-knob");
+      if(knob) knob.style.transform = STATE.rpg._joyDir ? ("translate("+(STATE.rpg._joyDir[0]*16)+"px,"+(STATE.rpg._joyDir[1]*16)+"px)") : "translate(0,0)";
+    }
+    function onUp(){
+      STATE.rpg._joyDir = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      render();
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+  const dir = STATE.rpg._joyDir;
+  const knobStyle = "transform:"+(dir ? ("translate("+(dir[0]*16)+"px,"+(dir[1]*16)+"px)") : "translate(0,0)");
+  return el("div",{class:"rpg-joystick-base", onpointerdown:onDown},
+    el("div",{class:"rpg-joystick-ring"}),
+    el("div",{class:"rpg-joystick-knob", style:knobStyle}));
+}
 function rpgViewDungeon(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const dungeon = rpgDungeon(hero.dungeonId);
@@ -6389,23 +6571,27 @@ function rpgViewDungeon(){
     let cls = "rpg-cell "+(t===0?"wall":"floor");
     if(isStairs && t===1) cls += " stairs";
     if(monster) cls += monster.boss ? " monster boss" : " monster";
+    if(monster && monster.alert) cls += " alert";
     if(chest) cls += " chest";
     if(isPlayer) cls += " player";
     cells.push(el("div",{class:cls}, isPlayer?rpgPlayerMapIcon():(monster?rpgMonsterMapIcon(monster.sprite,monster.boss):(chest?rpgChestIcon():(isStairs?"▼":"")))));
   }
   const remaining = Object.keys(map.monsters).length;
+  const alerted = Object.values(map.monsters).some(m=>m.alert);
   const content = el("div",{class:"rpg-dungeonroom", style:"--rpg-dungeon-floor:"+dungeon.palette.floor+";--rpg-dungeon-wall:"+dungeon.palette.wall+";--rpg-dungeon-accent:"+dungeon.palette.accent},
     el("h3",{class:"rpg-title"}, dungeon.name+" · Profondità "+hero.depth),
-    el("div",{class:"muted"}, map.bossFloor ? "Il guardiano attende alle scale." : (remaining>0 ? (remaining+" nemici ancora nella mappa") : "Mappa ripulita: scendi alle scale ▼")),
-    el("div",{class:"rpg-dungeon-legend"},"Frecce / WASD per muoverti · urta un nemico per combattere · cammina su un forziere per raccoglierlo · le scale scendono"),
+    el("div",{class:"muted"}, map.bossFloor ? "Il guardiano attende alle scale." : (remaining>0 ? (remaining+" nemici ancora nella mappa"+(alerted?" — alcuni ti hanno fiutato!":"")) : "Mappa ripulita: scendi alle scale ▼")),
+    el("div",{class:"rpg-dungeon-legend"},"Rotellina, frecce o D-pad per muoverti · il dungeon vive: i mostri vagano e ti inseguono se ti avvicini · cammina su un forziere per raccoglierlo · le scale scendono"),
     el("div",{class:"rpg-dungeon-grid", style:"grid-template-columns:repeat("+map.w+",1fr)"}, ...cells),
-    el("div",{class:"rpg-dpad"},
-      el("div",{}),
-      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,-1)}, "▲"),
-      el("div",{}),
-      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(-1,0)}, "◀"),
-      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,1)}, "▼"),
-      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(1,0)}, "▶")),
+    el("div",{class:"rpg-dungeon-controls"},
+      rpgJoystickEl(),
+      el("div",{class:"rpg-dpad"},
+        el("div",{}),
+        el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,-1)}, "▲"),
+        el("div",{}),
+        el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(-1,0)}, "◀"),
+        el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,1)}, "▼"),
+        el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(1,0)}, "▶"))),
     el("button",{class:"btn ghost rpg-cta", onclick:()=>{ rpgLog("Torni a Hollowmark; riparti dal checkpoint."); rpgGo("town"); toast("Sei tornato a Hollowmark; riparti dal checkpoint."); }}, "↩ Torna a Hollowmark"),
     rpgAdventureLogPanel(6));
   return rpgScreen(hero, content, {active:"dungeonSelect", bottomnav:false});
@@ -43387,7 +43573,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.89.0"; // v1.89.0 (21/10, CORREZIONI MULTIPLE sulla sezione RPG - ancora disattivata nel menu dalla v1.88.0 su richiesta di Carmine, lavoro di sviluppo in background prima di riattivarla - dopo una nuova lista dettagliata di richieste): 1) RIPOSO IN LOCANDA - ora ripristina anche tutti gli usi delle abilita' di classe (abilityUses={}), prima solo i PF. 2) TEMPIO - corretto un errore meccanico reale: la benedizione dava +2 alla CA invece che +2 al tiro per colpire (coerente col testo osservato su base44), ora costa 60 oro come nel prototipo, e si consuma dopo un solo combattimento (prima restava attiva per sempre: bug trovato sistemando questo, mai segnalato perche' nessuno se n'era accorto). Aggiunta anche la resurrezione a pagamento in caso di sconfitta gia' annunciata dal testo del Tempio ma mai implementata: se l'eroe ha abbastanza oro viene richiamato in vita a un costo scalato sulla profondita', altrimenti si risveglia comunque gratis. 3) BONUS DI COMBATTIMENTO DA STATISTICHE - il tiro per colpire e il danno con l'arma NON usavano mai le caratteristiche del personaggio, solo i bonus piatti dell'equipaggiamento: aggiunto il modificatore di caratteristica corretto per classe (Forza per Guerriero/Barbaro, Destrezza per Ladro/Ranger, Intelligenza per Mago, Saggezza per Chierico, come una vera scheda D&D) piu' il bonus "+N" dell'arma forgiata (gia' calcolato ma mai usato prima). 4) STATISTICHE CASUALI ALLA CREAZIONE - le 6 caratteristiche erano valori fissi identici per ogni personaggio; ora tirate con 4d6-scarta-il-minimo (il metodo classico di creazione di una scheda D&D), tetto di sicurezza a 20 su richiesta esplicita. 5) BOTTINO AUMENTATO - oro di vittoria quasi raddoppiato (+40 extra sui boss), erbe/minerale piu' frequenti e abbondanti, oro dei forzieri quasi raddoppiato, drop di reliquie/equip piu' probabili. 6) MERCANTE A SCORTE ROTANTI - nuova sezione "Merce del giorno" che pesca a caso pozioni/balle di risorse/equip da bottino e si rinnova da sola ogni 15 minuti reali (STATE.rpg.shopStock con timestamp), accanto al percorso fisso di progressione arma/armatura gia' esistente. Punti ancora NON affrontati in questa versione, parte della stessa richiesta di Carmine e rimandati ad un prossimo passaggio piu' corposo: gestione multi-personaggio (crea/cancella/cambia), grafica identica a base44 (studio approfondito ancora da fare), movimento in tempo reale con rotella 360 gradi, mostri con rilevamento a vista e inseguimento, arte/immagini dedicate per ogni elemento. Verificato: node --check su tutti i blocchi script; simulazione autonoma di 150 discese con pathfinding BFS reale rieseguita dopo tutte le modifiche (oltre 1500 combattimenti, 0 eccezioni) per confermare che engine/dati restano coerenti. Non verificato con un browser reale end-to-end in questa sessione. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+var ROLLONE_CONTENT_VERSION = "1.90.0"; // v1.90.0 (21/10, DUNGEON IN TEMPO REALE - decisione esplicita di Carmine dopo aver letto lo studio diretto di base44: li' il dungeon e' a turni su griglia, bump-to-fight, mostri fermi finche' non li si urta; Carmine ha scelto di NON restare fedele a questo punto specifico ("trova la soluzione migliore, ma non voglio roba statica ma viva"), quindi qui il dungeon della Discesa si discosta deliberatamente dal prototipo su questo singolo aspetto). Aggiunto un battito regolare (ogni 550ms, attivo solo nella vista dungeon e fuori combattimento) che fa vivere la mappa anche senza input: un mostro entro 3 caselle dall'eroe si "sveglia" e lo insegue una casella a battito lungo l'asse con distanza maggiore, un mostro ancora addormentato vaga a caso con probabilita' 35% per battito; se un mostro raggiunge la cella dell'eroe il combattimento parte da solo, esattamente come quando e' l'eroe a urtare lui. I mostri che hanno individuato l'eroe hanno ora un lieve bagliore rosso pulsante sulla mappa, per vedere a colpo d'occhio chi sta inseguendo. Aggiunta anche una rotellina di movimento trascinabile col dito (vero controllo a 360 gradi: qualunque angolo di trascinamento viene mappato sulla direzione cardinale piu' vicina, dato che i corridoi della griglia sono solo ortogonali) accanto al D-pad a bottoni gia' esistente, che resta anch'esso attivo; tenendo premuta la rotellina il personaggio continua a muoversi passo-passo ogni 260ms, dando la sensazione di movimento continuo pur restando sulla griglia a celle. Corretta la Forgia: oltre al salto di tier gia' esistente, aggiunte le azioni "Affila +1" (arma) e "Rinforza +1" (armatura) viste nella Forgia di base44 ("Hone to +1"), che incrementano il "+N" dell'oggetto gia' equipaggiato invece di sostituirlo, fino a un tetto di +5, con costo crescente ad ogni affilatura; corretto anche un bug scoperto nel farlo: il "+N" dell'armatura (armorPlus) veniva calcolato ma non sommava mai nulla alla CA effettiva nella scheda derivata, quindi "rinforzare" l'armatura prima d'ora non avrebbe avuto alcun effetto reale in combattimento. NON toccato in questo passaggio, volutamente rimandato: gestione multi-personaggio (crea/cancella/cambia - al momento esiste solo "cancella e ricomincia da zero"), studio e replica pixel-per-pixel della grafica di base44 (confrontata a fondo in questa sessione, dettagli salvati nella documentazione di progetto, ma non ancora applicati al codice), e la decisione pendente sul meccanismo di rifornimento del Mercante (ogni 15 minuti come ora, oppure "ogni volta che si esce e si rientra" come osservato nel vero base44 - chiesto a Carmine, risposta non ancora arrivata). Verificato: node --check su tutti i blocchi script; test diretto in Node.js di rpgTickMonsters (un mostro a 4 caselle di distanza individua e raggiunge l'eroe entro pochi battiti; un mostro lontano vaga comunque nel tempo anche senza mai individuare nessuno); rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che generazione mappa e combattimento non sono stati alterati da questa modifica, solo l'IA dei mostri fuori dal combattimento. Non verificato con un browser reale end-to-end in questa sessione: la rotellina a tocco in particolare andrebbe provata su un telefono vero prima di considerarla definitiva. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+// var ROLLONE_CONTENT_VERSION = "1.89.0"; // v1.89.0 (21/10, CORREZIONI MULTIPLE sulla sezione RPG - ancora disattivata nel menu dalla v1.88.0 su richiesta di Carmine, lavoro di sviluppo in background prima di riattivarla - dopo una nuova lista dettagliata di richieste): 1) RIPOSO IN LOCANDA - ora ripristina anche tutti gli usi delle abilita' di classe (abilityUses={}), prima solo i PF. 2) TEMPIO - corretto un errore meccanico reale: la benedizione dava +2 alla CA invece che +2 al tiro per colpire (coerente col testo osservato su base44), ora costa 60 oro come nel prototipo, e si consuma dopo un solo combattimento (prima restava attiva per sempre: bug trovato sistemando questo, mai segnalato perche' nessuno se n'era accorto). Aggiunta anche la resurrezione a pagamento in caso di sconfitta gia' annunciata dal testo del Tempio ma mai implementata: se l'eroe ha abbastanza oro viene richiamato in vita a un costo scalato sulla profondita', altrimenti si risveglia comunque gratis. 3) BONUS DI COMBATTIMENTO DA STATISTICHE - il tiro per colpire e il danno con l'arma NON usavano mai le caratteristiche del personaggio, solo i bonus piatti dell'equipaggiamento: aggiunto il modificatore di caratteristica corretto per classe (Forza per Guerriero/Barbaro, Destrezza per Ladro/Ranger, Intelligenza per Mago, Saggezza per Chierico, come una vera scheda D&D) piu' il bonus "+N" dell'arma forgiata (gia' calcolato ma mai usato prima). 4) STATISTICHE CASUALI ALLA CREAZIONE - le 6 caratteristiche erano valori fissi identici per ogni personaggio; ora tirate con 4d6-scarta-il-minimo (il metodo classico di creazione di una scheda D&D), tetto di sicurezza a 20 su richiesta esplicita. 5) BOTTINO AUMENTATO - oro di vittoria quasi raddoppiato (+40 extra sui boss), erbe/minerale piu' frequenti e abbondanti, oro dei forzieri quasi raddoppiato, drop di reliquie/equip piu' probabili. 6) MERCANTE A SCORTE ROTANTI - nuova sezione "Merce del giorno" che pesca a caso pozioni/balle di risorse/equip da bottino e si rinnova da sola ogni 15 minuti reali (STATE.rpg.shopStock con timestamp), accanto al percorso fisso di progressione arma/armatura gia' esistente. Punti ancora NON affrontati in questa versione, parte della stessa richiesta di Carmine e rimandati ad un prossimo passaggio piu' corposo: gestione multi-personaggio (crea/cancella/cambia), grafica identica a base44 (studio approfondito ancora da fare), movimento in tempo reale con rotella 360 gradi, mostri con rilevamento a vista e inseguimento, arte/immagini dedicate per ogni elemento. Verificato: node --check su tutti i blocchi script; simulazione autonoma di 150 discese con pathfinding BFS reale rieseguita dopo tutte le modifiche (oltre 1500 combattimenti, 0 eccezioni) per confermare che engine/dati restano coerenti. Non verificato con un browser reale end-to-end in questa sessione. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.88.0"; // v1.88.0 (21/10, DISATTIVAZIONE TEMPORANEA su richiesta esplicita di Carmine: "per ora disattivalo in app, voglio che sia prima ben sviluppato e poi riattivarlo", dopo le varie segnalazioni di fedelta' incompleta rispetto al prototipo base44 gia' discusse nelle versioni precedenti e ancora aperte su Mercante/Forgia/Gilda/Locanda/Tempio/Zaino). Nessuna riga di logica o presentazione della sezione e' stata toccata o rimossa: aggiunta solo una costante RPG_FEATURE_ENABLED=false in cima al modulo dati, il pulsante di navigazione "Dungeon della Discesa" nel menu e' stato nascosto con style="display:none", e render() reindirizza a "home" se STATE.view risultasse ancora "rpg" da un salvataggio precedente a questo rilascio (cosi' nessun giocatore resta bloccato su una vista non piu' raggiungibile dal menu). Per riattivare in futuro, una volta completato il lavoro sulle schermate economiche: RPG_FEATURE_ENABLED=true e rimuovere lo style="display:none" dal pulsante. CORREZIONE AGGIUNTIVA (bug reale trovato da Carmine subito dopo la v1.87.0, errore mostrato in app: "Il file scaricato non corrisponde alla firma attesa. Aggiornamento annullato per sicurezza."): la sha256 scritta in version.json per la v1.87.0 era stata calcolata PRIMA di incollare quella stessa stringa nel commento di changelog di questo file, quindi descriveva una versione del documento diversa da quella realmente pubblicata (paradosso di auto-riferimento gia' noto da versioni precedenti, qui diventato per la prima volta un blocco reale per l'utente invece che una sola imprecisione cosmetica nel commento). Verificato con un confronto diretto byte-per-byte tra il file scaricato da raw.githubusercontent.com e la copia locale pubblicata (stesso sha256) prima di correggere version.json con la firma reale. Per evitare di ripetere lo stesso errore, la sha256 scritta QUI nel commento di changelog resta volutamente una stima cosmetica (lo e' sempre stata, per lo stesso motivo): quella davvero verificata e usata dall'aggiornamento automatico e' solo quella in version.json, calcolata DOPO aver finalizzato questo file, mai PRIMA. Verificato: node --check su tutti i blocchi script; nessuna modifica alla logica di gioco, solo navigazione/router. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.87.0"; // v1.87.0 (21/10, CORREZIONE sulla v1.86.0, dopo nuova segnalazione diretta di Carmine durante la revisione: "ancora non ci siamo non e' uguale all'app" e poi, dopo aver chiesto perche' non leggessi codice/chat di base44 nel dettaglio, "anche la grafica, le mappe il modo casuale del movimento dei mostri ecc. ti ho dato un semplice comando. Stai facendo tutto tranne quello che ti ho chiesto"). Su sua richiesta esplicita ho osservato di nuovo dal vivo l'editor base44 (accesso suo, mai toccate credenziali), stavolta zoomando sulla mappa reale del dungeon invece di limitarmi alle schermate di citta'/scheda gia' viste in precedenza. Due scoperte concrete: 1) il segnalino del giocatore sulla mappa base44 e' un piccolo dado quadrato con due facce a puntini (coerente col tema "Roll for Initiative"/"Dice Vault"), non un cerchio luminoso astratto come avevo disegnato qui; corretto con una nuova icona quadrata in stile dado. 2) sulla mappa compaiono forzieri raccoglibili camminandoci sopra (bottino extra separato da quello di combattimento), funzione che qui mancava del tutto: aggiunta la generazione di 1-2 forzieri per piano (oro scalato sulla profondita', a volte erbe/minerale), con icona scrigno dedicata e un'autentica meccanica di raccolta (rpgMoveDungeon), non solo visiva. Icone mostro sulla mappa ridisegnate in stile pixel squadrato (corpo+testa+occhi, nessun bordo anti-aliasing) invece dei cerchi con due puntini di prima, per leggibilita' a colpo d'occhio piu' vicina alle sprite minuscole viste nel prototipo. Sul "movimento casuale dei mostri" specifico richiesto da Carmine: VERIFICATO empiricamente nel vivo editor base44 (screenshot a 4 secondi di distanza, nessun input, posizioni di mostri/forzieri/giocatore identiche) che i mostri NON si muovono da soli in tempo reale nel prototipo originale - restano fermi finche' non li si urta, esattamente come gia' funzionava qui; non e' stata quindi inventata una falsa casualita' di movimento che il prototipo stesso non ha, per non allontanarsi ulteriormente dalla fedelta' richiesta. Resta un lavoro ESPLICITAMENTE RIMANDATO su sua stessa indicazione in questo stesso scambio ("quelli li riprendo dopo"): le schermate economiche di Hollowmark (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino), gia' osservate nel dettaglio nell'editor in questa sessione (liste prezzi, sezione CRAFTING separata dalle WARES, fascia risorse GOLD/HERBS/ORE/POTIONS, tab categorie/ordinamento nello zaino, pulsante ABBANDONA MISSIONE in Gilda, testo reale del Tempio che parla di bonus all'attacco non alla CA) ma non ancora corrette nel codice: prossimo passaggio. Verificato: node --check su tutti i blocchi script; rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) dopo l'aggiunta dei forzieri alla generazione mappa. Non verificato con un browser reale end-to-end in questa sessione. sha256: 56846a9c76744c5465ff6083fdd97e739a833ac05f081a0892f17e89e8aa20f2.
 // var ROLLONE_CONTENT_VERSION = "1.86.0"; // v1.86.0 (21/10, CORREZIONE sulla v1.85.0, dopo che Carmine ha confrontato direttamente l'app con l'editor originale di base44: "la differenza è abissale... ricrea tutta l'app di base44 in base al codice che ha"). La v1.85.0 aveva sistemato il meccanismo della griglia ma non l'aspetto: i mostri sulla mappa e nel combattimento restavano una singola emoji generica (👹) per tutti, e le celle del dungeon erano caselle con bordo uniforme invece di stanze connesse come nel prototipo. Confrontato stavolta il codice sorgente reale del progetto base44 di Carmine (editor, con suo permesso esplicito, senza toccare le sue credenziali: ha effettuato lui stesso l'accesso) invece di lavorare solo dalla spec scritta: letti i componenti Enemy Sprite/Combat Scene/Hero Summary/Game Nav/Top Bar e osservate dal vivo le schermate Town/Dungeon/Character. Corretto di conseguenza: arte SVG originale dei mostri (nessuna emoji, nessun asset esterno) con sette sagome di famiglia distinte per proporzioni e colori (bruti, non morti, bestie, demoni, costrutti, elementali, draghi), desunte dal campo "sprite" già presente nei dati mostro; i boss riusano la sagoma della propria famiglia ma più grandi, con corona e aura, mai identici ai mostri comuni; usata sia nel combattimento sia nel bestiario. Mappa del dungeon ridisegnata come area scavata unica (pavimento con sottile texture a righe, nessun bordo a scacchiera tra le celle) con piccole icone colorate per i mostri al posto dell'emoji, coerente con la scelta dichiarata di base44 di tenere l'arte illustrata nel combattimento/bestiario e icone semplificate nell'esplorazione. Aggiunto un Diario di viaggio (Adventure Log) presente nel prototipo e prima assente qui: righe narrate per ingresso nel dungeon, scontro, vittoria, sconfitta, discesa e ritorno in città, visibile nella mappa del dungeon e a Hollowmark. Scheda personaggio riprogettata con box statistiche in evidenza (PF/CA/ORO/UCCISI) e griglia equipaggiamento a due colonne con icona per slot, più vicina alla scheda reale vista nell'editor. Corretto anche un bug concreto nella barra PE: la formula cumulativa (round(60*livello^1.65)) dà 60 per il livello 1, ma un personaggio nuovo parte con 0 PE: la barra mostrava quindi un valore negativo (es. "-48/128") finché non si superavano 60 PE guadagnati. Risolto trattando il livello 1 come base zero per il solo calcolo di progresso mostrato, senza toccare le soglie reali di salita di livello. Verificato: node --check su tutti i 14 blocchi script; rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che il motore di gioco non è stato toccato da queste modifiche, solo la presentazione. Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): le altre schermate del prototipo (negozio, forgia, locanda, tempio, inventario) non sono ancora state confrontate riga per riga con l'originale e potrebbero avere differenze residue da correggere in un prossimo passaggio, su segnalazione di Carmine. sha256: 0174f20e6b0a920313c8f105f8a07e742eff8a43779f95bf6d210c3b69f6b755.
