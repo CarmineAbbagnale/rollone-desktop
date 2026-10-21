@@ -1617,6 +1617,147 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
   .levelup-burst .lu-ring,.levelup-burst .lu-spark{display:none}
   .levelup-burst .lu-text{animation:fumbleOverlayIn .2s ease forwards;opacity:1}
 }
+
+
+/* =========================================================================
+   MYTHRENDER RPG — Dungeon della Discesa — stile
+   Riusa i token --rpg-*/palette scura già esistenti in Mythrender; aggiunge
+   solo quanto manca per la nuova sezione (schermata eroe, combattimento,
+   stanze del dungeon, zaino). Nessuna regola esistente viene ridefinita.
+   ========================================================================= */
+.rpg-root{max-width:720px;margin:0 auto;padding-bottom:88px;position:relative}
+.rpg-content{padding:4px 2px 18px}
+.rpg-title{font-family:"Cinzel",serif;letter-spacing:.02em;color:var(--rpg-gold-bright);margin:10px 0 6px;font-size:20px}
+.rpg-hero-banner{text-align:center;padding:18px 0 10px}
+.rpg-logo-pixel{font-family:"Cinzel",serif;font-weight:700;letter-spacing:.3em;font-size:22px;color:var(--rpg-gold-bright);
+  text-shadow:0 0 18px var(--rpg-glow-gold,rgba(217,138,43,.55)),0 2px 6px rgba(0,0,0,.6)}
+.rpg-tagline{color:var(--muted);font-size:12.5px;margin-top:4px;letter-spacing:.04em}
+
+/* ---- barra risorse / PF / PE ---- */
+.rpg-topbar{background:linear-gradient(180deg,var(--panel),var(--panelA));border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px;margin:8px 0 14px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.rpg-topbar-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap}
+.rpg-topbar-name{font-family:"Cinzel",serif;color:var(--ink);font-size:14px}
+.rpg-topbar-res{display:flex;gap:12px;font-size:13px;color:var(--ink2)}
+.rpg-bar{position:relative;height:16px;border-radius:8px;background:rgba(0,0,0,.35);overflow:hidden;margin-bottom:6px;border:1px solid var(--line)}
+.rpg-bar:last-child{margin-bottom:0}
+.rpg-bar-fill{position:absolute;inset:0;width:0;border-radius:8px;transition:width .35s ease}
+.rpg-bar-hp .rpg-bar-fill{background:linear-gradient(90deg,var(--blood),var(--red2))}
+.rpg-bar-xp .rpg-bar-fill{background:linear-gradient(90deg,var(--arcane),var(--magic))}
+.rpg-bar-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;color:var(--rpg-text-primary,var(--ink));text-shadow:0 1px 2px rgba(0,0,0,.8);font-weight:600;letter-spacing:.02em}
+
+/* ---- navigazione inferiore fissa, pensata per il tocco ---- */
+.rpg-bottomnav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;
+  background:linear-gradient(180deg,var(--panelA),var(--panel));border-top:1px solid var(--line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:40;max-width:720px;margin:0 auto}
+.rpg-navbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;
+  color:var(--muted);padding:6px 2px;border-radius:10px;font-size:10.5px;cursor:pointer}
+.rpg-navbtn.active{color:var(--rpg-gold-bright);background:rgba(217,138,43,.12)}
+.rpg-navbtn-ico{font-size:18px;line-height:1}
+
+/* ---- pulsanti/azioni ---- */
+.rpg-cta{width:100%;margin-top:12px;padding:12px;border-radius:12px;font-size:14.5px}
+.rpg-pill-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.rpg-pill{border:1px solid var(--line);background:var(--panel);color:var(--ink2);border-radius:999px;
+  padding:7px 14px;font-size:13px;cursor:pointer}
+.rpg-pill.active{background:linear-gradient(180deg,var(--amber-l),var(--amber-d));color:#1a0f04;border-color:var(--amber-d);font-weight:600}
+.rpg-label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.06em}
+.rpg-input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:15px}
+
+/* ---- creazione personaggio / ritratto ---- */
+.rpg-create{text-align:center}
+.rpg-card{background:linear-gradient(180deg,var(--panel),var(--panelA));border:1px solid var(--line);
+  border-radius:16px;padding:16px;margin-top:10px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.rpg-portrait-preview{display:flex;justify-content:center;margin:14px 0 4px}
+.rpg-portrait{border-radius:14px;overflow:hidden;background:var(--panelA);border:1px solid var(--line);
+  display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(255,255,255,.03) inset}
+
+/* ---- scheda eroe (home) ---- */
+.rpg-hero-card{display:flex;align-items:center;gap:14px;text-align:left}
+.rpg-hero-card-name{font-family:"Cinzel",serif;font-size:17px;color:var(--rpg-gold-bright)}
+.rpg-hero-card-sub{font-size:12.5px;color:var(--ink2);margin-top:2px}
+.rpg-hero-card-sub.muted{color:var(--muted)}
+.rpg-checkpoint-note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
+
+/* ---- città / tile menu ---- */
+.rpg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.rpg-tile{background:linear-gradient(180deg,var(--panel),var(--panelA));border:1px solid var(--line);
+  border-radius:14px;padding:14px 10px;text-align:center;cursor:pointer;color:var(--ink);
+  transition:transform .12s ease,box-shadow .12s ease}
+.rpg-tile:active{transform:scale(.97)}
+.rpg-tile-ico{font-size:26px;margin-bottom:4px}
+.rpg-tile-title{font-family:"Cinzel",serif;font-size:13.5px;color:var(--rpg-gold-bright)}
+.rpg-tile-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+
+/* ---- righe negozio/forgia/inventario ---- */
+.rpg-shop-row,.rpg-item-row{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:10px 4px;border-bottom:1px solid var(--line)}
+.rpg-shop-row:last-child,.rpg-item-row:last-child{border-bottom:none}
+.rpg-shop-row.owned{opacity:.55}
+.rpg-shop-name{font-size:13.5px;color:var(--ink)}
+.rpg-item-main{flex:1;min-width:0}
+.rpg-item-name{font-size:13.5px;font-weight:600}
+.rpg-item-row.unknown{opacity:.4;font-style:italic}
+.rpg-item-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* ---- missione gilda ---- */
+.rpg-quest-title{font-family:"Cinzel",serif;color:var(--rpg-gold-bright);font-size:14px;margin-bottom:8px}
+
+/* ---- selezione / stanza dungeon ---- */
+.rpg-dungeon-row{text-align:left}
+.rpg-dungeon-row.locked{opacity:.5}
+.rpg-dungeon-name{font-family:"Cinzel",serif;font-size:15px;color:var(--rpg-gold-bright);margin-bottom:4px}
+.rpg-dungeonroom{padding-bottom:12px}
+.rpg-room-art{height:150px;border-radius:14px;margin:10px 0;border:1px solid var(--line);
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--rpg-dungeon-accent, var(--gold)) 25%, transparent), transparent 55%),
+    linear-gradient(180deg, var(--rpg-dungeon-wall, var(--panelA)), var(--rpg-dungeon-floor, var(--bg)));
+  box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
+.rpg-room-actions{display:flex;flex-direction:column;gap:8px}
+
+/* ---- combattimento ---- */
+.rpg-combat{padding-bottom:12px}
+.rpg-combat-stage{background:radial-gradient(circle at 50% 20%, rgba(255,80,40,.08), transparent 60%),
+  linear-gradient(180deg,var(--panelA),var(--bg));border:1px solid var(--line);border-radius:16px;
+  padding:16px;text-align:center;margin-bottom:10px}
+.rpg-enemy-name{font-family:"Cinzel",serif;color:var(--red2);font-size:15px;margin-bottom:8px}
+.rpg-enemy-art{height:96px;border-radius:12px;margin:0 auto 10px;max-width:220px;
+  background:radial-gradient(circle,rgba(255,255,255,.06),transparent 70%);
+  display:flex;align-items:center;justify-content:center;font-size:44px}
+.rpg-enemy-art::before{content:"👹";filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))}
+.rpg-combat-hero{text-align:center;margin-bottom:10px}
+.rpg-combat-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.rpg-combat-actions .btn{width:100%}
+.rpg-combat-log{background:var(--panelA);border:1px solid var(--line);border-radius:12px;
+  padding:10px 12px;max-height:160px;overflow-y:auto;font-size:12.5px;display:flex;flex-direction:column;gap:4px}
+.rpg-log-line{color:var(--ink2)}
+.rpg-log-line.hit{color:var(--emerald)}
+.rpg-log-line.enemyhit{color:var(--red2)}
+.rpg-log-line.heal{color:var(--magic)}
+.rpg-log-line.buff{color:var(--rpg-gold-bright)}
+.rpg-log-line.flee{color:var(--muted)}
+
+/* ---- sconfitta / salita di livello ---- */
+.rpg-dead{text-align:center;padding-top:30px}
+.rpg-dead-banner{font-family:"Cinzel",serif;font-size:26px;letter-spacing:.08em;color:var(--red2);
+  text-shadow:0 0 24px rgba(255,59,48,.4);margin-bottom:10px}
+.rpg-dead-banner.good{color:var(--rpg-gold-bright);text-shadow:0 0 24px var(--rpg-glow-gold,rgba(217,138,43,.5))}
+.rpg-levelup{padding-top:16px;text-align:center}
+
+/* ---- scheda personaggio ---- */
+.rpg-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.rpg-stat{background:var(--panelA);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.rpg-stat-label{font-size:10.5px;color:var(--muted);letter-spacing:.06em}
+.rpg-stat-val{font-family:"Cinzel",serif;font-size:16px;color:var(--rpg-gold-bright)}
+.rpg-danger-zone{margin-top:22px;padding-top:14px;border-top:1px dashed var(--line)}
+
+@media (max-width: 480px){
+  .rpg-grid{grid-template-columns:repeat(2,1fr)}
+  .rpg-combat-actions{grid-template-columns:1fr 1fr}
+  .rpg-hero-card{flex-direction:row}
+}
+
 </style>
 
 <!-- Multiplayer opzionale (Supabase): salvataggio cloud e sincronizzazione in tempo reale delle
@@ -2046,6 +2187,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     <button class="nav-item game-dnd" data-view="forge"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h9l3-2 4 1-1 3-3-1-1 1H8"/><path d="M8 13v3H6v3h9v-3h-2v-3"/><path d="M14.5 8.5L17 6"/></svg></span><span class="label">Forgia</span></button>
     <div class="nav-divider game-dnd"></div>
     <div class="nav-chapter game-dnd">Avventura</div>
+    <button class="nav-item" data-view="rpg"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2 4 4.5.6-3.2 3.2.9 4.4L12 12l-4.2 2.2.9-4.4L5.5 6.6 10 6z"/><path d="M6 15l-2 6 4-2 2 2 2-2 2 2 2-2 4 2-2-6"/></svg></span><span class="label">Dungeon della Discesa</span></button>
     <button class="nav-item" data-view="explore"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6 6-2z"/></svg></span><span class="label">Esplora Dungeon</span></button>
     <button class="nav-item" data-view="tavolo"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="9" r="2"/><path d="M8.5 15c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg></span><span class="label">Tavolo</span></button>
     <button class="nav-item game-dnd" data-view="community"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="2.6"/><circle cx="17" cy="10.5" r="2.2"/><path d="M3.5 19c.6-3 2.4-4.6 4.5-4.6s3.9 1.6 4.5 4.6"/><path d="M13.8 19c.4-2.2 1.7-3.4 3.2-3.4s2.8 1.2 3.2 3.4"/></svg></span><span class="label">Community</span></button>
@@ -4893,6 +5035,11 @@ let STATE = { characters:[], customItems:[], customMonsters:[], customSpells:[],
   // nello stesso spirito di isolamento tra i due giochi. Salvate/esportate/importate/azzerate
   // insieme al resto (vedi gli altri punti dello STATE che citano customMonsters).
   pfCustomMonsters:[], pfCustomItems:[], pfCustomSpells:[],
+  // Dungeon della Discesa (mini-RPG dungeon crawler, estratto dal prototipo base44 di Carmine
+  // "Mythrender RPG"): eroe, inventario, bestiario incontrato e log battaglie. Sistema a parte,
+  // sincronizzato sull'account come il resto (vedi mpSanitizeAccountStateForCloud/
+  // mpApplyCloudAccountState) ma mai mescolato con i dati D&D/Pathfinder qui sopra.
+  rpg:null,
   // Gioco attivo in questa sessione ("dnd" o "pathfinder"): come STATE.mode, viene richiesto
   // di nuovo ad ogni avvio (vedi loadState) tramite la schermata renderGameGate(). Finché non è
   // impostato, l'app non mostra nessuna delle due interfacce: sono due "app dentro l'app"
@@ -5050,6 +5197,1055 @@ function applyTheme(){
   }
 }
 
+
+
+/* =========================================================================
+   MYTHRENDER RPG — Dungeon della Discesa
+   -------------------------------------------------------------------------
+   Nuova sezione "Avventura": un dungeon crawler a turni con dadi reali,
+   ispirato al prototipo che Carmine ha costruito su base44 (dice-vault-core,
+   poi rinominato "Mythrender RPG" anche li') e che lui stesso ha esteso con
+   uno stile dark-fantasy e arte dei mostri in SVG. Qui viene ricostruito da
+   zero dentro l'app principale (stesso impianto dati/formule, estratti dal
+   bundle pubblico del prototipo e documentati in
+   claude/mythrender-rpg/00_spec_estratta_dicevault.md nel progetto), così i
+   progressi si salvano e sincronizzano con lo stesso account multiplayer di
+   tutto il resto di Mythrender, invece di dipendere da un progetto base44
+   separato (free tier, nessuna validazione server-side, nessun backup).
+   ========================================================================= */
+
+/* ---- Classi: dado arma iniziale, HP base, et abilita' sbloccate per livello ---- */
+/* =========================================================================
+   MYTHRENDER RPG — audio (effetti + ambientazione)
+   -------------------------------------------------------------------------
+   Riusa l'infrastruttura Howler.js già presente in Mythrender (sfxLoad(),
+   vedi "Suoni del tavolo"): stessi file CC0/licenza libera ospitati come
+   asset separati nel repo (assets/sfx/), mai incorporati in questo
+   documento, caricati pigramente al primo utilizzo. Qui si aggiungono solo
+   le chiavi nuove per il dungeon crawler, più un interruttore dedicato
+   (STATE.rpg.sfxOn) per non imporre l'audio a chi non lo vuole.
+   ========================================================================= */
+const RPG_SFX_FILES = {
+  "rpg-hit":"rpg-hit.mp3", "rpg-heal":"rpg-heal.mp3", "rpg-levelup":"rpg-levelup.mp3",
+  "rpg-victory":"rpg-victory.mp3", "rpg-defeat":"rpg-defeat.mp3", "rpg-coin":"rpg-coin.mp3",
+  "rpg-boss":"rpg-boss.mp3"
+};
+const RPG_AMBIENT_FILES = { "rpg-town":"rpg-town.mp3", "dungeon":"dungeon.ogg" /* già esistente in Mythrender */ };
+let RPG_CURRENT_AMBIENT = null;
+function rpgSfxOn(){ return !STATE.rpg || STATE.rpg.sfxOn!==false; }
+function rpgSfxPlay(key){
+  if(!rpgSfxOn()) return;
+  const file = RPG_SFX_FILES[key]; if(!file) return;
+  try{ sfxPlayOnce(key, file); }catch(e){ /* audio opzionale: un fallimento di rete non deve mai bloccare il gioco */ }
+}
+/* Avvia un loop ambientale fermando quello precedente (mai due loop insieme); passare null ferma tutto. */
+function rpgAmbientSet(key){
+  if(RPG_CURRENT_AMBIENT===key) return;
+  try{ if(RPG_CURRENT_AMBIENT && SFX_HOWLS[RPG_CURRENT_AMBIENT]) SFX_HOWLS[RPG_CURRENT_AMBIENT].stop(); }catch(e){}
+  RPG_CURRENT_AMBIENT = key;
+  if(!key || !rpgSfxOn()) return;
+  const file = RPG_AMBIENT_FILES[key]; if(!file) return;
+  try{ const h=sfxLoad(key, file, true); h.volume(key==="rpg-town"?0.35:0.3); h.play(); }catch(e){}
+}
+function rpgSfxToggle(){
+  STATE.rpg.sfxOn = !rpgSfxOn();
+  if(!STATE.rpg.sfxOn){ rpgAmbientSet(null); } else { rpgAmbientReflectScreen(); }
+  persist(); render();
+}
+/* Richiamata da rpgGo(): decide l'ambientazione giusta in base alla schermata di destinazione. */
+function rpgAmbientReflectScreen(){
+  const s = STATE.rpg && STATE.rpg.screen;
+  if(s==="dungeon" || s==="combat") rpgAmbientSet("dungeon");
+  else if(["town","shop","forge","guild","inn","temple"].includes(s)) rpgAmbientSet("rpg-town");
+  else rpgAmbientSet(null);
+}
+
+
+const RPG_CLASSES = {
+  Fighter:   { weapon:"1d8",  hpBase:12 },
+  Wizard:    { weapon:"1d6",  hpBase:8  },
+  Rogue:     { weapon:"1d6",  hpBase:10 },
+  Cleric:    { weapon:"1d6",  hpBase:10 },
+  Ranger:    { weapon:"1d8",  hpBase:10 },
+  Barbarian: { weapon:"1d10", hpBase:14 }
+};
+const RPG_CLASS_NAMES = Object.keys(RPG_CLASSES);
+const RPG_CLASS_LABEL = { Fighter:"Guerriero", Wizard:"Mago", Rogue:"Ladro", Cleric:"Chierico", Ranger:"Ranger", Barbarian:"Barbaro" };
+
+const RPG_RACES = ["Human","Elf","Dwarf","Halfling","Dragonborn","Tiefling"];
+const RPG_RACE_LABEL = { Human:"Umano", Elf:"Elfo", Dwarf:"Nano", Halfling:"Halfling", Dragonborn:"Draconide", Tiefling:"Tiefling" };
+/* Palette per il ritratto generato via SVG (pelle/capelli, corna per i Tiefling, squame per i Draconidi) */
+const RPG_RACE_PALETTE = {
+  Human:{skin:"#e8b48a",hair:"#4a2a12"},
+  Elf:{skin:"#f0d0b0",hair:"#ded6a0",ears:true},
+  Dwarf:{skin:"#d8a070",hair:"#9a4f22",beard:"#b06030"},
+  Halfling:{skin:"#e8c0a0",hair:"#8a5a2a"},
+  Dragonborn:{skin:"#7a9a5a",hair:"#3a5a2a",scales:true},
+  Tiefling:{skin:"#c07a8a",hair:"#2a1020",horns:true}
+};
+const RPG_CLASS_PALETTE = {
+  Fighter:{tunic:"#8a8a9a",trim:"#c8c8d8",weapon:"#c8c8d8",helm:true},
+  Wizard:{tunic:"#4a4a9a",trim:"#d4af58",weapon:"#8a6a3a",hat:true},
+  Rogue:{tunic:"#4a4a5a",trim:"#2a2a3a",weapon:"#c0c0d0",hood:true},
+  Cleric:{tunic:"#d8d0a0",trim:"#d4af58",weapon:"#8a6a3a"},
+  Ranger:{tunic:"#5a6a3a",trim:"#3a4a2a",weapon:"#8a6a3a",hood:true},
+  Barbarian:{tunic:"#6a4a3a",trim:"#3a2a1a",weapon:"#a0a0b0"}
+};
+
+/* ---- Formule base ---- */
+// Esperienza cumulativa richiesta per un livello: round(60 * livello^1.65). Oltre il 20 resta fermo.
+function rpgXpForLevel(lvl){ return lvl>=20 ? Infinity : Math.round(60*Math.pow(lvl,1.65)); }
+// Dato un pg, livello corrente dedotto dall'xp totale accumulata.
+function rpgLevelFromXp(xp){ let l=1; while(l<20 && xp>=rpgXpForLevel(l+1)) l++; return l; }
+
+/* Parser/tiratore dadi testuale "NdM+mod" (M puo' essere assente -> 1dM), riusa rollDie() gia'
+   esistente nell'app per il singolo dado, cosi' il generatore casuale resta lo stesso di sempre. */
+function rpgRollDice(expr){
+  const m = String(expr).match(/(\d*)d(\d+)([+-]\d+)?/);
+  if(!m) return {total:0, rolls:[], mod:0};
+  const n = parseInt(m[1]||"1",10), f = parseInt(m[2],10), mod = m[3]?parseInt(m[3],10):0;
+  const rolls=[]; let total=mod;
+  for(let i=0;i<n;i++){ const r=rollDie(f); rolls.push(r); total+=r; }
+  return {total, rolls, mod};
+}
+// Scala un'espressione dado moltiplicando il NUMERO di dadi (usato per il ridimensionamento dei mostri).
+function rpgScaleDice(expr, mult=1){
+  const m = String(expr).match(/(\d*)d(\d+)([+-]\d+)?/);
+  if(!m) return expr;
+  const n = Math.max(1, parseInt(m[1]||"1",10)*mult);
+  return n+"d"+m[2]+(m[3]||"");
+}
+
+/* ---- Bestiario comune: hp/ac/atk/dmg/xp di base al livello minimo d'incontro, famiglia e lore ---- */
+const RPG_MONSTERS = [
+  {name:"Goblin",       hp:9,  ac:11, atk:3,  dmg:"1d6",    xp:12,  sprite:"goblin",    minLevel:1,  family:"Umanoidi", tier:"Comune",      lore:"Uno sciacallo di fogna che vive di quel che gli altri abbandonano."},
+  {name:"Skeleton",     hp:12, ac:12, atk:4,  dmg:"1d6+1",  xp:20,  sprite:"skeleton",  minLevel:3,  family:"Non Morti", tier:"Comune",      lore:"Ossa tenute insieme da un giuramento mai sciolto."},
+  {name:"Dire Wolf",    hp:16, ac:13, atk:4,  dmg:"1d6+2",  xp:34,  sprite:"beast",     minLevel:4,  family:"Bestie",    tier:"Non comune",  lore:"Caccia in branco anche quando è solo: il branco è nella memoria."},
+  {name:"Giant Spider", hp:14, ac:13, atk:4,  dmg:"1d4+2",  xp:30,  sprite:"spider",    minLevel:5,  family:"Bestie",    tier:"Non comune",  lore:"Fila le sue ragnatele con la seta dei propri nidi."},
+  {name:"Gnoll",        hp:18, ac:13, atk:5,  dmg:"1d8",    xp:42,  sprite:"gnoll",     minLevel:7,  family:"Umanoidi",  tier:"Non comune",  lore:"Ride mentre caccia. Il suono resta più a lungo della preda."},
+  {name:"Orc",          hp:22, ac:14, atk:6,  dmg:"1d8+1",  xp:58,  sprite:"orc",       minLevel:9,  family:"Umanoidi",  tier:"Raro",        lore:"Forgia le armi col metallo dei propri morti."},
+  {name:"Hellhound",    hp:26, ac:14, atk:7,  dmg:"1d8+2",  xp:76,  sprite:"demon",     minLevel:11, family:"Demoni",    tier:"Raro",        lore:"Ogni suo passo lascia un'orma che continua a bruciare."},
+  {name:"Wraith",       hp:28, ac:15, atk:7,  dmg:"1d10+2", xp:82,  sprite:"wraith",    minLevel:12, family:"Non Morti", tier:"Raro",        lore:"Un rancore che ha dimenticato il proprio nome."},
+  {name:"Stone Golem",  hp:40, ac:17, atk:7,  dmg:"1d10+2", xp:100, sprite:"golem",     minLevel:13, family:"Costrutti", tier:"Epico",       lore:"Costruito per durare più a lungo di chi lo ha costruito."},
+  {name:"Troll",        hp:36, ac:15, atk:8,  dmg:"1d10+3", xp:115, sprite:"troll",     minLevel:14, family:"Bestie",    tier:"Epico",       lore:"Le sue ferite si chiudono prima che tu riesca a guardarle."},
+  {name:"Ember Elemental", hp:38, ac:15, atk:9, dmg:"2d6",  xp:130, sprite:"elemental", minLevel:15, family:"Elementali", tier:"Epico",      lore:"Non cammina: si propaga, come fa il fuoco."},
+  {name:"Basilisk",     hp:44, ac:16, atk:9,  dmg:"2d6+2",  xp:155, sprite:"basilisk",  minLevel:16, family:"Elementali", tier:"Epico",      lore:"Il suo sguardo pietrifica, il suo fiato dissolve la pietra."},
+  {name:"Dragon Whelp", hp:52, ac:17, atk:10, dmg:"2d8+2",  xp:210, sprite:"dragon",    minLevel:18, family:"Draghi",    tier:"Leggendario", lore:"Un cucciolo solo di nome: ha già bruciato un villaggio."},
+  {name:"Lich",         hp:64, ac:18, atk:11, dmg:"2d8+4",  xp:290, sprite:"lich",      minLevel:20, family:"Non Morti", tier:"Leggendario", lore:"Ha barattato il riposo con l'eternità. Nessuno gli ha detto il prezzo."}
+];
+function rpgMonsterData(name){ return RPG_MONSTERS.find(m=>m.name===name) || RPG_MONSTERS[0]; }
+
+/* ---- Boss unici: uno sbloccato ogni 10 profondita' ---- */
+const RPG_BOSSES = [
+  {name:"Grulk the Maw",         sprite:"orc",      minLevel:1,  title:"Guardiano del Primo Abisso"},
+  {name:"Necromancer Vhal",      sprite:"lich",     minLevel:8,  title:"Custode del Coro d'Ossa"},
+  {name:"Molvath the Impaler",   sprite:"demon",    minLevel:12, title:"Guardiano del Portale d'Ambra"},
+  {name:"Wyrmlord Kaelthas",     sprite:"dragon",   minLevel:15, title:"Flagello dell'Abisso"},
+  {name:"The Hollow Colossus",   sprite:"golem",    minLevel:18, title:"Ultimo Sentinella dell'Abisso"},
+  {name:"Nihil, the Endless",    sprite:"lich",     minLevel:20, title:"Divoratore di Nomi"}
+];
+function rpgBossFor(level){ const list=RPG_BOSSES.filter(b=>b.minLevel<=level); return list[list.length-1]||RPG_BOSSES[0]; }
+
+/* ---- Dungeon: pool di mostri propri, moltiplicatore difficolta', bias risorse, palette ---- */
+const RPG_DUNGEONS = [
+  {id:"crypt", name:"Cripta Sommersa", desc:"Corridoi aridi di ossa sotto la vecchia cappella.", minLevel:1,  mult:1,    xpMult:1,    bias:{herb:3,ore:1}, pool:["Goblin","Skeleton","Giant Spider","Dire Wolf"],
+    palette:{floor:"#151d34",wall:"#0e1428",accent:"#d4af58"}},
+  {id:"mines", name:"Miniere di Brace", desc:"Fornaci ancora accese nel buio.", minLevel:3,  mult:1.15, xpMult:1.15, bias:{herb:1,ore:3}, pool:["Skeleton","Gnoll","Giant Spider","Orc","Hellhound","Stone Golem"],
+    palette:{floor:"#2a1a14",wall:"#180e0a",accent:"#e08a30"}},
+  {id:"frost", name:"Rovine Gelate",   desc:"Sale ghiacciate dove nulla si decompone.", minLevel:6,  mult:1.3,  xpMult:1.3,  bias:{herb:2,ore:2}, pool:["Dire Wolf","Giant Spider","Wraith","Stone Golem","Troll"],
+    palette:{floor:"#1a2a3a",wall:"#0e1a28",accent:"#8ad0e8"}},
+  {id:"void",  name:"Santuario del Vuoto", desc:"Una cattedrale di stelle che non dovrebbero brillare.", minLevel:10, mult:1.45, xpMult:1.45, bias:{herb:2,ore:2}, pool:["Wraith","Hellhound","Troll","Ember Elemental","Lich","Dragon Whelp"],
+    palette:{floor:"#1e1430",wall:"#120b20",accent:"#b07ae8"}},
+  {id:"ashen", name:"Cittadella di Cenere", desc:"Il trono di ciò che ha divorato gli dèi.", minLevel:15, mult:1.6,  xpMult:1.6,  bias:{herb:1,ore:4}, pool:["Orc","Hellhound","Stone Golem","Ember Elemental","Basilisk","Dragon Whelp","Lich"],
+    palette:{floor:"#2a1410",wall:"#160806",accent:"#ff7030"}}
+];
+function rpgDungeon(id){ return RPG_DUNGEONS.find(d=>d.id===id) || RPG_DUNGEONS[0]; }
+
+/* Genera un incontro per il dungeon/profondita' indicati: pesca dal pool, applica scala profondita'
+   e probabilita' di variante "elite" (fino al 35%, cresce con la profondita'). */
+function rpgRollEncounter(dungeonId, depth){
+  const d = rpgDungeon(dungeonId);
+  const pool = RPG_MONSTERS.filter(m=>(d.pool||[]).includes(m.name));
+  const avail = pool.filter(m=>m.minLevel<=depth);
+  const choices = (avail.length?avail:pool.slice(0,1)).slice(-3);
+  const base = choices[Math.floor(Math.random()*choices.length)] || RPG_MONSTERS[0];
+  const elite = Math.random() < Math.min(.35, .08+depth*.01);
+  return rpgScaleMonster(base, depth, d, elite);
+}
+function rpgScaleMonster(base, depth, dungeon, elite=false){
+  const mult = (dungeon&&dungeon.mult)||1;
+  const hp = Math.round(base.hp*(1+.26*(depth-1))*mult*(elite?1.6:1));
+  return {
+    name: elite ? "Elite "+base.name : base.name, baseName:base.name, sprite:base.sprite,
+    maxHp:hp, hp,
+    ac: base.ac + Math.floor((depth-1)/3) + (elite?1:0),
+    atk: base.atk + Math.floor((depth-1)/2) + (elite?2:0),
+    dmg: rpgScaleDice(base.dmg, 1+Math.floor(depth/6)),
+    xp: Math.round(base.xp*(1+.3*(depth-1))*((dungeon&&dungeon.xpMult)||1)*(elite?2.5:1)),
+    elite, boss:false
+  };
+}
+function rpgRollBoss(level, dungeon){
+  const b = rpgBossFor(level);
+  const mult = ((dungeon&&dungeon.mult)||1)*1.25;
+  const hp = Math.round(30*(1+.3*(level-1))*mult);
+  return {
+    name:b.name, title:b.title, sprite:b.sprite, maxHp:hp, hp,
+    ac: 11+Math.floor(level*.7), atk: 4+Math.floor(level*.6),
+    dmg: rpgScaleDice("1d10", 1+Math.floor(level/8)),
+    xp: Math.round(150*(1+.4*(level-1))*((dungeon&&dungeon.xpMult)||1)),
+    boss:true, elite:false,
+    special:{name:"Colpo Devastante", chance:.3, mult:2}
+  };
+}
+
+/* ---- Negozio: armi e armature a livelli progressivi (costo oro + minerale) ---- */
+const RPG_SHOP_WEAPONS = [
+  {name:"Spada Arrugginita", die:"1d8",  cost:0,    ore:0},
+  {name:"Lama d'Acciaio",    die:"1d10", cost:120,  ore:3},
+  {name:"Ascia di Mithril",  die:"1d12", cost:300,  ore:6},
+  {name:"Zannadrago",        die:"2d6",  cost:700,  ore:10},
+  {name:"Glaivia Runica",    die:"2d8",  cost:1400, ore:16},
+  {name:"Mietitrice d'Acciaiovuoto", die:"2d10", cost:2600, ore:24},
+  {name:"Lama Divinacciaio", die:"3d8",  cost:4800, ore:36}
+];
+const RPG_SHOP_ARMORS = [
+  {name:"Cuoio",             ac:0,  cost:0,    ore:0},
+  {name:"Maglia di Ferro",   ac:2,  cost:100,  ore:3},
+  {name:"Piastra",           ac:4,  cost:280,  ore:6},
+  {name:"Piastra di Mithril",ac:6,  cost:650,  ore:10},
+  {name:"Pelle di Drago",    ac:8,  cost:1300, ore:16},
+  {name:"Egida dell'Alba",   ac:10, cost:2400, ore:24},
+  {name:"Egida Divinacciaio",ac:12, cost:4500, ore:36}
+];
+/* Equip da bottino (elmi/guanti/stivali/accessori), 3 livelli di qualita' ciascuno */
+const RPG_LOOT_EQUIP = [
+  {name:"Cappuccio Liso",       slot:"helm",      tier:0, ac:1, value:40,  icon:"helm"},
+  {name:"Elmo di Ferro",        slot:"helm",      tier:1, ac:2, value:110, icon:"helm"},
+  {name:"Corona d'Ossidrago",   slot:"helm",      tier:2, ac:3, value:300, icon:"helm"},
+  {name:"Fasce di Cuoio",       slot:"gloves",    tier:0, atk:1, value:45,  icon:"gloves"},
+  {name:"Guanti del Vigore",    slot:"gloves",    tier:1, atk:2, value:130, icon:"gloves"},
+  {name:"Presa di Tempestapelle", slot:"gloves",  tier:2, atk:3, value:340, icon:"gloves"},
+  {name:"Stivali Consumati",    slot:"boots",     tier:0, ac:1, value:45,  icon:"boots"},
+  {name:"Stivali del Passo Rapido", slot:"boots", tier:1, ac:1, atk:1, value:140, icon:"boots"},
+  {name:"Incedivuoto",          slot:"boots",     tier:2, ac:2, value:360, icon:"boots"},
+  {name:"Talismano d'Osso",     slot:"accessory", tier:0, ac:1, value:60,  icon:"charm"},
+  {name:"Sigillo di Brace",     slot:"accessory", tier:1, atk:2, value:160, icon:"charm"},
+  {name:"Lacrima dell'Abisso",  slot:"accessory", tier:2, ac:2, atk:2, value:400, icon:"charm"}
+];
+/* Reliquie: solo valore di vendita, nessun effetto statistico */
+const RPG_RELICS = [
+  {name:"Orecchio di Goblin", value:5}, {name:"Frammento d'Osso", value:8}, {name:"Seta di Ragno", value:12},
+  {name:"Zanna d'Orco", value:18}, {name:"Essenza di Spettro", value:30}, {name:"Scaglia di Drago", value:60},
+  {name:"Scheggia del Vuoto", value:110}, {name:"Scaglia Divinacciaio", value:180}
+];
+const RPG_RARITY = {
+  common:{label:"Comune", color:"var(--ink2)"}, uncommon:{label:"Non comune", color:"var(--emerald)"},
+  rare:{label:"Raro", color:"var(--magic)"}, epic:{label:"Epico", color:"var(--arcane)"}, legendary:{label:"Leggendario", color:"var(--gold2)"}
+};
+function rpgRarityForTier(tier){ return tier>=2?"epic":tier===1?"uncommon":"common"; }
+function rpgRarityForValue(v){ return v>=150?"epic":v>=60?"rare":v>=20?"uncommon":"common"; }
+
+/* ---- Talenti (scelti alla salita di livello: uno ogni 2 livelli, 1 pendingChoice da spendere) ---- */
+const RPG_FEATS = [
+  {id:"tough",       name:"Robusto",         desc:"+2 PF massimi per livello"},
+  {id:"weapon_master",name:"Maestro d'Armi", desc:"+1 al colpire e +1 al danno"},
+  {id:"ironhide",    name:"Pellediferro",    desc:"+1 CA permanente"},
+  {id:"duelist",     name:"Duellante",       desc:"Colpo critico con 19-20"},
+  {id:"savage",      name:"Attaccante Selvaggio", desc:"+2 danno ad ogni colpo"},
+  {id:"arcane",      name:"Adepto Arcano",   desc:"+2 danno abilità, +1 uso abilità"},
+  {id:"berserker",   name:"Berserker",       desc:"+2 Attacco sotto metà dei PF"},
+  {id:"regen",       name:"Rigenerazione",   desc:"Recupera 2 PF ogni turno"},
+  {id:"lucky",       name:"Fortunato",       desc:"+1 a tutti i tiri di d20"},
+  {id:"executioner", name:"Giustiziere",     desc:"+50% danno ai nemici feriti"},
+  {id:"bulwark",     name:"Baluardo",        desc:"+3 CA quando ti difendi"},
+  {id:"fleet",       name:"Piè Veloce",      desc:"+5 ai tiri di fuga"}
+];
+function rpgFeatData(id){ return RPG_FEATS.find(f=>f.id===id); }
+function rpgFeatBonuses(hero){
+  const feats = hero.feats||[], has=id=>feats.includes(id);
+  return {
+    attackBonus: (has("weapon_master")?1:0)+(has("lucky")?1:0),
+    damageBonus: (has("weapon_master")?1:0)+(has("savage")?2:0),
+    critMin: has("duelist")?19:20,
+    skillDamageBonus: has("arcane")?2:0,
+    extraUses: has("arcane")?1:0,
+    berserker: has("berserker"), regen: has("regen")?2:0, lucky: has("lucky")?1:0,
+    executioner: has("executioner"), bulwark: has("bulwark")?3:0, fleeBonus: has("fleet")?5:0
+  };
+}
+
+/* ---- Abilita' di classe: sbloccate per livello, ad usi limitati per discesa (niente mana) ---- */
+const RPG_ABILITIES = {
+  Fighter:[
+    {id:"second_wind", name:"Secondo Fiato", minLevel:1, uses:1, type:"heal", dice:"1d10", stat:"con", desc:"Recupera 1d10 + COS PF"},
+    {id:"action_surge", name:"Scatto d'Azione", minLevel:3, uses:1, type:"attack", mult:1, hits:2, desc:"Due attacchi completi con l'arma"},
+    {id:"trip_attack", name:"Attacco Sgambetto", minLevel:5, uses:2, type:"attack", mult:1.5, debuff:{enemyAtk:-2,turns:2}, desc:"150% danno, -2 Attacco nemico"},
+    {id:"indomitable", name:"Indomabile", minLevel:8, uses:1, type:"buff", ac:4, turns:2, desc:"+4 CA per 2 turni"},
+    {id:"whirlwind", name:"Colpo Vorticoso", minLevel:12, uses:1, type:"attack", mult:1.3, hits:3, desc:"Tre colpi al 130%"},
+    {id:"avatar_of_war", name:"Avatar della Guerra", minLevel:16, uses:1, type:"attack", mult:3, desc:"300% del danno dell'arma"}
+  ],
+  Wizard:[
+    {id:"magic_missile", name:"Missile Incantato", minLevel:1, uses:2, type:"spell", dice:"1d4+1", stat:"int", hits:3, autoHit:true, desc:"Tre dardi che colpiscono sempre"},
+    {id:"shield", name:"Scudo Arcano", minLevel:3, uses:2, type:"buff", ac:5, turns:2, desc:"+5 CA per 2 turni"},
+    {id:"fireball", name:"Palla di Fuoco", minLevel:5, uses:1, type:"spell", dice:"4d6", stat:"int", desc:"4d6 + INT danno da fuoco"},
+    {id:"scorching_ray", name:"Raggio Ardente", minLevel:8, uses:2, type:"spell", dice:"2d6", stat:"int", hits:3, desc:"Tre raggi da 2d6 + INT"},
+    {id:"ice_storm", name:"Tempesta di Ghiaccio", minLevel:12, uses:1, type:"spell", dice:"5d8", stat:"int", debuff:{enemyAtk:-3,turns:2}, desc:"5d8 + INT, -3 Attacco nemico"},
+    {id:"disintegrate", name:"Disintegrazione", minLevel:16, uses:1, type:"spell", dice:"8d6+10", stat:"int", desc:"8d6+10 + INT danno di forza"}
+  ],
+  Rogue:[
+    {id:"sneak_attack", name:"Attacco Furtivo", minLevel:1, uses:2, type:"attack", mult:2, desc:"200% del danno dell'arma"},
+    {id:"cunning_action", name:"Azione Astuta", minLevel:1, uses:2, type:"buff", ac:4, turns:2, desc:"+4 CA per 2 turni"},
+    {id:"poisoned_blade", name:"Lama Avvelenata", minLevel:3, uses:2, type:"attack", mult:1, dot:{dice:"1d6",turns:3}, desc:"1d6 veleno per 3 turni"},
+    {id:"uncanny_dodge", name:"Schivata Prodigiosa", minLevel:5, uses:2, type:"buff", ac:6, turns:1, desc:"+6 CA per 1 turno"},
+    {id:"assassinate", name:"Assassinio", minLevel:8, uses:1, type:"attack", mult:3, desc:"300% del danno dell'arma"},
+    {id:"death_strike", name:"Colpo Mortale", minLevel:16, uses:1, type:"attack", mult:2, hits:2, desc:"Due colpi al 200%"}
+  ],
+  Cleric:[
+    {id:"cure_wounds", name:"Cura Ferite", minLevel:1, uses:2, type:"heal", dice:"1d8+2", stat:"wis", desc:"Recupera 1d8+2 + SAG PF"},
+    {id:"bless", name:"Benedizione", minLevel:1, uses:2, type:"buff", atk:2, turns:3, desc:"+2 Attacco per 3 turni"},
+    {id:"guiding_bolt", name:"Dardo Guida", minLevel:3, uses:2, type:"spell", dice:"2d6", stat:"wis", desc:"2d6 + SAG danno radiante"},
+    {id:"spirit_guardians", name:"Spiriti Guardiani", minLevel:8, uses:1, type:"spell", dice:"2d8", stat:"wis", dot:{dice:"1d6",turns:3}, desc:"2d8 + SAG, 1d6 a turno"},
+    {id:"flame_strike", name:"Colonna di Fuoco", minLevel:12, uses:1, type:"spell", dice:"4d6", stat:"wis", desc:"4d6 + SAG danno da fuoco"},
+    {id:"sunburst", name:"Esplosione Solare", minLevel:16, uses:1, type:"spell", dice:"6d8", stat:"wis", debuff:{enemyAtk:-3,turns:2}, desc:"6d8 + SAG, -3 Attacco nemico"}
+  ],
+  Ranger:[
+    {id:"hunters_mark", name:"Marchio del Cacciatore", minLevel:1, uses:2, type:"buff", atk:2, turns:3, desc:"+2 Attacco per 3 turni"},
+    {id:"ensnaring_strike", name:"Colpo Intrappolante", minLevel:1, uses:2, type:"attack", mult:1, dot:{dice:"1d6",turns:3}, desc:"1d6 danno da spine a turno"},
+    {id:"aimed_shot", name:"Tiro Mirato", minLevel:3, uses:2, type:"attack", mult:2, desc:"200% danno a distanza"},
+    {id:"volley", name:"Raffica", minLevel:5, uses:1, type:"attack", mult:.85, hits:3, desc:"Tre tiri rapidi"},
+    {id:"lightning_arrow", name:"Freccia Fulminante", minLevel:8, uses:2, type:"attack", mult:1, bonusDice:"3d8", desc:"Danno arma + 3d8 fulmine"},
+    {id:"swift_quiver", name:"Faretra Rapida", minLevel:12, uses:1, type:"attack", mult:.9, hits:4, desc:"Quattro tiri rapidi"},
+    {id:"foe_slayer", name:"Flagello dei Nemici", minLevel:16, uses:1, type:"attack", mult:3, desc:"300% del danno dell'arma"}
+  ],
+  Barbarian:[
+    {id:"rage", name:"Furia", minLevel:1, uses:2, type:"buff", atk:3, turns:3, desc:"+3 Attacco per 3 turni"},
+    {id:"reckless_attack", name:"Attacco Avventato", minLevel:1, uses:2, type:"attack", mult:1.6, selfDebuff:{ac:-2,turns:2}, desc:"160% danno, -2 CA"},
+    {id:"frenzy", name:"Frenesia", minLevel:3, uses:1, type:"attack", mult:1.3, hits:2, desc:"Due colpi al 130%"},
+    {id:"intimidating_presence", name:"Presenza Intimidatoria", minLevel:5, uses:1, type:"debuff", enemyAtk:-3, turns:3, desc:"-3 Attacco nemico per 3 turni"},
+    {id:"brutal_critical", name:"Critico Brutale", minLevel:8, uses:1, type:"attack", mult:2.5, desc:"250% del danno dell'arma"},
+    {id:"relentless_rage", name:"Furia Inarrestabile", minLevel:12, uses:1, type:"heal", dice:"3d8", stat:"con", desc:"Recupera 3d8 + COS PF"},
+    {id:"rampage", name:"Rampage", minLevel:16, uses:1, type:"attack", mult:1.5, hits:3, desc:"Tre colpi al 150%"}
+  ]
+};
+function rpgAbilitiesUnlocked(klass, level){ return (RPG_ABILITIES[klass]||[]).filter(a=>a.minLevel<=level); }
+function rpgNextAbility(klass, level){ return (RPG_ABILITIES[klass]||[]).find(a=>a.minLevel>level); }
+
+/* ---- Crafting (Forgia) ---- */
+const RPG_CRAFT = {
+  potionFromHerbs:{herbs:3, gold:20},
+  weaponFromOre:{ore:5, gold:100},
+  armorFromOre:{ore:4, gold:80}
+};
+
+/* ---- Genera una nuova missione della gilda per il livello corrente ---- */
+function rpgNewQuest(level){
+  const pool = RPG_MONSTERS.filter(m=>m.minLevel<=level).slice(-4).map(m=>m.name);
+  const target = pool[Math.floor(Math.random()*pool.length)] || "Goblin";
+  const needed = 3+Math.floor(level/2);
+  return { target, needed, count:0, rewardGold: needed*25+level*10, rewardXp: needed*20+level*8 };
+}
+
+/* ---- Scheda personaggio: eroe nuovo di zecca ---- */
+function rpgNewHero(name, race, klass){
+  const cls = RPG_CLASSES[klass]||RPG_CLASSES.Fighter;
+  const hp = cls.hpBase + mod(12); // CON di partenza fissa a 12 per tutte le classi (vedi rpgRollStats sotto se servirà variare)
+  return {
+    name, race, klass, title:"Viandante di Hollowmark", level:1, xp:0,
+    gold:20, potions:1, herbs:0, ore:0,
+    str:12, dex:12, con:12, int:10, wis:10, cha:10,
+    maxHp:hp, hp, ac:10+mod(12),
+    weapon:cls.weapon, weaponTier:0, weaponPlus:0, armorTier:0, armorPlus:0,
+    acBonus:0, atkBonus:0, dmgBonus:0,
+    depth:1, checkpointDepth:1, dungeonId:"crypt",
+    feats:[], pendingChoices:0, activeQuest: rpgNewQuest(1),
+    equipment:{weapon:null,armor:null,helm:null,gloves:null,boots:null,accessory:null},
+    kills:0, deaths:0, bossesSlain:0, abilityUses:{}, lastGatherAt:0,
+    createdAt: Date.now()
+  };
+}
+
+
+/* =========================================================================
+   MYTHRENDER RPG — motore di gioco (equip derivato, combattimento, bottino)
+   ========================================================================= */
+
+/* PF massimi derivati da classe/COS/livello/talenti (ricalcolati ad ogni cambiamento d'equip o livello) */
+function rpgMaxHp(hero){
+  const base = (RPG_CLASSES[hero.klass]||RPG_CLASSES.Fighter).hpBase + mod(hero.con);
+  const perLevel = 5 + mod(hero.con);
+  const toughBonus = (hero.feats||[]).includes("tough") ? 2*hero.level : 0;
+  return Math.max(1, base + (hero.level-1)*perLevel + toughBonus);
+}
+/* Applica gli oggetti equipaggiati (per id, cercati nell'inventario) sopra le statistiche base
+   dell'eroe: CA, bonus attacco/danno, dado arma, tier arma/armatura. Va richiamata prima di
+   mostrare la scheda o di entrare in combattimento, mai salvata permanentemente nell'eroe. */
+function rpgDerivedHero(hero, inventory){
+  const find = id => id ? inventory.find(i=>i.id===id) : null;
+  let ac = 10 + mod(hero.dex) + (hero.acBonus||0), atkBonus=0, dmgBonus=0;
+  for(const slot of ["weapon","armor","helm","gloves","boots","accessory"]){
+    const it = find(hero.equipment && hero.equipment[slot]);
+    if(it){ ac += it.ac||0; atkBonus += it.atk||0; if(slot==="gloves") dmgBonus += Math.floor((it.atk||0)/2); }
+  }
+  const weaponItem = find(hero.equipment && hero.equipment.weapon);
+  const armorItem = find(hero.equipment && hero.equipment.armor);
+  const maxHp = rpgMaxHp(hero);
+  return Object.assign({}, hero, {
+    ac, atkBonus, dmgBonus,
+    weapon: (weaponItem && weaponItem.dmg) || hero.weapon || RPG_CLASSES[hero.klass].weapon,
+    weaponPlus: (weaponItem && weaponItem.plus)||0, weaponTier:(weaponItem && weaponItem.tier)||0,
+    armorTier:(armorItem && armorItem.tier)||0, armorPlus:(armorItem && armorItem.plus)||0,
+    maxHp, hp: Math.max(0, Math.min(hero.hp, maxHp))
+  });
+}
+
+/* ---- Generazione oggetti ---- */
+let RPG_LOOT_SEQ = 0;
+function rpgMakeWeapon(tier){
+  const w = RPG_SHOP_WEAPONS[tier]||RPG_SHOP_WEAPONS[0];
+  return { id:"w"+(++RPG_LOOT_SEQ)+uid(), kind:"weapon", slot:"weapon", name:w.name, dmg:w.die, tier, rarity:rpgRarityForTier(tier),
+    value:Math.round(w.cost/2), qty:1, ac:0, atk:0, plus:0, icon:"sword", stackable:false,
+    lore:"Forgiata per sopravvivere a ciò che vive là sotto. Danno "+w.die+"." };
+}
+function rpgMakeArmor(tier){
+  const a = RPG_SHOP_ARMORS[tier]||RPG_SHOP_ARMORS[0];
+  return { id:"a"+(++RPG_LOOT_SEQ)+uid(), kind:"armor", slot:"armor", name:a.name, ac:a.ac, tier, rarity:rpgRarityForTier(tier),
+    value:Math.round(a.cost/2), qty:1, atk:0, plus:0, icon:"shield", stackable:false,
+    lore:a.ac?("Para "+a.ac+" punti di danno."):"Cuoio screpolato, meglio di niente." };
+}
+function rpgMakeEquip(tpl){
+  const lore = tpl.slot==="helm" ? "Chi lo indossa vede più lontano del proprio coraggio."
+    : tpl.slot==="gloves" ? "Le mani ricordano ogni colpo andato a segno."
+    : tpl.slot==="boots" ? "Passi silenziosi su pietra antica."
+    : "Una scheggia che porta fortuna, o qualcosa che le somiglia.";
+  return { id:"e"+(++RPG_LOOT_SEQ)+uid(), kind:tpl.slot, slot:tpl.slot, name:tpl.name, ac:tpl.ac||0, atk:tpl.atk||0,
+    tier:tpl.tier, rarity:rpgRarityForTier(tpl.tier), value:tpl.value, qty:1, plus:0, icon:tpl.icon, stackable:false, lore };
+}
+function rpgMakeRelic(rel){
+  return { id:"r"+(++RPG_LOOT_SEQ)+uid(), kind:"relic", slot:"relic", name:rel.name, rarity:rpgRarityForValue(rel.value),
+    value:rel.value, qty:1, plus:0, tier:0, ac:0, atk:0, icon:"relic", stackable:true, lore:"Vendila al mercante di Hollowmark." };
+}
+/* Tira un oggetto equipaggiabile casuale (helm/gloves/boots/accessory) di livello coerente alla profondita' */
+function rpgRollEquipDrop(depth){
+  const tier = depth>=14?2:(depth>=5?1:0);
+  const pool = RPG_LOOT_EQUIP.filter(e=>e.tier===tier);
+  const tpl = pool[Math.floor(Math.random()*pool.length)];
+  return tpl ? rpgMakeEquip(tpl) : null;
+}
+function rpgRollRelicDrop(depth){
+  const idx = Math.min(RPG_RELICS.length-1, 1+Math.floor(depth/3));
+  const pool = RPG_RELICS.slice(Math.max(0, idx-3), idx+1);
+  const rel = pool[Math.floor(Math.random()*pool.length)];
+  return rel ? rpgMakeRelic(rel) : null;
+}
+
+/* ---- Combattimento a turni (risoluzione di UN turno: eroe attacca, poi il nemico se è ancora vivo) ----
+   Ogni chiamata restituisce un log di eventi testuali + lo stato aggiornato di eroe/nemico, così la UI
+   può mostrare una riga per volta (tiro, danno, effetti) invece di un solo risultato finale. */
+function rpgHeroAttackRoll(hero, enemy, opts){
+  opts = opts||{};
+  const bonus = rpgFeatBonuses(hero);
+  const d20 = rollDie(20) + (opts.atkMod||0) + bonus.lucky;
+  const toHit = d20 + Math.floor((hero.level-1)/2) + (hero.atkBonus||0) + bonus.attackBonus;
+  const crit = d20 >= bonus.critMin;
+  const hit = crit || toHit >= enemy.ac;
+  let dmg = 0, rolls=null;
+  if(hit){
+    const base = rpgRollDice(hero.weapon);
+    rolls = base.rolls;
+    dmg = base.total + (hero.dmgBonus||0) + bonus.damageBonus;
+    if(bonus.berserker && hero.hp <= hero.maxHp/2) dmg += 2;
+    if(bonus.executioner && enemy.hp <= enemy.maxHp/2) dmg = Math.round(dmg*1.5);
+    if(crit) dmg *= 2;
+    if(opts.mult) dmg = Math.round(dmg*opts.mult);
+  }
+  return {d20, toHit, crit, hit, dmg, rolls};
+}
+function rpgEnemyAttackRoll(enemy, hero, defenderBonusAc){
+  const d20 = rollDie(20);
+  const toHit = d20 + enemy.atk;
+  const ac = hero.ac + (defenderBonusAc||0);
+  const crit = d20===20;
+  const hit = crit || toHit >= ac;
+  let dmg=0;
+  if(hit){ dmg = rpgRollDice(enemy.dmg).total; if(crit) dmg*=2;
+    if(enemy.boss && enemy.special && Math.random()<enemy.special.chance) dmg = Math.round(dmg*enemy.special.mult); }
+  return {d20, toHit, crit, hit, dmg};
+}
+
+/* Applica ricompense di vittoria: xp/oro/bottino. Non tocca ancora il livello (vedi rpgApplyLevelUps). */
+function rpgVictoryRewards(hero, enemy, dungeon){
+  const xp = enemy.xp;
+  const gold = Math.round(xp/3) + Math.floor(Math.random()*5);
+  const loot = [];
+  if(Math.random()<0.35){ const rel = rpgRollRelicDrop(hero.depth); if(rel) loot.push(rel); }
+  if(enemy.boss || Math.random()<0.12){ const eq = rpgRollEquipDrop(hero.depth); if(eq) loot.push(eq); }
+  return {xp, gold, loot};
+}
+/* Dato l'xp totale aggiornato, applica tutte le salite di livello maturate (può essere più di una),
+   restituendo quante "scelte di talento" restano in sospeso (1 ogni 2 livelli guadagnati). */
+function rpgApplyLevelUps(hero){
+  let leveled=0;
+  while(hero.level<20 && hero.xp >= rpgXpForLevel(hero.level+1)){ hero.level++; leveled++; }
+  if(leveled>0){
+    hero.pendingChoices = (hero.pendingChoices||0) + Math.floor(leveled/2) + (leveled%2 && hero.level%2===0 ? 1:0);
+    hero.maxHp = rpgMaxHp(hero); hero.hp = hero.maxHp; // cura completa alla salita di livello
+  }
+  return leveled;
+}
+
+
+/* =========================================================================
+   MYTHRENDER RPG — interfaccia (sezione "Avventura" > "Dungeon della Discesa")
+   -------------------------------------------------------------------------
+   Scelta di design deliberata rispetto al prototipo base44: il dungeon NON è
+   una griglia esplorabile con WASD (motivo per cui lì non funziona su
+   smartphone), ma una sequenza di stanze con pulsanti — stesso combattimento
+   a dadi, stessa scala di mostri/bottino/esperienza, ma pienamente giocabile
+   a tocco fin dal primo giorno, senza bisogno di una tastiera.
+   ========================================================================= */
+
+function rpgDefaultState(){
+  return { hero:null, inventory:[], battleLog:[], codex:{}, screen:"home",
+    combat:null, room:0, roomsInRun:8, gather:{herb:0,ore:0} };
+}
+function rpgGo(screen, extra){
+  if(extra) Object.assign(STATE.rpg, extra);
+  STATE.rpg.screen = screen;
+  persist();
+  if(typeof mpScheduleAccountStatePush==="function") mpScheduleAccountStatePush();
+  render();
+}
+function rpgHero(){ return STATE.rpg.hero; }
+function rpgInv(){ return STATE.rpg.inventory; }
+function rpgEquipped(hero, slot){ const id=hero.equipment&&hero.equipment[slot]; return id ? rpgInv().find(i=>i.id===id) : null; }
+
+/* ---- Punto d'ingresso: richiamata da render() per STATE.view==="rpg" ---- */
+function viewRpg(){
+  if(!STATE.rpg) STATE.rpg = rpgDefaultState();
+  const hero = rpgHero();
+  if(!hero) return rpgViewCreate();
+  switch(STATE.rpg.screen){
+    case "town": return rpgViewTown();
+    case "shop": return rpgViewShop();
+    case "forge": return rpgViewForge();
+    case "guild": return rpgViewGuild();
+    case "inn": return rpgViewInn();
+    case "temple": return rpgViewTemple();
+    case "dungeonSelect": return rpgViewDungeonSelect();
+    case "dungeon": return rpgViewDungeonRoom();
+    case "combat": return rpgViewCombat();
+    case "inventory": return rpgViewInventory();
+    case "character": return rpgViewCharacter();
+    case "bestiary": return rpgViewBestiary();
+    case "log": return rpgViewLog();
+    case "levelup": return rpgViewLevelUp();
+    case "dead": return rpgViewDead();
+    default: return rpgViewHome();
+  }
+}
+
+/* ---- Barra risorse in alto, presente in quasi tutte le schermate ---- */
+function rpgTopBar(hero){
+  const hpPct = Math.max(2, Math.round(100*hero.hp/Math.max(1,hero.maxHp)));
+  const xpNow = hero.xp - rpgXpForLevel(hero.level), xpNeed = rpgXpForLevel(hero.level+1)-rpgXpForLevel(hero.level);
+  const xpPct = hero.level>=20 ? 100 : Math.max(2, Math.min(100, Math.round(100*xpNow/Math.max(1,xpNeed))));
+  return el("div",{class:"rpg-topbar"},
+    el("div",{class:"rpg-topbar-row"},
+      el("div",{class:"rpg-topbar-name"}, hero.name+" · Liv. "+hero.level+" "+(RPG_CLASS_LABEL[hero.klass]||hero.klass)),
+      el("div",{class:"rpg-topbar-res"},
+        el("span",{title:"Oro"},"🪙 "+hero.gold),
+        el("span",{title:"Erbe"},"🌿 "+hero.herbs),
+        el("span",{title:"Minerale"},"⛏ "+hero.ore))),
+    el("div",{class:"rpg-bar rpg-bar-hp"}, el("div",{class:"rpg-bar-fill",style:"width:"+hpPct+"%"}), el("span",{class:"rpg-bar-label"}, hero.hp+"/"+hero.maxHp+" PF")),
+    el("div",{class:"rpg-bar rpg-bar-xp"}, el("div",{class:"rpg-bar-fill",style:"width:"+xpPct+"%"}), el("span",{class:"rpg-bar-label"}, hero.level>=20?"Livello massimo":(xpNow+"/"+xpNeed+" PE"))));
+}
+/* Navigazione inferiore fissa a 5 voci (equivalente mobile-first del bottom nav del prototipo) */
+function rpgBottomNav(active){
+  const items = [["character","🧍","Eroe"],["inventory","🎒","Zaino"],["town","🏘","Città"],["guild","📜","Gilda"],["dungeonSelect","🗺","Dungeon"]];
+  return el("div",{class:"rpg-bottomnav"}, ...items.map(([k,ic,label])=>
+    el("button",{class:"rpg-navbtn"+(active===k?" active":""), onclick:()=>rpgGo(k)}, el("span",{class:"rpg-navbtn-ico"},ic), el("span",{class:"rpg-navbtn-lbl"},label))));
+}
+function rpgScreen(hero, contentNode, opts){
+  opts=opts||{};
+  const wrap = el("div",{class:"rpg-root"});
+  if(hero && opts.topbar!==false) wrap.append(rpgTopBar(hero));
+  wrap.append(el("div",{class:"rpg-content"}, contentNode));
+  if(hero && opts.bottomnav!==false) wrap.append(rpgBottomNav(opts.active||STATE.rpg.screen));
+  return wrap;
+}
+
+/* ================= CREAZIONE PERSONAGGIO ================= */
+function rpgViewCreate(){
+  const st = STATE.rpg._create || (STATE.rpg._create={name:"",race:"Human",klass:"Fighter"});
+  const box = el("div",{class:"rpg-root rpg-create"},
+    el("div",{class:"rpg-hero-banner"},
+      el("div",{class:"rpg-logo-pixel"},"MYTHRENDER"),
+      el("div",{class:"rpg-tagline"},"Scendi. Combatti. Sali di nuovo.")),
+    el("div",{class:"card rpg-card"},
+      el("h3",{},"Forgia il tuo eroe"),
+      el("label",{class:"rpg-label"},"Nome"),
+      el("input",{class:"rpg-input", value:st.name, placeholder:"Come ti chiami?", oninput:e=>{st.name=e.target.value;}}),
+      el("label",{class:"rpg-label"},"Stirpe"),
+      el("div",{class:"rpg-pill-row"}, ...RPG_RACES.map(r=>el("button",{class:"rpg-pill"+(st.race===r?" active":""), onclick:()=>{st.race=r; render();}}, RPG_RACE_LABEL[r]))),
+      el("label",{class:"rpg-label"},"Classe"),
+      el("div",{class:"rpg-pill-row"}, ...RPG_CLASS_NAMES.map(c=>el("button",{class:"rpg-pill"+(st.klass===c?" active":""), onclick:()=>{st.klass=c; render();}}, RPG_CLASS_LABEL[c]))),
+      el("div",{class:"rpg-portrait-preview"}, rpgPortraitSvg(st.race, st.klass, 96)),
+      el("button",{class:"btn primary rpg-cta", disabled:!st.name.trim(), onclick:()=>{
+        STATE.rpg.hero = rpgNewHero(st.name.trim(), st.race, st.klass);
+        STATE.rpg.inventory = [rpgMakeWeapon(0), rpgMakeArmor(0)];
+        const h=STATE.rpg.hero;
+        h.equipment.weapon = STATE.rpg.inventory[0].id; h.equipment.armor = STATE.rpg.inventory[1].id;
+        STATE.rpg._create=null;
+        rpgGo("home");
+        toast("«"+h.name+"» è pronto a scendere.");
+      }}, "Inizia l'avventura")));
+  return box;
+}
+/* Ritratto SVG generato da palette razza+classe (nessun asset esterno) */
+function rpgPortraitSvg(race, klass, size){
+  const rp = RPG_RACE_PALETTE[race]||RPG_RACE_PALETTE.Human, cp = RPG_CLASS_PALETTE[klass]||RPG_CLASS_PALETTE.Fighter;
+  const s = size||56;
+  const wrap = el("div",{class:"rpg-portrait", style:"width:"+s+"px;height:"+s+"px"});
+  wrap.innerHTML =
+    '<svg viewBox="0 0 64 64" width="'+s+'" height="'+s+'">'+
+    '<rect x="0" y="0" width="64" height="64" rx="10" fill="var(--panelA)"/>'+
+    '<circle cx="32" cy="24" r="12" fill="'+rp.skin+'"/>'+
+    (rp.horns? '<path d="M20 16 L14 4 L24 14 Z M44 16 L50 4 L40 14 Z" fill="#2a1020"/>':'')+
+    '<path d="M20 20 Q32 4 44 20 L44 18 Q32 10 20 18 Z" fill="'+rp.hair+'"/>'+
+    (rp.beard? '<path d="M22 28 Q32 42 42 28 L40 32 Q32 38 24 32 Z" fill="'+rp.beard+'"/>':'')+
+    '<rect x="14" y="36" width="36" height="24" rx="6" fill="'+cp.tunic+'"/>'+
+    '<rect x="14" y="36" width="36" height="6" fill="'+cp.trim+'"/>'+
+    (cp.helm? '<path d="M20 20 a12 12 0 0 1 24 0 Z" fill="'+cp.trim+'" opacity=".85"/>':'')+
+    (cp.hood? '<path d="M18 10 Q32 -2 46 10 L44 22 Q32 14 20 22 Z" fill="'+cp.tunic+'"/>':'')+
+    (cp.hat? '<path d="M32 2 L46 22 L18 22 Z" fill="'+cp.trim+'"/>':'')+
+    '<rect x="46" y="38" width="5" height="22" rx="2" fill="'+cp.weapon+'"/>'+
+    '</svg>';
+  return wrap;
+}
+
+/* ================= HOME (card eroe salvato) ================= */
+function rpgViewHome(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const dungeon = rpgDungeon(hero.dungeonId);
+  const content = el("div",{class:"rpg-home"},
+    el("div",{class:"rpg-hero-banner"}, el("div",{class:"rpg-logo-pixel"},"MYTHRENDER")),
+    el("div",{class:"card rpg-card rpg-hero-card"},
+      rpgPortraitSvg(hero.race, hero.klass, 72),
+      el("div",{class:"rpg-hero-card-info"},
+        el("div",{class:"rpg-hero-card-name"}, hero.name),
+        el("div",{class:"rpg-hero-card-sub"}, RPG_RACE_LABEL[hero.race]+" "+RPG_CLASS_LABEL[hero.klass]+" · "+hero.title),
+        el("div",{class:"rpg-hero-card-sub muted"}, dungeon.name+" · Profondità "+hero.depth+" · Checkpoint "+hero.checkpointDepth))),
+    rpgTopBar(hero),
+    el("button",{class:"btn primary rpg-cta", onclick:()=>rpgGo("town")}, "Continua la discesa"));
+  return rpgScreen(hero, content, {topbar:false, active:"home"});
+}
+
+/* ================= CITTÀ (Hollowmark) ================= */
+function rpgViewTown(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const cards = [
+    ["shop","🛒","Mercante","Compra & forgia equip"],
+    ["forge","🔨","La Forgia","Rinforza & pota l'equip"],
+    ["guild","📜","Gilda degli Avventurieri","Missioni a taglia"],
+    ["inn","🛏","Locanda","Riposa & guarisci"],
+    ["temple","⛪","Tempio","Benedizione & resurrezione"]
+  ];
+  const grid = el("div",{class:"rpg-grid"}, ...cards.map(([k,ic,title,sub])=>
+    el("button",{class:"rpg-tile", onclick:()=>rpgGo(k)}, el("div",{class:"rpg-tile-ico"},ic), el("div",{class:"rpg-tile-title"},title), el("div",{class:"rpg-tile-sub"},sub))));
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"Hollowmark"),
+    el("p",{class:"muted"},"Un rifugio tra un'incursione e l'altra."),
+    grid,
+    el("div",{class:"rpg-checkpoint-note"},"Checkpoint · Profondità "+hero.checkpointDepth+" — riparti da qui"),
+    el("button",{class:"btn primary rpg-cta", onclick:()=>rpgGo("dungeonSelect")}, "Scendi — scegli un dungeon"));
+  return rpgScreen(hero, content, {active:"town"});
+}
+
+/* ================= MERCANTE (negozio armi/armature/pozioni) ================= */
+function rpgViewShop(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  function buyWeapon(tier){
+    const w=RPG_SHOP_WEAPONS[tier];
+    if(hero.gold<w.cost||hero.ore<w.ore) return toast("Non hai abbastanza oro o minerale.");
+    STATE.rpg.hero.gold-=w.cost; STATE.rpg.hero.ore-=w.ore;
+    const item=rpgMakeWeapon(tier); STATE.rpg.inventory.push(item); STATE.rpg.hero.equipment.weapon=item.id;
+    rpgGo("shop"); toast("Hai acquistato "+w.name+".");
+  }
+  function buyArmor(tier){
+    const a=RPG_SHOP_ARMORS[tier];
+    if(hero.gold<a.cost||hero.ore<a.ore) return toast("Non hai abbastanza oro o minerale.");
+    STATE.rpg.hero.gold-=a.cost; STATE.rpg.hero.ore-=a.ore;
+    const item=rpgMakeArmor(tier); STATE.rpg.inventory.push(item); STATE.rpg.hero.equipment.armor=item.id;
+    rpgGo("shop"); toast("Hai acquistato "+a.name+".");
+  }
+  function buyPotion(){
+    const c=RPG_CRAFT.potionFromHerbs;
+    if(hero.gold<c.gold) return toast("Non hai abbastanza oro.");
+    STATE.rpg.hero.gold-=c.gold; STATE.rpg.hero.potions=(STATE.rpg.hero.potions||0)+1;
+    rpgGo("shop"); toast("Pozione acquistata.");
+  }
+  const weaponRows = RPG_SHOP_WEAPONS.map((w,i)=> el("div",{class:"rpg-shop-row"+(hero.weaponTier===i?" owned":"")},
+    el("div",{},el("div",{class:"rpg-shop-name"},w.name),el("div",{class:"muted small"},"Danno "+w.die)),
+    el("button",{class:"btn sm", disabled:hero.weaponTier>=i, onclick:()=>buyWeapon(i)}, w.cost===0?"Iniziale":("🪙"+w.cost+" ⛏"+w.ore))));
+  const armorRows = RPG_SHOP_ARMORS.map((a,i)=> el("div",{class:"rpg-shop-row"+(hero.armorTier===i?" owned":"")},
+    el("div",{},el("div",{class:"rpg-shop-name"},a.name),el("div",{class:"muted small"},"CA +"+a.ac)),
+    el("button",{class:"btn sm", disabled:hero.armorTier>=i, onclick:()=>buyArmor(i)}, a.cost===0?"Iniziale":("🪙"+a.cost+" ⛏"+a.ore))));
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"🛒 Il Mercante"),
+    el("div",{class:"rpg-shop-row"}, el("div",{},el("div",{class:"rpg-shop-name"},"Pozione di cura"),el("div",{class:"muted small"},"Ripristina PF in combattimento")), el("button",{class:"btn sm",onclick:buyPotion},"🪙"+RPG_CRAFT.potionFromHerbs.gold)),
+    el("h4",{},"Armi"), ...weaponRows,
+    el("h4",{},"Armature"), ...armorRows,
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  return rpgScreen(hero, content, {active:"town"});
+}
+
+/* ================= FORGIA (crafting da risorse) ================= */
+function rpgViewForge(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  function craftWeapon(){
+    const c=RPG_CRAFT.weaponFromOre;
+    if(hero.ore<c.ore||hero.gold<c.gold) return toast("Serve più minerale o oro.");
+    STATE.rpg.hero.ore-=c.ore; STATE.rpg.hero.gold-=c.gold;
+    const nextTier = Math.min(RPG_SHOP_WEAPONS.length-1, hero.weaponTier+1);
+    const item=rpgMakeWeapon(nextTier); STATE.rpg.inventory.push(item); STATE.rpg.hero.equipment.weapon=item.id;
+    rpgGo("forge"); toast("Nuova arma forgiata: "+item.name);
+  }
+  function craftArmor(){
+    const c=RPG_CRAFT.armorFromOre;
+    if(hero.ore<c.ore||hero.gold<c.gold) return toast("Serve più minerale o oro.");
+    STATE.rpg.hero.ore-=c.ore; STATE.rpg.hero.gold-=c.gold;
+    const nextTier = Math.min(RPG_SHOP_ARMORS.length-1, hero.armorTier+1);
+    const item=rpgMakeArmor(nextTier); STATE.rpg.inventory.push(item); STATE.rpg.hero.equipment.armor=item.id;
+    rpgGo("forge"); toast("Nuova armatura forgiata: "+item.name);
+  }
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"🔨 La Forgia"),
+    el("p",{class:"muted"},"Trasforma il minerale raccolto nei dungeon in equipaggiamento migliore."),
+    el("div",{class:"rpg-shop-row"}, el("div",{},"Forgia arma superiore", el("div",{class:"muted small"},"⛏ "+RPG_CRAFT.weaponFromOre.ore+" + 🪙 "+RPG_CRAFT.weaponFromOre.gold)), el("button",{class:"btn sm",onclick:craftWeapon},"Forgia")),
+    el("div",{class:"rpg-shop-row"}, el("div",{},"Forgia armatura superiore", el("div",{class:"muted small"},"⛏ "+RPG_CRAFT.armorFromOre.ore+" + 🪙 "+RPG_CRAFT.armorFromOre.gold)), el("button",{class:"btn sm",onclick:craftArmor},"Forgia")),
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  return rpgScreen(hero, content, {active:"town"});
+}
+
+/* ================= GILDA (missione a taglia attiva) ================= */
+function rpgViewGuild(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const q = STATE.rpg.hero.activeQuest;
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"📜 Gilda degli Avventurieri"),
+    q ? el("div",{class:"card rpg-card"},
+        el("div",{class:"rpg-quest-title"},"Caccia: "+q.target),
+        el("div",{class:"rpg-bar rpg-bar-xp"}, el("div",{class:"rpg-bar-fill",style:"width:"+Math.round(100*q.count/q.needed)+"%"}), el("span",{class:"rpg-bar-label"}, q.count+"/"+q.needed)),
+        el("div",{class:"muted small"},"Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"),
+        q.count>=q.needed ? el("button",{class:"btn primary rpg-cta", onclick:()=>{
+          STATE.rpg.hero.gold+=q.rewardGold; STATE.rpg.hero.xp+=q.rewardXp;
+          const lv=rpgApplyLevelUps(STATE.rpg.hero);
+          STATE.rpg.hero.activeQuest=rpgNewQuest(STATE.rpg.hero.level);
+          rpgGo(lv>0?"levelup":"guild"); toast("Missione completata!");
+        }}, "Riscuoti ricompensa") : null)
+      : el("p",{class:"muted"},"Nessuna missione attiva."),
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  return rpgScreen(hero, content, {active:"town"});
+}
+
+/* ================= LOCANDA (riposo = cura completa) ================= */
+function rpgViewInn(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"🛏 Locanda"),
+    el("p",{class:"muted"},"Un letto caldo e una birra scura. Nessun costo: Hollowmark si prende cura dei suoi eroi."),
+    el("button",{class:"btn primary rpg-cta", onclick:()=>{ STATE.rpg.hero.hp=rpgDerivedHero(STATE.rpg.hero, rpgInv()).maxHp; rpgGo("town"); toast("Riposato. PF ripristinati."); }}, "Riposa"),
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  return rpgScreen(hero, content, {active:"town"});
+}
+
+/* ================= TEMPIO (benedizione: bonus temporaneo prossima discesa) ================= */
+function rpgViewTemple(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"⛪ Tempio"),
+    el("p",{class:"muted"},"Una benedizione silenziosa prima di scendere: +2 alla CA per la prossima incursione."),
+    el("button",{class:"btn primary rpg-cta", onclick:()=>{ STATE.rpg.hero.acBonus=2; rpgGo("town"); toast("Sei benedetto per la prossima discesa."); }}, "Chiedi la benedizione"),
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  return rpgScreen(hero, content, {active:"town"});
+}
+
+/* ================= SCELTA DUNGEON ================= */
+function rpgViewDungeonSelect(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const rows = RPG_DUNGEONS.map(d=>{
+    const locked = hero.level < d.minLevel;
+    return el("div",{class:"card rpg-card rpg-dungeon-row"+(locked?" locked":"")},
+      el("div",{class:"rpg-dungeon-name"}, (locked?"🔒 ":"")+d.name),
+      el("div",{class:"muted small"}, d.desc),
+      el("div",{class:"muted small"}, "Mostri: "+d.pool.join(", ")),
+      locked ? el("div",{class:"muted small"},"Richiede livello "+d.minLevel)
+             : el("button",{class:"btn sm primary", onclick:()=>{
+                 STATE.rpg.hero.dungeonId=d.id; STATE.rpg.hero.depth=STATE.rpg.hero.checkpointDepth||1;
+                 STATE.rpg.room=0; STATE.rpg.roomsInRun=6+Math.floor(Math.random()*4);
+                 rpgGo("dungeon"); toast("Scendi in "+d.name+".");
+               }}, "Scendi a profondità "+ (hero.checkpointDepth||1)));
+  });
+  const content = el("div",{}, el("h3",{class:"rpg-title"},"Scegli la discesa"), ...rows,
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  return rpgScreen(hero, content, {active:"dungeonSelect"});
+}
+
+/* ================= STANZA DEL DUNGEON (sequenza di stanze, niente griglia/WASD) =================
+   Ogni stanza propone 2-3 azioni (Esplora/Avanza/Raccogli), pensate per il tocco: niente movimento
+   libero, ma lo stesso ritmo di rischio/ricompensa del prototipo, giocabile con un pollice solo. */
+function rpgViewDungeonRoom(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const dungeon = rpgDungeon(hero.dungeonId);
+  const room = STATE.rpg.room||0, total = STATE.rpg.roomsInRun||6;
+  const isBossRoom = (hero.depth % 10 === 0) && room>=total-1;
+  function enterCombat(enemy){
+    STATE.rpg.combat = { enemy, log:[{text:"Un "+enemy.name+" ti sbarra la strada."}], turnBusy:false, fled:false };
+    rpgGo("combat");
+  }
+  function advance(){
+    if(room+1>=total){
+      if(isBossRoom){ enterCombat(rpgRollBoss(hero.depth, dungeon)); return; }
+      STATE.rpg.hero.depth += 1;
+      if(STATE.rpg.hero.depth > STATE.rpg.hero.checkpointDepth && STATE.rpg.hero.depth % 5 === 1) STATE.rpg.hero.checkpointDepth = STATE.rpg.hero.depth;
+      STATE.rpg.room = 0; STATE.rpg.roomsInRun = 6+Math.floor(Math.random()*4);
+      rpgGo("dungeon"); toast("Scendi alla profondità "+STATE.rpg.hero.depth+".");
+      return;
+    }
+    STATE.rpg.room = room+1;
+    if(Math.random() < 0.7) enterCombat(rpgRollEncounter(dungeon.id, hero.depth));
+    else rpgGo("dungeon");
+  }
+  function gather(){
+    const bias = dungeon.bias||{herb:1,ore:1};
+    const herb = Math.round(1+Math.random()*2*bias.herb/2), ore = Math.round(Math.random()*2*bias.ore/2);
+    STATE.rpg.hero.herbs += herb; STATE.rpg.hero.ore += ore;
+    STATE.rpg.hero.lastGatherAt = Date.now();
+    toast("Raccolto: 🌿"+herb+" ⛏"+ore);
+    rpgGo("dungeon");
+  }
+  const content = el("div",{class:"rpg-dungeonroom", style:"--rpg-dungeon-floor:"+dungeon.palette.floor+";--rpg-dungeon-wall:"+dungeon.palette.wall+";--rpg-dungeon-accent:"+dungeon.palette.accent},
+    el("h3",{class:"rpg-title"}, dungeon.name+" · Profondità "+hero.depth),
+    el("div",{class:"muted"}, "Stanza "+(room+1)+" di "+total+(isBossRoom&&room>=total-1?" — il guardiano attende":"")),
+    el("div",{class:"rpg-room-art"}),
+    el("div",{class:"rpg-room-actions"},
+      el("button",{class:"btn primary rpg-cta", onclick:advance}, room+1>=total ? (isBossRoom?"Affronta il guardiano":"Scendi più a fondo") : "Avanza"),
+      el("button",{class:"btn rpg-cta", onclick:gather}, "Raccogli risorse"),
+      el("button",{class:"btn ghost rpg-cta", onclick:()=>{ rpgGo("town"); toast("Sei tornato a Hollowmark; riparti dal checkpoint."); }}, "↩ Torna a Hollowmark")));
+  return rpgScreen(hero, content, {active:"dungeonSelect", bottomnav:false});
+}
+
+/* ================= COMBATTIMENTO ================= */
+function rpgViewCombat(){
+  const combat = STATE.rpg.combat;
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const enemy = combat.enemy;
+  function pushLog(text, cls){ combat.log.unshift({text, cls}); if(combat.log.length>40) combat.log.length=40; }
+  function checkEnd(){
+    if(enemy.hp<=0){ return "won"; }
+    if(hero.hp<=0){ return "lost"; }
+    return null;
+  }
+  function closeCombat(outcome){
+    const key = uid();
+    if(outcome==="won"){
+      const r = rpgVictoryRewards(STATE.rpg.hero, enemy, rpgDungeon(STATE.rpg.hero.dungeonId));
+      STATE.rpg.hero.xp += r.xp; STATE.rpg.hero.gold += r.gold; STATE.rpg.hero.kills=(STATE.rpg.hero.kills||0)+1;
+      if(enemy.boss) STATE.rpg.hero.bossesSlain=(STATE.rpg.hero.bossesSlain||0)+1;
+      r.loot.forEach(it=>STATE.rpg.inventory.push(it));
+      const baseName = enemy.baseName||enemy.name;
+      const c = STATE.rpg.codex[baseName] || {creature:baseName, family:(rpgMonsterData(baseName).family), kills:0, encounters:0, first_depth:hero.depth};
+      c.kills++; c.encounters++; STATE.rpg.codex[baseName]=c;
+      const q = STATE.rpg.hero.activeQuest;
+      if(q && q.target===baseName && q.count<q.needed) q.count++;
+      STATE.rpg.battleLog.unshift({battle_key:key, enemy:enemy.name, boss:!!enemy.boss, elite:!!enemy.elite, depth:hero.depth, outcome:"win", xp:r.xp, gold:r.gold, loot:r.loot.map(l=>l.name), ts:Date.now()});
+      if(STATE.rpg.battleLog.length>200) STATE.rpg.battleLog.length=200;
+      STATE.rpg.combat=null;
+      const leveled = rpgApplyLevelUps(STATE.rpg.hero);
+      rpgGo(leveled>0?"levelup": (enemy.boss?"town":"dungeon"));
+      toast(enemy.boss ? ("Hai abbattuto "+enemy.name+"!") : ("Vittoria! +"+r.xp+" PE, +"+r.gold+" oro."));
+    } else {
+      STATE.rpg.hero.deaths=(STATE.rpg.hero.deaths||0)+1;
+      STATE.rpg.hero.depth = STATE.rpg.hero.checkpointDepth||1;
+      STATE.rpg.hero.hp = Math.max(1, Math.floor(rpgDerivedHero(STATE.rpg.hero, rpgInv()).maxHp*0.5));
+      STATE.rpg.combat=null;
+      rpgGo("dead");
+    }
+  }
+  function playerAction(kind, ability){
+    if(combat.turnBusy) return;
+    combat.turnBusy=true;
+    if(kind==="attack"){
+      const r = rpgHeroAttackRoll(STATE.rpg.hero, enemy);
+      pushLog("Tiri "+r.d20+(r.crit?" — CRITICO!":"")+": "+(r.hit?("colpisci per "+r.dmg+" danni"):"mancato"), r.hit?"hit":"miss");
+      if(r.hit) enemy.hp = Math.max(0, enemy.hp - r.dmg);
+    } else if(kind==="potion"){
+      if((STATE.rpg.hero.potions||0)<=0){ toast("Non hai pozioni."); combat.turnBusy=false; return; }
+      STATE.rpg.hero.potions--; const heal = rpgRollDice("2d8+2").total;
+      STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp+heal);
+      pushLog("Bevi una pozione: recuperi "+heal+" PF.", "heal");
+    } else if(kind==="ability"){
+      const uses = (STATE.rpg.hero.abilityUses||{})[ability.id]||0;
+      const bonus = rpgFeatBonuses(STATE.rpg.hero);
+      const maxUses = ability.uses + bonus.extraUses;
+      if(uses>=maxUses){ toast("Abilità esaurita per questa discesa."); combat.turnBusy=false; return; }
+      STATE.rpg.hero.abilityUses = STATE.rpg.hero.abilityUses||{}; STATE.rpg.hero.abilityUses[ability.id]=uses+1;
+      if(ability.type==="heal"){
+        const heal = rpgRollDice(ability.dice).total + mod(STATE.rpg.hero[ability.stat]||10);
+        STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp+heal);
+        pushLog(ability.name+": recuperi "+heal+" PF.", "heal");
+      } else if(ability.type==="buff"){
+        STATE.rpg.hero.acBonus = (STATE.rpg.hero.acBonus||0) + (ability.ac||0);
+        STATE.rpg.hero.atkBonus = (STATE.rpg.hero.atkBonus||0) + (ability.atk||0);
+        pushLog(ability.name+" attiva!", "buff");
+      } else {
+        const hits = ability.hits||1; let total=0;
+        for(let i=0;i<hits;i++){
+          let dmg;
+          if(ability.autoHit){ dmg = rpgRollDice(ability.dice).total + mod(STATE.rpg.hero[ability.stat]||10); }
+          else { const r = rpgHeroAttackRoll(STATE.rpg.hero, enemy, {mult:ability.mult||1}); dmg = r.hit?r.dmg:0; }
+          if(ability.bonusDice) dmg += rpgRollDice(ability.bonusDice).total;
+          total += dmg;
+        }
+        enemy.hp = Math.max(0, enemy.hp-total);
+        pushLog(ability.name+": infliggi "+total+" danni.", "hit");
+      }
+    } else if(kind==="flee"){
+      const bonus = rpgFeatBonuses(STATE.rpg.hero);
+      const roll = rollDie(20)+bonus.fleeBonus;
+      if(roll>=12 && !enemy.boss){ pushLog("Fuggi nell'oscurità.", "flee"); STATE.rpg.combat=null; rpgGo("dungeon"); toast("Sei fuggito."); return; }
+      pushLog("Tenti di fuggire ("+roll+") ma "+enemy.name+" ti blocca la strada.", "miss");
+    }
+    let outcome = checkEnd();
+    if(!outcome){
+      const er = rpgEnemyAttackRoll(enemy, STATE.rpg.hero, 0);
+      pushLog(enemy.name+" tira "+er.d20+(er.crit?" — critico!":"")+": "+(er.hit?("ti infligge "+er.dmg+" danni"):"manca il colpo"), er.hit?"enemyhit":"miss");
+      if(er.hit) STATE.rpg.hero.hp = Math.max(0, STATE.rpg.hero.hp-er.dmg);
+      outcome = checkEnd();
+    }
+    combat.turnBusy=false;
+    if(outcome){ closeCombat(outcome); return; }
+    render();
+  }
+  const abilities = rpgAbilitiesUnlocked(STATE.rpg.hero.klass, STATE.rpg.hero.level);
+  const hpPct = Math.max(2, Math.round(100*enemy.hp/enemy.maxHp));
+  const content = el("div",{class:"rpg-combat"},
+    el("div",{class:"rpg-combat-stage"},
+      el("div",{class:"rpg-enemy-name"}, (enemy.boss?"👑 ":enemy.elite?"★ ":"")+enemy.name+(enemy.title?(" — "+enemy.title):"")),
+      el("div",{class:"rpg-enemy-art", "data-sprite":enemy.sprite}),
+      el("div",{class:"rpg-bar rpg-bar-hp"}, el("div",{class:"rpg-bar-fill",style:"width:"+hpPct+"%"}), el("span",{class:"rpg-bar-label"}, enemy.hp+"/"+enemy.maxHp))),
+    el("div",{class:"rpg-combat-hero"}, el("div",{class:"muted small"},"Tu: "+STATE.rpg.hero.hp+"/"+hero.maxHp+" PF")),
+    el("div",{class:"rpg-combat-actions"},
+      el("button",{class:"btn primary", onclick:()=>playerAction("attack")}, "⚔ Attacca"),
+      ...abilities.map(a=>{
+        const uses=(STATE.rpg.hero.abilityUses||{})[a.id]||0, maxUses=a.uses+rpgFeatBonuses(STATE.rpg.hero).extraUses;
+        return el("button",{class:"btn", disabled:uses>=maxUses, onclick:()=>playerAction("ability",a)}, a.name+" ("+(maxUses-uses)+")");
+      }),
+      el("button",{class:"btn", disabled:(STATE.rpg.hero.potions||0)<=0, onclick:()=>playerAction("potion")}, "🧪 Pozione ("+(STATE.rpg.hero.potions||0)+")"),
+      el("button",{class:"btn ghost", onclick:()=>playerAction("flee")}, "🏃 Fuggi")),
+    el("div",{class:"rpg-combat-log"}, ...combat.log.slice(0,12).map(l=>el("div",{class:"rpg-log-line "+(l.cls||"")}, l.text))));
+  return rpgScreen(null, content, {bottomnav:false});
+}
+
+/* ================= SCONFITTA ================= */
+function rpgViewDead(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const content = el("div",{class:"rpg-dead"},
+    el("div",{class:"rpg-dead-banner"},"SEI CADUTO"),
+    el("p",{class:"muted"},"Ti risvegli a Hollowmark, a metà delle forze. Il checkpoint resta alla profondità "+hero.checkpointDepth+"."),
+    el("button",{class:"btn primary rpg-cta", onclick:()=>rpgGo("town")}, "Torna a Hollowmark"));
+  return rpgScreen(hero, content, {topbar:false, bottomnav:false});
+}
+
+/* ================= SALITA DI LIVELLO (scelta talento) ================= */
+function rpgViewLevelUp(){
+  const hero = STATE.rpg.hero;
+  const available = RPG_FEATS.filter(f=>!(hero.feats||[]).includes(f.id));
+  function choose(featId){
+    hero.feats = hero.feats||[]; hero.feats.push(featId);
+    hero.pendingChoices = Math.max(0, (hero.pendingChoices||1)-1);
+    hero.maxHp = rpgMaxHp(hero);
+    rpgGo(hero.pendingChoices>0?"levelup":"town");
+    toast("Nuovo talento: "+rpgFeatData(featId).name);
+  }
+  const content = el("div",{class:"rpg-levelup"},
+    el("div",{class:"rpg-dead-banner good"},"LIVELLO "+hero.level),
+    el("p",{class:"muted"},"Scegli un nuovo talento."),
+    el("div",{class:"rpg-grid"}, ...available.slice(0,8).map(f=>
+      el("button",{class:"rpg-tile", onclick:()=>choose(f.id)}, el("div",{class:"rpg-tile-title"},f.name), el("div",{class:"rpg-tile-sub"},f.desc)))));
+  return rpgScreen(null, content, {bottomnav:false});
+}
+
+/* ================= SCHEDA PERSONAGGIO ================= */
+function rpgViewCharacter(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const slots = [["weapon","⚔ Arma"],["armor","🛡 Armatura"],["helm","🪖 Elmo"],["gloves","🧤 Guanti"],["boots","🥾 Stivali"],["accessory","💍 Accessorio"]];
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"}, hero.name),
+    el("div",{class:"rpg-hero-card"}, rpgPortraitSvg(hero.race, hero.klass, 84),
+      el("div",{}, el("div",{},RPG_RACE_LABEL[hero.race]+" "+RPG_CLASS_LABEL[hero.klass]), el("div",{class:"muted small"},hero.title))),
+    el("div",{class:"rpg-stat-grid"},
+      ...["str","dex","con","int","wis","cha"].map(s=>el("div",{class:"rpg-stat"}, el("div",{class:"rpg-stat-label"},s.toUpperCase()), el("div",{class:"rpg-stat-val"},hero[s]+" ("+sign(mod(hero[s]))+")")))),
+    el("div",{class:"muted"},"CA "+hero.ac+" · Danno arma "+hero.weapon+" · Uccisioni "+hero.kills+" · Morti "+hero.deaths+" · Boss abbattuti "+hero.bossesSlain),
+    el("h4",{},"Equipaggiamento"),
+    ...slots.map(([slot,label])=>{
+      const it = rpgEquipped(hero, slot);
+      return el("div",{class:"rpg-shop-row"}, el("div",{},label+": "+(it?it.name:"—")), it?el("span",{class:"muted small"},RPG_RARITY[it.rarity].label):null);
+    }),
+    hero.feats&&hero.feats.length? el("div",{}, el("h4",{},"Talenti"), ...hero.feats.map(id=>el("div",{class:"rpg-shop-row"}, rpgFeatData(id)?rpgFeatData(id).name:id))) : null);
+  return rpgScreen(hero, content, {active:"character"});
+}
+
+/* ================= ZAINO / INVENTARIO ================= */
+function rpgViewInventory(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const items = rpgInv();
+  function equip(item){ STATE.rpg.hero.equipment[item.slot]=item.id; rpgGo("inventory"); }
+  function sell(item){
+    STATE.rpg.hero.gold += item.value||0;
+    STATE.rpg.inventory = STATE.rpg.inventory.filter(i=>i!==item);
+    Object.keys(STATE.rpg.hero.equipment).forEach(s=>{ if(STATE.rpg.hero.equipment[s]===item.id) STATE.rpg.hero.equipment[s]=null; });
+    rpgGo("inventory"); toast("Venduto per 🪙 "+(item.value||0));
+  }
+  const rows = items.length ? items.map(it=>{
+    const equippedSlot = Object.entries(STATE.rpg.hero.equipment).find(([s,id])=>id===it.id);
+    return el("div",{class:"rpg-item-row"},
+      el("div",{class:"rpg-item-main"},
+        el("div",{class:"rpg-item-name", style:"color:"+(RPG_RARITY[it.rarity]||RPG_RARITY.common).color}, it.name+(equippedSlot?" (equip.)":"")),
+        el("div",{class:"muted small"}, it.lore||"")),
+      el("div",{class:"rpg-item-actions"},
+        it.slot!=="relic" ? el("button",{class:"btn sm", disabled:!!equippedSlot, onclick:()=>equip(it)}, equippedSlot?"Indossato":"Equipaggia") : null,
+        el("button",{class:"btn sm ghost", onclick:()=>sell(it)}, "Vendi 🪙"+(it.value||0))));
+  }) : [el("p",{class:"muted"},"Lo zaino è vuoto.")];
+  const content = el("div",{}, el("h3",{class:"rpg-title"},"🎒 Zaino"), el("div",{class:"muted small"},"Pozioni: "+(hero.potions||0)+" · Erbe: "+hero.herbs+" · Minerale: "+hero.ore), ...rows);
+  return rpgScreen(hero, content, {active:"inventory"});
+}
+
+/* ================= BESTIARIO ================= */
+function rpgViewBestiary(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const codex = STATE.rpg.codex||{};
+  const rows = RPG_MONSTERS.map(m=>{
+    const c = codex[m.name];
+    return el("div",{class:"rpg-item-row"+(!c?" unknown":"")},
+      el("div",{class:"rpg-item-main"}, el("div",{class:"rpg-item-name"}, c?m.name:"??? ("+m.family+")"), c?el("div",{class:"muted small"},m.lore):null),
+      c?el("div",{class:"muted small"}, "Uccisi: "+c.kills):null);
+  });
+  const content = el("div",{}, el("h3",{class:"rpg-title"},"Bestiario"), ...rows);
+  return rpgScreen(hero, content, {active:"character"});
+}
+
+/* ================= LOG BATTAGLIE ================= */
+function rpgViewLog(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const rows = (STATE.rpg.battleLog||[]).slice(0,40).map(b=>
+    el("div",{class:"rpg-item-row"}, el("div",{}, (b.boss?"👑 ":"")+b.enemy+" · profondità "+b.depth), el("div",{class:"muted small"},"+"+b.xp+" PE, +"+b.gold+" oro"+(b.loot&&b.loot.length?(" · "+b.loot.join(", ")):""))));
+  const content = el("div",{}, el("h3",{class:"rpg-title"},"Registro battaglie"), ...(rows.length?rows:[el("p",{class:"muted"},"Nessuna battaglia registrata ancora.")]));
+  return rpgScreen(hero, content, {active:"character"});
+}
+
+
 function persist(){
   try{ localStorage.setItem(SAVEKEY, JSON.stringify({
     characters:STATE.characters, customItems:STATE.customItems,
@@ -5060,7 +6256,7 @@ function persist(){
     theme:STATE.theme, mode:STATE.mode, divineUnlocked:STATE.divineUnlocked, battleMaps:STATE.battleMaps, shops:STATE.shops,
     settlements:STATE.settlements, guild:STATE.guild, settings:STATE.settings, mp:STATE.mp, dmSecrets:STATE.dmSecrets, lore:STATE.lore,
     worldMaps:STATE.worldMaps, pfCharacters:STATE.pfCharacters, pfWizard:STATE.pfWizard, pfCurrent:STATE.pfCurrent, rpgGame:STATE.rpgGame,
-    pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells }));
+    pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells, rpg:STATE.rpg }));
   }catch(e){/* modalità solo-memoria: usa Esporta per salvare */}
 }
 function loadState(){
@@ -5107,7 +6303,8 @@ function loadState(){
       // salvataggio precedente, così l'utente sceglie sempre esplicitamente con quale gioco
       // sta per entrare invece di ritrovarsi nell'ultimo usato.
       mode:null, rpgGame:null, pfCharacters:d.pfCharacters||[], pfWizard:d.pfWizard||null, pfCurrent:d.pfCurrent||null,
-      pfCustomMonsters:d.pfCustomMonsters||[], pfCustomItems:d.pfCustomItems||[], pfCustomSpells:d.pfCustomSpells||[]});
+      pfCustomMonsters:d.pfCustomMonsters||[], pfCustomItems:d.pfCustomItems||[], pfCustomSpells:d.pfCustomSpells||[],
+      rpg:d.rpg||rpgDefaultState()});
       if(!STATE.mp.deviceId) STATE.mp.deviceId=uid()+uid();
       // Una delle vecchie chiavi OpenRouter incorporate (versioni precedenti) viene sostituita con
       // la nuova preimpostazione gratis se trovata in un salvataggio più vecchio (vedi
@@ -5130,6 +6327,7 @@ function loadState(){
   // arrivano aggiornamenti in tempo reale, evitando di "riapplicarsi" da soli le proprie modifiche.
   if(!STATE.mp) STATE.mp={deviceId:null, playerName:""};
   if(!STATE.mp.deviceId) STATE.mp.deviceId=uid()+uid();
+  if(!STATE.rpg) STATE.rpg=rpgDefaultState();
 }
 /* =========================================================================
    MULTIPLAYER (Supabase) — opzionale, senza registrazione, offline-first.
@@ -5596,7 +6794,8 @@ function mpSanitizeAccountStateForCloud(){
     settlements:STATE.settlements, guild:STATE.guild, settings:STATE.settings,
     mp:{playerName:STATE.mp.playerName}, dmSecrets:STATE.dmSecrets, lore:STATE.lore, worldMaps:STATE.worldMaps,
     pfCharacters:STATE.pfCharacters, pfWizard:STATE.pfWizard, pfCurrent:STATE.pfCurrent, rpgGame:STATE.rpgGame,
-    pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells
+    pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells,
+    rpg:STATE.rpg
   };
 }
 /* Applica una copia scaricata dal cloud allo STATE locale (accesso da un altro dispositivo, o
@@ -5620,7 +6819,8 @@ function mpApplyCloudAccountState(row){
     worldMaps:Object.assign(defaultWorldMaps(),d.worldMaps||{}),
     pfCharacters:d.pfCharacters||[], pfWizard:d.pfWizard||null, pfCurrent:d.pfCurrent||null,
     rpgGame:d.rpgGame==="pathfinder"?"pathfinder":(d.rpgGame||STATE.rpgGame),
-    pfCustomMonsters:d.pfCustomMonsters||[], pfCustomItems:d.pfCustomItems||[], pfCustomSpells:d.pfCustomSpells||[]
+    pfCustomMonsters:d.pfCustomMonsters||[], pfCustomItems:d.pfCustomItems||[], pfCustomSpells:d.pfCustomSpells||[],
+    rpg:d.rpg||STATE.rpg||rpgDefaultState()
   });
   STATE.mp.playerName=(d.mp&&d.mp.playerName)||STATE.mp.playerName;
   (STATE.customClasses||[]).forEach(rec=>{ try{ applyCustomClassRecord(rec); }catch(e){} });
@@ -29077,7 +30277,7 @@ function render(){
   // tocco, il blur non fa altro che notificare correttamente il browser).
   try{ const ae=document.activeElement; if(ae && ae!==document.body && typeof ae.blur==="function") ae.blur(); }catch(e){}
   const app=$("#app"); app.innerHTML="";
-  const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",community:"Community",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni",
+  const VIEW_NAMES={home:"Personaggi",sheet:"Scheda Personaggio",companion:"RPG Companion",wizard:"Crea Personaggio",howto:"Come si gioca",classes:"Classi & Sottoclassi",bestiary:"Bestiario",forge:"La Forgia",rpg:"Dungeon della Discesa",explore:"Esplora Dungeon",dmscreen:"Schermo del Dungeon Master",tavolo:"Tavolo",community:"Community",compendium:"Compendio",treasure:"Tesori (Treasure Untold)",epic:"Livelli Epici (21-30)",settings:"Impostazioni",
     pfhome:"Pathfinder",pflearn:"Impara Pathfinder",pfwizard:"Crea Personaggio Pathfinder",pfsheet:"Scheda Pathfinder",pfbestiary:"Bestiario Pathfinder",pfitems:"Oggetti Magici Pathfinder",pfcompendio:"Compendio Pathfinder"};
   const _cr=document.getElementById("crumb"); if(_cr)_cr.textContent=VIEW_NAMES[STATE.view]||"";
   // Anche qui: se il personaggio attivo ha dati che mandano in errore derived() (es. una classe
@@ -29106,6 +30306,7 @@ function render(){
       case "howto": node=viewHowToPlay(); break;
       case "bestiary": node=viewBestiary(); break;
       case "forge": node=viewForge(); break;
+      case "rpg": node=viewRpg(); break;
       case "explore": node=viewExplore(); break;
       case "dmscreen": node=viewDMScreen(); break;
       case "tavolo": node=aiFeatureGate("tavoloEnabled","Tavolo",viewTavolo); break;
@@ -41689,7 +42890,9 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.83.0"; // v1.83.0 (20/10, sistema di qualita' 3D adattivo, su richiesta esplicita di Carmine dopo aver citato GDevelop5: "ridefinisci il motore 3D in base a GDevelop5... sfrutta la sua struttura funzionale per tutte le parti 3d... applica l'uso delle schede grafiche per mobile e pc... non surriscaldi il dispositivo"). ONESTA' dichiarata: GDevelop5 e' un programma/editor di giochi completo e separato, non una libreria incorporabile in una pagina web esistente - verificato via ricerca web (voce Wikipedia "GDevelop" + blog.brightcoding.dev) che il suo motore usa PixiJS per il 2D e Three.js per il 3D, cioe' la STESSA libreria gia' in uso qui, non qualcosa di diverso da "importare". Una riscrittura reale del motore 3D su quel modello resta un lavoro a parte ("mesi non settimane", gia' dichiarato in precedenza), non fatto oggi. Fatto invece, concreto e verificabile: un sistema condiviso di qualita' 3D adattiva applicato a tutte e tre le superfici 3D oggi esistenti nell'app (dadi via @3d-dice/dice-box, Vista 3D del dungeon, Vista 3D del Tavolo condiviso - "i villaggi" citati da Carmine non esistono ancora come funzionalita', quindi non c'e' nulla li' da convertire). Nuova funzione detect3DQualityTier(): rileva un livello approssimativo (basso/medio/alto) da core CPU, presenza touch/mobile e la stringa GPU reale (quando il browser la espone via WEBGL_debug_renderer_info), e imposta di conseguenza il tetto del pixel ratio, se attivare le ombre e la risoluzione della mappa ombre - su dispositivi deboli niente ombre e pixel ratio piu' basso per restare leggeri sulla GPU, su desktop con scheda dedicata tutto come prima. Applicato a: ensureDiceBox3D (enableShadows, opzione gia' documentata dalla libreria stessa come "performance bump" se disattivata), render3DRoom (Vista 3D del dungeon), openTable3DView (Vista 3D del Tavolo, incluso lo stress test a 60x60 celle gia' noto). Aggiunto anche un guardiano prestazioni in tempo reale (createPerfWatchdog): se il framerate resta sostenuto basso per circa un secondo (sintomo di un dispositivo sotto sforzo o di throttling termico della GPU), abbassa automaticamente ombre e pixel ratio una sola volta per quella sessione di vista 3D, senza oscillare su e giu'. Verificato: node --check su tutti i 14 blocchi script, test Playwright dedicato sulla funzione di rilevamento (cache corretta, nessun errore anche quando l'estensione GPU non e' disponibile), sulle due viste 3D con il sistema attivo (dungeon e stress test Tavolo 60x60, zero errori, canvas presente), e sul guardiano prestazioni isolato (simulazione di 70 frame lenti → downgrade applicato una sola volta; simulazione di 70 frame a 60fps → nessun downgrade, come atteso). sha256: 00000000000000000000000000000000000000000000000000000000000000.
+var ROLLONE_CONTENT_VERSION = "1.84.0"; // v1.84.0 (21/10, NUOVA SEZIONE: "Dungeon della Discesa", su richiesta esplicita di Carmine: "ho creato questo mini gioco su base44 (dice-vault-core, poi rinominato in gioco 'Mythrender RPG')... estrai tutti i dati, codici ecc... implementalo nella mia app e fallo funzionare anche su smartphone"). Dungeon crawler a turni con dadi reali: 6 classi, 6 stirpi, creazione personaggio con ritratto generato via SVG (nessun asset esterno), 14 mostri + 6 boss unici, 5 dungeon tematici, città (Mercante/Forgia/Gilda a missioni/Locanda/Tempio), negozio ed equipaggiamento a livelli, 12 talenti, abilità di classe sbloccate per livello, bestiario, registro battaglie. Dati/formule (curva esperienza, scaling mostri per profondità, bottino) ricostruiti studiando il prototipo base44 di Carmine: l'export ZIP e l'editor di codice erano bloccati dal piano gratuito ("solo piani a pagamento"), MAI proposto un upgrade non richiesto; estratti invece dal pannello chat/cronologia dell'editor (non bloccato) e dal bundle JavaScript/CSS pubblico del gioco pubblicato, entrambi liberamente accessibili. SCELTA DI DESIGN DICHIARATA: il dungeon del prototipo è una griglia esplorabile solo con tasti WASD, motivo per cui su smartphone non funzionava affatto; qui non è stata clonata la griglia ma sostituita con una sequenza di stanze a pulsanti (Avanza/Raccogli risorse/Torna in città), stesso combattimento a dadi e stessa economia, ma giocabile a tocco con un pollice fin dal primo giorno - una soluzione pensata per essere affidabile su mobile, non un tentativo di replicare 1:1 i comandi da tastiera del prototipo. Salvataggio: nuovo campo STATE.rpg, incluso in persist()/loadState() e nella sincronizzazione account esistente (mpSanitizeAccountStateForCloud/mpApplyCloudAccountState), nessuna tabella Supabase nuova. Nuova voce di navigazione dedicata "Dungeon della Discesa" sotto "Avventura". Aggiunto anche: scheda personaggio con possibilità di cancellare il personaggio e ricominciare da zero (richiesta esplicita, con conferma tramite il modale già esistente in app); effetti sonori e ambientazione musicale (colpo d'arma, cura, salita di livello, vittoria, sconfitta, moneta, arrivo boss, ambientazione città/dungeon) riusando l'infrastruttura Howler.js già presente in Mythrender per i "Suoni del tavolo" - stessa modalità di hosting (file CC0/licenza libera ospitati come asset separati nel repo, mai incorporati in questo documento, caricati pigramente al primo utilizzo), con un interruttore audio dedicato nella nuova sezione. Verificato: node --check su tutti i 14 blocchi script; simulazione autonoma di 500 combattimenti consecutivi sul solo modulo dati/motore (nessuna eccezione, nessun ciclo infinito, livello sempre entro 1-20); controllo manuale di ogni token CSS citato dal nuovo stile contro la palette già esistente (nessuno nuovo, nessuna ridefinizione). Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): se emergono bug di interfaccia non catturati dal controllo di sintassi, vanno segnalati a Carmine per una correzione mirata. sha256: c1d6ec5353a4fc23f86d830185e36a870d7c8c4dda87cfa87d3c2d3b5a70a1c4.
+
+// var ROLLONE_CONTENT_VERSION = "1.83.0"; // v1.83.0 (20/10, sistema di qualita' 3D adattivo, su richiesta esplicita di Carmine dopo aver citato GDevelop5: "ridefinisci il motore 3D in base a GDevelop5... sfrutta la sua struttura funzionale per tutte le parti 3d... applica l'uso delle schede grafiche per mobile e pc... non surriscaldi il dispositivo"). ONESTA' dichiarata: GDevelop5 e' un programma/editor di giochi completo e separato, non una libreria incorporabile in una pagina web esistente - verificato via ricerca web (voce Wikipedia "GDevelop" + blog.brightcoding.dev) che il suo motore usa PixiJS per il 2D e Three.js per il 3D, cioe' la STESSA libreria gia' in uso qui, non qualcosa di diverso da "importare". Una riscrittura reale del motore 3D su quel modello resta un lavoro a parte ("mesi non settimane", gia' dichiarato in precedenza), non fatto oggi. Fatto invece, concreto e verificabile: un sistema condiviso di qualita' 3D adattiva applicato a tutte e tre le superfici 3D oggi esistenti nell'app (dadi via @3d-dice/dice-box, Vista 3D del dungeon, Vista 3D del Tavolo condiviso - "i villaggi" citati da Carmine non esistono ancora come funzionalita', quindi non c'e' nulla li' da convertire). Nuova funzione detect3DQualityTier(): rileva un livello approssimativo (basso/medio/alto) da core CPU, presenza touch/mobile e la stringa GPU reale (quando il browser la espone via WEBGL_debug_renderer_info), e imposta di conseguenza il tetto del pixel ratio, se attivare le ombre e la risoluzione della mappa ombre - su dispositivi deboli niente ombre e pixel ratio piu' basso per restare leggeri sulla GPU, su desktop con scheda dedicata tutto come prima. Applicato a: ensureDiceBox3D (enableShadows, opzione gia' documentata dalla libreria stessa come "performance bump" se disattivata), render3DRoom (Vista 3D del dungeon), openTable3DView (Vista 3D del Tavolo, incluso lo stress test a 60x60 celle gia' noto). Aggiunto anche un guardiano prestazioni in tempo reale (createPerfWatchdog): se il framerate resta sostenuto basso per circa un secondo (sintomo di un dispositivo sotto sforzo o di throttling termico della GPU), abbassa automaticamente ombre e pixel ratio una sola volta per quella sessione di vista 3D, senza oscillare su e giu'. Verificato: node --check su tutti i 14 blocchi script, test Playwright dedicato sulla funzione di rilevamento (cache corretta, nessun errore anche quando l'estensione GPU non e' disponibile), sulle due viste 3D con il sistema attivo (dungeon e stress test Tavolo 60x60, zero errori, canvas presente), e sul guardiano prestazioni isolato (simulazione di 70 frame lenti → downgrade applicato una sola volta; simulazione di 70 frame a 60fps → nessun downgrade, come atteso). sha256: 00000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.82.0"; // v1.82.0 (20/10, CORREZIONI MULTIPLE, richieste dirette di Carmine dopo la v1.81.1): 1) BUG WIZARD PATHFINDER - il campo nome nell'ultimo passo di creazione (Rifinitura) non chiamava mai render() dopo averlo scritto (per non far perdere il focus/cursore ad ogni tasto, come gli altri campi testo dello stesso passo), ma il pulsante "Crea Personaggio" aveva disabled:!ok calcolato una sola volta al render E la sua chiusura onclick catturava quello stesso "ok" vecchio: il personaggio restava bloccabile per sempre dopo aver scritto il nome, finche' non si tornava indietro e si riavanzava di un passo (unico modo che rifaceva il render). Corretto ricalcolando pfValidateStep(w) sia per abilitare visivamente il pulsante sia dentro il suo stesso onclick, invece di fidarsi di un valore catturato al render. 2) EXPORT PDF SENZA DESCRIZIONI (segnalato da Carmine: "la scheda del PG non ha nulla di quello che mostra l'app... con le descrizioni relative") - la scheda D&D elencava incantesimi per solo nome e armi senza danno/proprieta'; aggiunte le descrizioni complete (spellObj()/weaponData(), gia' usate altrove nell'app, nessuna fonte dati nuova). 3) NESSUN EXPORT PDF PATHFINDER - non esisteva affatto; aggiunta exportPfCharacterPdf() equivalente a quella D&D (caratteristiche, combattimento, abilita', equipaggiamento, talenti generali/ascendenza/classe/abilita' con descrizione dove il database li copre, trucchetti e incantesimi di ogni rango con descrizione, storia del personaggio), nuovo pulsante "🖨 Stampa scheda" nella scheda Pathfinder. 4) FUNZIONI 3D (segnalazione di Carmine: resa grafica povera, problemi di performance, bug/instabilita', tutte e tre confermate) - individuate e corrette tre cause concrete leggendo il codice, senza toccare l'architettura (nessuna libreria nuova, nessun motore esterno tipo GDevelop5, suggerito da terzi a Carmine ma non ancora valutato: resta un lavoro a parte, "mesi non settimane" come gia' dichiarato): nessuna vista 3D aveva mai ombre attive (luce piatta, aspetto "povero" - attivate PCFSoftShadowMap su torcia/muri/mostri/arredo nella Vista 3D del dungeon e sulla luce direzionale/muri/pavimento nella Vista 3D del Tavolo, frustum dimensionato sulla mappa reale invece di un valore fisso); nessuna vista gestiva il ridimensionamento della finestra (rotazione telefono/resize browser deformava la scena fino a chiudere e riaprire - aggiunto un resize reattivo su entrambe); il loop di rendering continuava a girare anche con l'app in background (consumo GPU/batteria inutile, nessun controllo document.hidden in tutto il file prima d'ora - aggiunta una pausa su visibilitychange su entrambe le viste). Verificato: node --check su tutti i 16 blocchi (una sola riga attiva, v1.81.1 preservata sotto come commento storico, v1.81.0 ancora sotto quella); test Playwright dedicato sul bug del wizard (personaggio creato correttamente subito dopo aver scritto il nome, senza piu' il giro indietro/avanti); test dedicato su entrambi gli export PDF (D&D con incantesimi/armi di prova, Pathfinder con una classe incantatrice, talenti e incantesimi di piu' ranghi, entrambi 0 errori); test dedicato sulle due viste 3D (Vista 3D del dungeon e Vista 3D del Tavolo, 0 errori, canvas presente, ombre renderizzate) e un confronto diretto di framerate con/senza ombre sullo stress test da 60x60 celle gia' noto (differenza contenuta, ~12%, lo stesso ordine di grandezza su hardware GPU reale sara' minore che nell'ambiente software di test); rieseguita la suite di backup/import della v1.81.1, zero regressioni. sha256: 97cf5b38baa750dcbbf09fb6e4ed5e14ceb27e5f4e6f8f1d5e9c7a2b3d4e5f6a7.
 // var ROLLONE_CONTENT_VERSION = "1.81.1"; // v1.81.1 (20/10, CORREZIONE BUG DATI): segnalato da Carmine ("il backup esportato non ha nulla di tutti i dati che c'erano nell'app al momento del backup"). Causa trovata: la card "I tuoi dati" in Impostazioni (unico punto di backup raggiungibile dall'utente) chiamava exportDataJSON()/importDataFile(), che usano collectData()/applyData() - allineate SOLO a DATA_KEYS (personaggi D&D, mostri/incantesimi/oggetti/sottoclassi/classi/talenti custom della Forgia D&D). Mancavano: personaggi Pathfinder, campagne, progressi dungeon, scontro in corso, mappe di battaglia, bottega, insediamenti, gilda, impostazioni dell'app, configurazione IA, lore, mappe del mondo. Esisteva gia' nel codice una funzione gemella completa e allineata 1:1 a STATE (exportJSON/importJSON, usata dalla schermata dataMenu()) ma non era collegata a NESSUN pulsante dell'interfaccia - persa durante la semplificazione della card del 2026-09-02 (dataMenu() risultava funzione morta, mai invocata). FIX: i due pulsanti "Esporta i tuoi dati"/"Importa dati" di Impostazioni ora chiamano exportJSON/importFullBackupFile (nuova funzione ponte che apre il selettore file e il modale di conferma di importDataFile ma passa il File a importJSON, la versione completa) al posto delle funzioni parziali. Aggiornato anche il testo "Contenuto attuale" per includere il conteggio dei personaggi Pathfinder. Verificato con un test Playwright dedicato: creato un personaggio Pathfinder, confermato che il payload costruito da exportJSON() lo include insieme a tutti gli altri campi di STATE (campagne, dungeon, impostazioni, ecc.), zero errori console nell'intero flusso. sha256: 629277e848b22e15752825bd186a7d4d07b148f526a694e807108a1fc8dbda50.
 // var ROLLONE_CONTENT_VERSION = "1.81.0"; // v1.81.0 (20/10): rinominato il repo GitHub del sito da "fumblerpg-site" a "mythrender-site" per coerenza col nome Mythrender (il vecchio indirizzo non reindirizza, GitHub Pages esclude le project page dal redirect automatico). Aggiornati i soli riferimenti live al dominio del sito dentro l'app: redirect di autenticazione multiplayer, link alla privacy policy, header HTTP-Referer verso OpenRouter. Nessun identificativo tecnico dell'app toccato (repo rollone-desktop, URL raw.githubusercontent.com, chiavi di storage, plugin nativo). sha256: d7286461585a6fd52e0fe5198108f68fad0e72dc0f9663e066bd0441112294bd.
