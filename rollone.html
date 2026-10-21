@@ -1980,6 +1980,189 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .pixel-scroll::-webkit-scrollbar-track{background:#06080f}
 .pixel-scroll::-webkit-scrollbar-thumb{background:rgba(201,162,39,.5);border-radius:3px}
 
+/* ---- restyling base44, passo 2: Mercante/Forgia/Gilda/Locanda/Tempio/Dungeon/Scheda/Zaino ----
+   Stesso linguaggio visivo di Home/Città (pixel-panel + frame-ornate + pixel-btn), applicato alle
+   schermate rimanenti. Righe stile "WARES" del Mercante base44 (icona/nome/sottotitolo a sx, prezzo
+   o azione a dx, bordo che si illumina al passaggio del dito/mouse). */
+.rpg-panel{padding:16px;margin-top:6px}
+.rpg-panel+.rpg-panel{margin-top:12px}
+.rpg-panel-title{text-align:center;margin-bottom:10px}
+.rpg-panel-title h3{margin:0}
+.rpg-panel-title p{margin:2px 0 0}
+.rpg-resline{display:flex;flex-wrap:wrap;gap:12px;font-size:10.5px;color:rgba(255,255,255,.65);
+  letter-spacing:.04em;text-transform:uppercase;margin:4px 0 12px}
+.rpg-resline span{color:#e8cf8a}
+.rpg-b44-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 8px;
+  border-radius:4px;border:1px solid transparent;transition:border-color .12s,background .12s}
+.rpg-b44-row:hover{border-color:rgba(201,162,39,.4);background:rgba(201,162,39,.06)}
+.rpg-b44-row.owned,.rpg-b44-row.locked{opacity:.5}
+.rpg-b44-row-main{min-width:0;flex:1}
+.rpg-b44-row-name{font-size:12.5px;color:#ded4bd}
+.rpg-b44-row-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px}
+.rpg-b44-price{flex-shrink:0;font-size:11px;color:#f0d48a;white-space:nowrap;border:1px solid rgba(201,162,39,.5);
+  border-radius:4px;padding:6px 10px;background:linear-gradient(#1a2340 0%,#0e1424 100%);cursor:pointer}
+.rpg-b44-price:disabled{opacity:.4;cursor:default}
+.rpg-footnote{font-size:10.5px;font-style:italic;color:rgba(255,255,255,.5);text-align:center;margin-top:10px}
+.pixel-btn.ghost{background:transparent;border-color:rgba(120,134,180,.4);color:rgba(222,212,189,.75);
+  box-shadow:none;font-weight:500}
+.pixel-btn.ghost:hover:not(:disabled){background:rgba(120,134,180,.1);box-shadow:none;transform:none}
+.rpg-quest-box{text-align:center}
+.rpg-quest-box .target{font-size:14px;color:#e8cf8a;letter-spacing:.04em;margin-bottom:8px}
+.rpg-quest-reward{font-size:10.5px;color:rgba(255,255,255,.6);margin:8px 0 12px}
+
+/* ---- Scheda eroe: header con CODEX, griglia equip in pixel-stat-box ---- */
+.rpg-hero-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.rpg-hero-header-actions{display:flex;gap:6px;flex-shrink:0}
+.rpg-hero-header-actions .pixel-btn{width:auto;padding:7px 10px;font-size:9.5px}
+.rpg-equip-grid .pixel-stat-box{display:flex;align-items:center;gap:8px;padding:8px 10px}
+
+
+/* =========================================================================
+   RESTYLING FEDELE A BASE44 (studio diretto DOM/CSS dell'editor originale,
+   vedi mythrender-rpg/02_studio_base44_grafica_meccaniche.md nel progetto).
+   Tutta l'arte qui sotto è CSS puro (gradients/clip-path/box-shadow), nessuna
+   immagine raster, esattamente come nel prototipo. Palette: blu notte scuro
+   (#05060c -> #141d38), oro/ambra per accenti (#c9a227/#f0d48a/#d4af58),
+   rosso per HP. Queste classi affiancano quelle sopra (non le sostituiscono):
+   per ora ridisegnano la schermata Home/Titolo, la Città (Hollowmark) e la
+   cornice condivisa (barra risorse in alto + nav inferiore), che appaiono su
+   ogni schermata; le altre viste (Mercante/Forgia/Gilda/ecc.) restano con lo
+   stile precedente finché non arriva il loro turno di restyling.
+   ========================================================================= */
+@keyframes rpgTwinkle{from{opacity:.25}to{opacity:1}}
+@keyframes rpgTitlePulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.08)}}
+@keyframes rpgTitleGlow{from{text-shadow:#150f2c 3px 3px,rgba(0,0,0,.7) 6px 6px,rgba(240,212,138,.75) 0 0 20px}
+  to{text-shadow:#150f2c 3px 3px,rgba(0,0,0,.7) 6px 6px,rgba(240,212,138,1) 0 0 32px}}
+@keyframes rpgFlicker{from{transform:scaleY(1) translateY(0)}to{transform:scaleY(1.08) translateY(-1px)}}
+@keyframes rpgFireGlow{from{opacity:.7}to{opacity:1}}
+@keyframes rpgSmoke{0%{transform:translateY(0);opacity:.5}100%{transform:translateY(-22px);opacity:0}}
+@keyframes rpgScreenIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes rpgBarShine{from{background-position:0 0,0 0}to{background-position:0 0,52px 0}}
+
+.pixel-scene{position:relative;min-height:100dvh;overflow:hidden;font-family:var(--font-body,inherit);
+  background:linear-gradient(#05060c 0%,#09101f 25%,#101a33 50%,#0b1426 72%,#05070e 100%);color:#ded4bd}
+.pixel-scene-game{position:relative;min-height:100dvh;color:#ded4bd;
+  background:radial-gradient(80% 50% at 50% -10%,rgba(74,47,122,.3) 0%,transparent 62%),
+    radial-gradient(60% 40% at 12% 110%,rgba(125,31,31,.16) 0%,transparent 60%),
+    linear-gradient(#06080f 0%,#0a1020 45%,#070a13 100%)}
+.pixel-sky{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(70% 45% at 50% 92%,rgba(74,47,122,.28) 0%,rgba(0,0,0,0) 70%),
+    linear-gradient(#04050a 0%,#0a1020 45%,#141d38 78%,#0a1020 100%)}
+.pixel-star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;
+  animation:rpgTwinkle 2.6s ease-in-out infinite alternate}
+.pixel-moon{position:absolute;top:28px;right:28px;width:52px;height:52px;background:#e6dcc2;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  box-shadow:rgba(201,162,39,.28) 0 0 30px 8px}
+.pixel-moon-shadow{position:absolute;inset:0;opacity:.94;background:#0a1020;transform:translate(30%,-20%);
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
+.pixel-mountains{position:absolute;left:0;right:0;bottom:28%;height:120px;
+  background:conic-gradient(from 180deg at 20% 100%,#0d1428 0deg,#0d1428 45deg,transparent 45deg),
+    conic-gradient(from 180deg at 50% 100%,#131d3a 0deg,#131d3a 55deg,transparent 55deg),
+    conic-gradient(from 180deg at 80% 100%,#0d1428 0deg,#0d1428 40deg,transparent 40deg)}
+.pixel-ground{position:absolute;left:0;right:0;bottom:0;height:28%;border-top:2px solid #2a3660;
+  background:linear-gradient(#131c33 0%,#0b1120 50%,#06090f 100%)}
+.pixel-path{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:200px;height:28%;opacity:.45;
+  clip-path:polygon(35% 0%,65% 0%,90% 100%,10% 100%);background:linear-gradient(#6e5520 0%,#3d3012 50%,transparent 100%)}
+.pixel-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(rgba(0,0,0,0) 42%,rgba(2,3,8,.78) 100%)}
+.rpg-kicker{text-align:center;font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;color:#c46d5e;
+  padding:14px 10px 0;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.fumble-title{color:#ded4bd;font-family:"Press Start 2P","Cinzel",monospace;letter-spacing:.05em;
+  text-align:center;font-size:26px;line-height:1.25;margin:10px 0 0;
+  text-shadow:#150f2c 3px 3px,rgba(0,0,0,.7) 6px 6px,rgba(201,162,39,.4) 0 0 26px;
+  animation:rpgTitlePulse 5s ease-in-out infinite}
+.fumble-title-glow{color:#f0d48a;animation:rpgTitleGlow 2.4s ease-in-out infinite alternate}
+.rpg-subrune{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 2px}
+.rpg-subrune-line{height:2px;width:34px;background:linear-gradient(90deg,transparent,rgba(201,162,39,.7))}
+.rpg-subrune-line.r{background:linear-gradient(90deg,rgba(201,162,39,.7),transparent)}
+.rpg-subrune span{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#ded4bd}
+
+.pixel-panel{background:linear-gradient(rgba(22,28,48,.94) 0%,rgba(12,16,29,.96) 52%,rgba(8,11,20,.97) 100%);
+  border:1px solid rgba(201,162,39,.34);border-radius:6px;position:relative;
+  box-shadow:rgba(232,207,138,.12) 0 1px inset,rgba(0,0,0,.95) 0 -18px 30px -22px inset,rgba(0,0,0,.95) 0 14px 34px -18px}
+.frame-ornate::before,.frame-ornate::after{content:"";pointer-events:none;position:absolute;width:16px;height:16px;border:1px solid rgba(201,162,39,.75)}
+.frame-ornate::before{top:-1px;left:-1px;border-bottom:0;border-right:0}
+.frame-ornate::after{bottom:-1px;right:-1px;border-top:0;border-left:0}
+.panel-heading{display:flex;align-items:center;gap:8px;font-family:"Cinzel",serif;letter-spacing:.22em;
+  text-transform:uppercase;color:#e8cf8a;font-size:12px;font-weight:600}
+.rune-divider{height:1px;margin:8px 0;background:linear-gradient(90deg,transparent,rgba(201,162,39,.55),transparent)}
+.glow-gold{box-shadow:rgba(201,162,39,.55) 0 0 22px -6px}
+.pixel-stat-box{background:linear-gradient(rgba(14,19,34,.86) 0%,rgba(9,12,22,.9) 100%);
+  border:1px solid rgba(120,134,180,.35);border-radius:4px}
+
+.pixel-btn{display:block;width:100%;color:#f0d48a;letter-spacing:.14em;text-transform:uppercase;font-weight:600;
+  font-size:12px;padding:13px;border-radius:4px;border:1px solid rgba(201,162,39,.62);cursor:pointer;
+  background:linear-gradient(#26325a 0%,#16203a 55%,#101728 100%);
+  box-shadow:rgba(232,207,138,.22) 0 1px inset,rgba(0,0,0,.9) 0 6px 14px -8px;
+  transition:transform .12s,box-shadow .12s,background .12s}
+.pixel-btn:hover:not(:disabled){background:linear-gradient(#33406f 0%,#1d2a4c 55%,#141c33 100%);
+  transform:translateY(-1px);box-shadow:rgba(232,207,138,.3) 0 1px inset,rgba(201,162,39,.55) 0 0 20px -4px}
+.pixel-btn:active:not(:disabled){transform:translateY(1px)}
+.pixel-btn:disabled{opacity:.4;cursor:default}
+
+/* ---- HUD condiviso (barra risorse in alto): ritratto + nome + Lv/Profondità + barre + oro ---- */
+.rpg-hud{display:flex;align-items:center;gap:10px;margin:10px 0 14px;padding:12px}
+.rpg-hud-portrait{flex-shrink:0}
+.rpg-hud-mid{flex:1;min-width:0}
+.rpg-hud-name{font-size:12px;letter-spacing:.02em;color:#ded4bd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rpg-hud-sub{font-size:9.5px;color:rgba(255,255,255,.55);margin-top:1px}
+.rpg-hud-bars{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.hud-bar{position:relative;height:9px;border-radius:3px;overflow:hidden;
+  background:linear-gradient(#05070d 0%,#0c1120 100%);border:1px solid rgba(120,134,180,.35)}
+.hud-bar>span{display:block;height:100%;border-radius:2px;transition:width .45s cubic-bezier(.22,1,.36,1)}
+.hud-bar::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(rgba(255,255,255,.1) 0%,transparent 55%)}
+.hud-hp>span{background:linear-gradient(#ff6b6b 0%,#b32424 48%,#6d1414 100%);box-shadow:rgba(255,220,220,.28) 0 1px inset}
+.hud-xp>span{background:linear-gradient(#f2dd9a 0%,#c9a227 55%,#8a6a17 100%);box-shadow:rgba(255,245,210,.35) 0 1px inset}
+.rpg-hud-side{flex-shrink:0;text-align:right;font-size:10.5px;color:#f0d48a;white-space:nowrap}
+.rpg-hud-side .depth{display:block;font-size:9px;color:rgba(255,255,255,.5);margin-top:3px}
+
+/* ---- nav inferiore fissa, stile base44 (5 slot + indicatore attivo) ---- */
+.pixel-nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:center;gap:5px;
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  backdrop-filter:blur(8px);background:linear-gradient(rgba(10,14,26,.94) 0%,rgba(6,9,16,.98) 100%);
+  border-top:1px solid rgba(201,162,39,.4)}
+.pixel-nav-btn{position:relative;flex:1;max-width:84px;min-width:0;display:flex;flex-direction:column;align-items:center;
+  gap:2px;padding:8px 2px;border-radius:6px;border:1px solid rgba(120,134,180,.35);cursor:pointer;
+  background:linear-gradient(#15192a 0%,#0c0f1a 100%);color:rgba(222,212,189,.65)}
+.pixel-nav-btn .ico{font-size:17px;line-height:1}
+.pixel-nav-btn .lbl{font-size:9px;letter-spacing:.04em;text-transform:uppercase}
+.pixel-nav-btn.active{border-color:rgba(201,162,39,.8);color:#f0d48a;
+  background:linear-gradient(#26325a 0%,#16203a 100%);box-shadow:rgba(201,162,39,.55) 0 0 22px -6px}
+.pixel-nav-btn.active::before{content:"";position:absolute;top:-7px;left:50%;width:32px;height:3px;transform:translateX(-50%);
+  background:#e8cf8a;border-radius:2px}
+
+/* ---- Home / schermata titolo (scena notturna + locanda, CSS puro) ---- */
+.rpg-home-scene{position:relative;padding:0 0 26px}
+.rpg-home-sky{position:relative;height:180px}
+.rpg-home-card-wrap{position:relative;padding:0 14px;margin-top:-18px}
+.rpg-home-tavern{position:relative;height:120px;margin:10px auto 0;max-width:260px}
+.pixel-tavern-roof{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);width:100px;height:30px;
+  clip-path:polygon(50% 0%,100% 100%,0% 100%);background:linear-gradient(#1d2745 0%,#131b33 100%);box-shadow:#0b1120 0 -4px inset}
+.pixel-tavern-body{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:92px;height:58px;
+  background:linear-gradient(#182140 0%,#101728 100%);border:2px solid #0a0f1c;
+  box-shadow:#24304f 2px 2px inset,#0a0f1c -2px -2px inset}
+.pixel-tavern-door{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:20px;height:28px;
+  background:#070b14;border:2px solid #05080f;box-shadow:#16203c 2px 2px inset}
+.pixel-tavern-window{position:absolute;top:8px;width:12px;height:12px;background:#f0d48a;border:2px solid #0a0f1c;
+  box-shadow:#8a6a2a 0 0 0 2px inset,rgba(240,212,138,.55) 0 0 12px}
+.pixel-tavern-window.l{left:10px}.pixel-tavern-window.r{right:10px}
+.pixel-tavern-sign{position:absolute;left:50%;bottom:98px;transform:translateX(-50%);white-space:nowrap;
+  background:#131b33;border:1px solid rgba(201,162,39,.5);border-radius:2px;padding:2px 7px;
+  font-size:8px;letter-spacing:.1em;color:#d8c8a8}
+.pixel-fire{position:absolute;left:18px;bottom:8px;width:14px;height:20px;
+  clip-path:polygon(50% 0%,70% 30%,100% 60%,80% 100%,20% 100%,0% 60%,30% 30%);
+  background:linear-gradient(#f0d48a 0%,#c98a3e 40%,#8a2a10 100%);
+  filter:drop-shadow(rgba(217,138,43,.6) 0 0 10px);animation:rpgFlicker .6s ease-in-out infinite alternate}
+.pixel-fire-glow{position:absolute;left:18px;bottom:0;width:60px;height:60px;transform:translateX(-50%);
+  background:radial-gradient(rgba(217,138,43,.28) 0%,transparent 70%);animation:rpgFireGlow 1.4s ease-in-out infinite alternate;pointer-events:none}
+
+/* ---- Città (Hollowmark): tile edificio allineate a sx, dentro pixel-stat-box ---- */
+.rpg-town-tile{text-align:left;padding:12px 10px;cursor:pointer;color:#ded4bd;transition:background .12s ease}
+.rpg-town-tile:hover{background:linear-gradient(rgba(20,27,48,.9) 0%,rgba(12,16,27,.94) 100%)}
+.rpg-town-tile:active{transform:scale(.98)}
+.pixel-scroll::-webkit-scrollbar{width:6px}
+.pixel-scroll::-webkit-scrollbar-track{background:#06080f}
+.pixel-scroll::-webkit-scrollbar-thumb{background:rgba(201,162,39,.5);border-radius:3px}
+
 
 
 </style>
@@ -5814,6 +5997,7 @@ function rpgNewHero(name, race, klass){
 }
 
 
+
 /* =========================================================================
    MYTHRENDER RPG — motore di gioco (equip derivato, combattimento, bottino)
    ========================================================================= */
@@ -6170,16 +6354,16 @@ function rpgViewRoster(){
   const roster = STATE.rpg.roster;
   const rows = roster.map((slot,i)=>{
     const h = slot.hero, active = i===STATE.rpg.activeIndex;
-    return el("div",{class:"card rpg-card rpg-roster-row"+(active?" active":"")},
+    return el("div",{class:"pixel-stat-box rpg-roster-row"+(active?" active":""), style:"padding:10px"},
       rpgPortraitSvg(h.race, h.klass, 48),
       el("div",{style:"flex:1;min-width:0"},
         el("div",{}, h.name+(active?" · in gioco":"")),
         el("div",{class:"muted small"}, RPG_RACE_LABEL[h.race]+" "+RPG_CLASS_LABEL[h.klass]+" · Liv. "+h.level+" · Profondità "+(h.depth||1))),
       el("div",{class:"rpg-roster-actions"},
-        !active ? el("button",{class:"btn sm", onclick:()=>{
+        !active ? el("button",{class:"rpg-b44-price", onclick:()=>{
           rpgRosterSync(); rpgRosterLoad(i); rpgGo("town"); toast("Hai ripreso il controllo di «"+h.name+"».");
         }}, "Gioca") : null,
-        el("button",{class:"btn sm ghost", onclick:()=>{
+        el("button",{class:"rpg-b44-price", onclick:()=>{
           confirmModal("Cancella «"+h.name+"»",
             "Tutto il suo progresso (inventario, missioni, registro battaglie) andrà perduto per sempre. Continuare?",
             ()=>{
@@ -6203,13 +6387,13 @@ function rpgViewRoster(){
   });
   const maxReached = roster.length >= RPG_ROSTER_MAX;
   const activeHero = STATE.rpg.hero ? rpgDerivedHero(STATE.rpg.hero, STATE.rpg.inventory) : null;
-  const content = el("div",{},
-    el("h3",{class:"rpg-title"},"👥 I tuoi eroi"),
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"👥 I tuoi eroi")),
     ...(rows.length?rows:[el("p",{class:"muted"},"Nessun eroe ancora.")]),
-    el("button",{class:"btn primary rpg-cta", disabled:maxReached, onclick:()=>{
+    el("button",{class:"pixel-btn", style:"margin-top:10px", disabled:maxReached, onclick:()=>{
       rpgRosterSync(); STATE.rpg._create={name:"",race:"Human",klass:"Fighter"}; STATE.rpg._creatingNew=true; rpgGo("createChar");
     }}, maxReached?("Massimo "+RPG_ROSTER_MAX+" eroi"):"+ Nuovo personaggio"),
-    activeHero ? el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("character")}, "← Torna alla scheda") : null);
+    activeHero ? el("button",{class:"pixel-btn ghost", style:"margin-top:8px", onclick:()=>rpgGo("character")}, "← Torna alla scheda") : null);
   return rpgScreen(activeHero, content, {active:"character"});
 }
 
@@ -6583,22 +6767,27 @@ function rpgViewShop(){
     rpgGo("shop"); toast("Hai acquistato "+ware.name+".");
   }
   const minutesLeft = Math.max(0, Math.ceil((RPG_SHOP_RESTOCK_MS-(Date.now()-STATE.rpg.shopStock.at))/60000));
-  const wareRows = STATE.rpg.shopStock.wares.map((w,i)=> el("div",{class:"rpg-shop-row"},
-    el("div",{},el("div",{class:"rpg-shop-name"},w.name),el("div",{class:"muted small"},w.sub||"")),
-    el("button",{class:"btn sm", onclick:()=>buyWare(i)}, "🪙"+w.cost.gold)));
-  const weaponRows = RPG_SHOP_WEAPONS.map((w,i)=> el("div",{class:"rpg-shop-row"+(hero.weaponTier===i?" owned":"")},
-    el("div",{},el("div",{class:"rpg-shop-name"},w.name),el("div",{class:"muted small"},"Danno "+w.die)),
-    el("button",{class:"btn sm", disabled:hero.weaponTier>=i, onclick:()=>buyWeapon(i)}, w.cost===0?"Iniziale":("🪙"+w.cost+" ⛏"+w.ore))));
-  const armorRows = RPG_SHOP_ARMORS.map((a,i)=> el("div",{class:"rpg-shop-row"+(hero.armorTier===i?" owned":"")},
-    el("div",{},el("div",{class:"rpg-shop-name"},a.name),el("div",{class:"muted small"},"CA +"+a.ac)),
-    el("button",{class:"btn sm", disabled:hero.armorTier>=i, onclick:()=>buyArmor(i)}, a.cost===0?"Iniziale":("🪙"+a.cost+" ⛏"+a.ore))));
-  const content = el("div",{},
-    el("h3",{class:"rpg-title"},"🛒 Il Mercante"),
-    el("div",{class:"muted small"},"Merce del giorno — si rinnova tra "+minutesLeft+" min"),
+  function row(name, sub, priceLabel, onclick, cls){
+    return el("div",{class:"rpg-b44-row"+(cls?(" "+cls):"")},
+      el("div",{class:"rpg-b44-row-main"}, el("div",{class:"rpg-b44-row-name"},name), el("div",{class:"rpg-b44-row-sub"},sub||"")),
+      el("button",{class:"rpg-b44-price", disabled:!onclick, onclick:onclick||null}, priceLabel));
+  }
+  const wareRows = STATE.rpg.shopStock.wares.map((w,i)=> row(w.name, w.sub||"", "🪙"+w.cost.gold, ()=>buyWare(i)));
+  const weaponRows = RPG_SHOP_WEAPONS.map((w,i)=> row(w.name, "Danno "+w.die,
+    w.cost===0?"Iniziale":("🪙"+w.cost+" ⛏"+w.ore), hero.weaponTier>=i?null:()=>buyWeapon(i), hero.weaponTier===i?"owned":""));
+  const armorRows = RPG_SHOP_ARMORS.map((a,i)=> row(a.name, "CA +"+a.ac,
+    a.cost===0?"Iniziale":("🪙"+a.cost+" ⛏"+a.ore), hero.armorTier>=i?null:()=>buyArmor(i), hero.armorTier===i?"owned":""));
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"},
+      el("h3",{class:"rpg-title"},"🛒 Il Mercante"),
+      el("p",{class:"muted"},"Sabie — «Nuova merce ad ogni porto, amico.»")),
+    el("div",{class:"rpg-resline"}, el("span",{},"🪙 "+hero.gold), el("span",{},"🌿 "+hero.herbs), el("span",{},"⛏ "+hero.ore), el("span",{},"🧪 "+(hero.potions||0))),
+    el("div",{class:"panel-heading"},"Merce del giorno"), el("div",{class:"rune-divider"}),
     wareRows.length ? el("div",{},...wareRows) : el("p",{class:"muted small"},"Bancarella vuota, torna tra poco."),
-    el("h4",{},"Armi"), ...weaponRows,
-    el("h4",{},"Armature"), ...armorRows,
-    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+    el("div",{class:"panel-heading", style:"margin-top:12px"},"Armi"), el("div",{class:"rune-divider"}), ...weaponRows,
+    el("div",{class:"panel-heading", style:"margin-top:12px"},"Armature"), el("div",{class:"rune-divider"}), ...armorRows,
+    el("div",{class:"rpg-footnote"},"«La bancarella si rinnova tra "+minutesLeft+" minuti.»"),
+    el("button",{class:"pixel-btn ghost", style:"margin-top:14px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
 
@@ -6646,14 +6835,27 @@ function rpgViewForge(){
   }
   const weaponItem = STATE.rpg.inventory.find(i=>i.id===STATE.rpg.hero.equipment.weapon);
   const armorItem = STATE.rpg.inventory.find(i=>i.id===STATE.rpg.hero.equipment.armor);
-  const content = el("div",{},
-    el("h3",{class:"rpg-title"},"🔨 La Forgia"),
-    el("p",{class:"muted"},"Trasforma il minerale raccolto nei dungeon in equipaggiamento migliore."),
-    el("div",{class:"rpg-shop-row"}, el("div",{},"Forgia arma superiore", el("div",{class:"muted small"},"⛏ "+RPG_CRAFT.weaponFromOre.ore+" + 🪙 "+RPG_CRAFT.weaponFromOre.gold)), el("button",{class:"btn sm",onclick:craftWeapon},"Forgia")),
-    weaponItem ? el("div",{class:"rpg-shop-row"}, el("div",{},"Affila "+weaponItem.name+" (ora +"+(weaponItem.plus||0)+")", el("div",{class:"muted small"},"⛏ "+(RPG_CRAFT.honeWeapon.ore+(weaponItem.plus||0))+" + 🪙 "+(RPG_CRAFT.honeWeapon.gold+(weaponItem.plus||0)*25))), el("button",{class:"btn sm",onclick:honeWeapon,disabled:(weaponItem.plus||0)>=RPG_CRAFT.honeMax},"Affila +1")) : null,
-    el("div",{class:"rpg-shop-row"}, el("div",{},"Forgia armatura superiore", el("div",{class:"muted small"},"⛏ "+RPG_CRAFT.armorFromOre.ore+" + 🪙 "+RPG_CRAFT.armorFromOre.gold)), el("button",{class:"btn sm",onclick:craftArmor},"Forgia")),
-    armorItem ? el("div",{class:"rpg-shop-row"}, el("div",{},"Rinforza "+armorItem.name+" (ora +"+(armorItem.plus||0)+")", el("div",{class:"muted small"},"⛏ "+(RPG_CRAFT.honeArmor.ore+(armorItem.plus||0))+" + 🪙 "+(RPG_CRAFT.honeArmor.gold+(armorItem.plus||0)*25))), el("button",{class:"btn sm",onclick:honeArmor,disabled:(armorItem.plus||0)>=RPG_CRAFT.honeMax},"Rinforza +1")) : null,
-    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  function row(name, sub, label, onclick){
+    return el("div",{class:"rpg-b44-row"+(onclick?"":" locked")},
+      el("div",{class:"rpg-b44-row-main"}, el("div",{class:"rpg-b44-row-name"},name), el("div",{class:"rpg-b44-row-sub"},sub)),
+      el("button",{class:"rpg-b44-price", disabled:!onclick, onclick:onclick||null}, label));
+  }
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"},
+      el("h3",{class:"rpg-title"},"🔨 La Forgia"),
+      el("p",{class:"muted"},"«L'acciaio ricorda ogni mano che lo ha deluso.»")),
+    el("div",{class:"rpg-resline"}, el("span",{},"🪙 "+hero.gold), el("span",{},"⛏ "+hero.ore)),
+    el("div",{class:"panel-heading"},"Arma"), el("div",{class:"rune-divider"}),
+    row("Forgia arma superiore", "⛏ "+RPG_CRAFT.weaponFromOre.ore+" + 🪙 "+RPG_CRAFT.weaponFromOre.gold, "Forgia", craftWeapon),
+    weaponItem ? row("Affila "+weaponItem.name+" (ora +"+(weaponItem.plus||0)+")",
+      "⛏ "+(RPG_CRAFT.honeWeapon.ore+(weaponItem.plus||0))+" + 🪙 "+(RPG_CRAFT.honeWeapon.gold+(weaponItem.plus||0)*25),
+      "Affila +1", (weaponItem.plus||0)>=RPG_CRAFT.honeMax?null:honeWeapon) : null,
+    el("div",{class:"panel-heading", style:"margin-top:12px"},"Armatura"), el("div",{class:"rune-divider"}),
+    row("Forgia armatura superiore", "⛏ "+RPG_CRAFT.armorFromOre.ore+" + 🪙 "+RPG_CRAFT.armorFromOre.gold, "Forgia", craftArmor),
+    armorItem ? row("Rinforza "+armorItem.name+" (ora +"+(armorItem.plus||0)+")",
+      "⛏ "+(RPG_CRAFT.honeArmor.ore+(armorItem.plus||0))+" + 🪙 "+(RPG_CRAFT.honeArmor.gold+(armorItem.plus||0)*25),
+      "Rinforza +1", (armorItem.plus||0)>=RPG_CRAFT.honeMax?null:honeArmor) : null,
+    el("button",{class:"pixel-btn ghost", style:"margin-top:14px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
 
@@ -6661,35 +6863,37 @@ function rpgViewForge(){
 function rpgViewGuild(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const q = STATE.rpg.hero.activeQuest;
-  const content = el("div",{},
-    el("h3",{class:"rpg-title"},"📜 Gilda degli Avventurieri"),
-    q ? el("div",{class:"card rpg-card"},
-        el("div",{class:"rpg-quest-title"},"Caccia: "+q.target),
-        el("div",{class:"rpg-bar rpg-bar-xp"}, el("div",{class:"rpg-bar-fill",style:"width:"+Math.round(100*q.count/q.needed)+"%"}), el("span",{class:"rpg-bar-label"}, q.count+"/"+q.needed)),
-        el("div",{class:"muted small"},"Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"),
-        q.count>=q.needed ? el("button",{class:"btn primary rpg-cta", onclick:()=>{
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"📜 Gilda degli Avventurieri")),
+    q ? el("div",{class:"rpg-quest-box"},
+        el("div",{class:"target"},"Caccia: "+q.target),
+        el("div",{class:"hud-bar hud-xp", style:"height:12px"}, el("span",{style:"width:"+Math.round(100*q.count/q.needed)+"%"})),
+        el("div",{class:"rpg-quest-reward"}, q.count+"/"+q.needed+" · Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"),
+        q.count>=q.needed ? el("button",{class:"pixel-btn", onclick:()=>{
           STATE.rpg.hero.gold+=q.rewardGold; STATE.rpg.hero.xp+=q.rewardXp;
           const lv=rpgApplyLevelUps(STATE.rpg.hero);
           STATE.rpg.hero.activeQuest=rpgNewQuest(STATE.rpg.hero.level);
           rpgGo(lv>0?"levelup":"guild"); toast("Missione completata!");
         }}, "Riscuoti ricompensa") : null)
-      : el("p",{class:"muted"},"Nessuna missione attiva."),
-    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+      : el("p",{class:"muted", style:"text-align:center"},"Nessuna missione attiva."),
+    el("button",{class:"pixel-btn ghost", style:"margin-top:14px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
 
 /* ================= LOCANDA (riposo = cura completa) ================= */
 function rpgViewInn(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
-  const content = el("div",{},
+  const fullyRested = hero.hp>=hero.maxHp;
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel", style:"text-align:center"},
     el("h3",{class:"rpg-title"},"🛏 Locanda"),
-    el("p",{class:"muted"},"Un letto caldo e una birra scura. Nessun costo: Hollowmark si prende cura dei suoi eroi."),
-    el("button",{class:"btn primary rpg-cta", onclick:()=>{
+    el("div",{style:"font-size:13px;color:#ded4bd;margin:4px 0 10px"},"❤ PF: "+hero.hp+"/"+hero.maxHp),
+    el("p",{class:"muted"},"«L'oste offre un letto e un pasto caldo. Il riposo è gratuito.»"),
+    el("button",{class:"pixel-btn", disabled:fullyRested, onclick:()=>{
       STATE.rpg.hero.hp=rpgDerivedHero(STATE.rpg.hero, rpgInv()).maxHp;
       STATE.rpg.hero.abilityUses={}; // il riposo ripristina anche tutti gli usi delle abilita' di classe
       rpgGo("town"); toast("Riposato. PF e abilità ripristinati.");
-    }}, "Riposa"),
-    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+    }}, fullyRested?"Già a riposo pieno":"Riposa"),
+    el("button",{class:"pixel-btn ghost", style:"margin-top:10px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
 
@@ -6705,13 +6909,13 @@ function rpgViewTemple(){
     STATE.rpg.hero.atkBonus = (STATE.rpg.hero.atkBonus||0) + 2;
     rpgGo("town"); toast("Sei benedetto: +2 al colpire per il prossimo combattimento.");
   }
-  const content = el("div",{},
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel", style:"text-align:center"},
     el("h3",{class:"rpg-title"},"⛪ Tempio"),
-    el("p",{class:"muted"},"Una benedizione concede +2 al tiro per colpire nel prossimo combattimento."),
-    el("button",{class:"btn primary rpg-cta", disabled:blessed||hero.gold<RPG_TEMPLE_BLESSING_COST, onclick:bless},
+    el("p",{class:"muted"},"«Una benedizione concede +2 al tiro per colpire nel prossimo combattimento.»"),
+    el("button",{class:"pixel-btn", disabled:blessed||hero.gold<RPG_TEMPLE_BLESSING_COST, onclick:bless},
       blessed?"Già benedetto":("Ricevi la benedizione (🪙"+RPG_TEMPLE_BLESSING_COST+")")),
-    el("p",{class:"muted small"},"Se cadi in battaglia, il Tempio può richiamarti in vita pagando in oro: ritorni al checkpoint invece che perdere i progressi."),
-    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+    el("div",{class:"rpg-footnote"},"«Se cadi, il Tempio può richiamarti in vita pagando in oro: torni al checkpoint invece di perdere i progressi.»"),
+    el("button",{class:"pixel-btn ghost", style:"margin-top:10px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
 
@@ -6721,20 +6925,21 @@ function rpgViewDungeonSelect(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const rows = RPG_DUNGEONS.map(d=>{
     const locked = hero.level < d.minLevel;
-    return el("div",{class:"card rpg-card rpg-dungeon-row"+(locked?" locked":"")},
+    return el("div",{class:"pixel-stat-box", style:"padding:12px;margin-bottom:10px"+(locked?";opacity:.5":"")},
       el("div",{class:"rpg-dungeon-name"}, (locked?"🔒 ":"")+d.name+" · "+rpgDifficultyLabel(d)),
       el("div",{class:"muted small"}, d.desc),
       el("div",{class:"muted small"}, "Mostri: "+d.pool.join(", ")),
-      locked ? el("div",{class:"muted small"},"Richiede livello "+d.minLevel)
-             : el("button",{class:"btn sm primary", onclick:()=>{
+      locked ? el("div",{class:"muted small", style:"margin-top:6px"},"Richiede livello "+d.minLevel)
+             : el("button",{class:"pixel-btn", style:"margin-top:8px", onclick:()=>{
                  STATE.rpg.hero.dungeonId=d.id; STATE.rpg.hero.depth=STATE.rpg.hero.checkpointDepth||1;
                  STATE.rpg.dungeonMap = rpgGenerateDungeonMap(STATE.rpg.hero.depth, d);
                  rpgLog("Varchi l'ingresso di "+d.name+". Il buio si chiude alle tue spalle.");
                  rpgGo("dungeon"); toast("Scendi in "+d.name+".");
                }}, "Scendi a profondità "+ (hero.checkpointDepth||1)));
   });
-  const content = el("div",{}, el("h3",{class:"rpg-title"},"Scegli la discesa"), ...rows,
-    el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"Scegli la discesa")), ...rows,
+    el("button",{class:"pixel-btn ghost", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"dungeonSelect"});
 }
 
@@ -7107,33 +7312,46 @@ function rpgViewLevelUp(){
 function rpgViewCharacter(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const slots = [["weapon","⚔","Arma"],["armor","🛡","Armatura"],["helm","🪖","Elmo"],["gloves","🧤","Guanti"],["boots","🥾","Stivali"],["accessory","💍","Accessorio"]];
-  const content = el("div",{},
-    el("div",{class:"rpg-topbar-row", style:"justify-content:space-between;margin-bottom:6px"},
-      el("h3",{class:"rpg-title", style:"margin:0"}, hero.name),
-      el("div",{style:"display:flex;gap:6px"},
-        el("button",{class:"btn sm ghost", onclick:()=>{ rpgRosterSync(); rpgGo("roster"); }},"👥 Eroi"),
-        el("button",{class:"btn sm ghost", onclick:()=>rpgGo("bestiary")},"📖 Bestiario"))),
-    el("div",{class:"rpg-hero-card"}, rpgPortraitSvg(hero.race, hero.klass, 84),
-      el("div",{}, el("div",{},RPG_RACE_LABEL[hero.race]+" "+RPG_CLASS_LABEL[hero.klass]+" · Liv. "+hero.level), el("div",{class:"muted small"},hero.title))),
+  const hpPct = Math.max(2, Math.round(100*hero.hp/Math.max(1,hero.maxHp)));
+  const xpNow = hero.xp - rpgXpFloor(hero.level), xpNeed = rpgXpForLevel(hero.level+1)-rpgXpFloor(hero.level);
+  const xpPct = hero.level>=20 ? 100 : Math.max(2, Math.min(100, Math.round(100*xpNow/Math.max(1,xpNeed))));
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-hero-header"},
+      el("div",{style:"display:flex;align-items:center;gap:10px;min-width:0"},
+        el("div",{class:"pixel-stat-box", style:"padding:4px;flex-shrink:0"}, rpgPortraitSvg(hero.race, hero.klass, 48)),
+        el("div",{style:"min-width:0"},
+          el("div",{class:"rpg-hud-name", style:"font-size:14px"}, hero.name),
+          el("div",{class:"rpg-hud-sub"}, RPG_RACE_LABEL[hero.race]+" "+RPG_CLASS_LABEL[hero.klass]+" · Liv. "+hero.level),
+          el("div",{class:"rpg-hud-sub", style:"color:#d4af58"}, hero.title))),
+      el("div",{class:"rpg-hero-header-actions"},
+        el("button",{class:"pixel-btn ghost", onclick:()=>{ rpgRosterSync(); rpgGo("roster"); }},"👥 Eroi"),
+        el("button",{class:"pixel-btn ghost", onclick:()=>rpgGo("bestiary")},"📖 Codex"))),
+    el("div",{class:"rpg-hud-bars", style:"margin-bottom:14px"},
+      el("div",{class:"hud-bar hud-hp"}, el("span",{style:"width:"+hpPct+"%"})),
+      el("div",{class:"hud-bar hud-xp"}, el("span",{style:"width:"+xpPct+"%"}))),
     el("div",{class:"rpg-charstat-grid"},
-      el("div",{class:"rpg-charstat"}, el("div",{class:"rpg-charstat-label"},"PF"), el("div",{class:"rpg-charstat-val hp"},hero.hp+"/"+hero.maxHp)),
-      el("div",{class:"rpg-charstat"}, el("div",{class:"rpg-charstat-label"},"CA"), el("div",{class:"rpg-charstat-val"},hero.ac)),
-      el("div",{class:"rpg-charstat"}, el("div",{class:"rpg-charstat-label"},"ORO"), el("div",{class:"rpg-charstat-val gold"},hero.gold)),
-      el("div",{class:"rpg-charstat"}, el("div",{class:"rpg-charstat-label"},"UCCISI"), el("div",{class:"rpg-charstat-val"},hero.kills||0))),
-    el("div",{class:"rpg-stat-grid"},
-      ...["str","dex","con","int","wis","cha"].map(s=>el("div",{class:"rpg-stat"}, el("div",{class:"rpg-stat-label"},s.toUpperCase()), el("div",{class:"rpg-stat-val"},hero[s]+" ("+sign(mod(hero[s]))+")")))),
-    el("div",{class:"muted"},"Morti "+hero.deaths+" · Boss abbattuti "+hero.bossesSlain),
-    el("h4",{},"Equipaggiamento"),
+      el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-charstat-label"},"PF"), el("div",{class:"rpg-charstat-val hp"},hero.hp+"/"+hero.maxHp)),
+      el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-charstat-label"},"CA"), el("div",{class:"rpg-charstat-val"},hero.ac)),
+      el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-charstat-label"},"ORO"), el("div",{class:"rpg-charstat-val gold"},hero.gold)),
+      el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-charstat-label"},"UCCISI"), el("div",{class:"rpg-charstat-val"},hero.kills||0))),
+    el("div",{class:"panel-heading"},"Equipaggiamento"), el("div",{class:"rune-divider"}),
     el("div",{class:"rpg-equip-grid"}, ...slots.map(([slot,ic,label])=>{
       const it = rpgEquipped(hero, slot);
-      return el("div",{class:"rpg-equip-slot"+(it?"":" empty")},
+      return el("div",{class:"pixel-stat-box"+(it?"":" empty")},
         el("div",{class:"rpg-equip-ico"},ic),
         el("div",{}, el("div",{class:"rpg-equip-label"},label), el("div",{class:"rpg-equip-item"}, it?it.name:"—")),
         it?el("span",{class:"muted small"},RPG_RARITY[it.rarity].label):null);
     })),
-    hero.feats&&hero.feats.length? el("div",{}, el("h4",{},"Talenti"), ...hero.feats.map(id=>el("div",{class:"rpg-shop-row"}, rpgFeatData(id)?rpgFeatData(id).name:id))) : null,
+    el("div",{class:"panel-heading", style:"margin-top:12px"},"Talenti"), el("div",{class:"rune-divider"}),
+    hero.feats&&hero.feats.length
+      ? el("div",{}, ...hero.feats.map(id=>el("div",{class:"rpg-b44-row"}, rpgFeatData(id)?rpgFeatData(id).name:id)))
+      : el("p",{class:"muted small"},"Nessun talento ancora scelto. Se ne ottiene uno ogni 4 livelli."),
+    el("div",{class:"panel-heading", style:"margin-top:12px"},"Caratteristiche"), el("div",{class:"rune-divider"}),
+    el("div",{class:"rpg-stat-grid"},
+      ...["str","dex","con","int","wis","cha"].map(s=>el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-stat-label"},s.toUpperCase()), el("div",{class:"rpg-stat-val"},hero[s]+" ("+sign(mod(hero[s]))+")")))),
+    el("div",{class:"muted", style:"margin-top:10px;font-size:11px;text-align:center"},"Morti "+hero.deaths+" · Boss abbattuti "+hero.bossesSlain),
     el("div",{class:"rpg-danger-zone"},
-      el("button",{class:"btn ghost rpg-cta", onclick:()=>{
+      el("button",{class:"pixel-btn ghost", onclick:()=>{
         confirmModal("Cancella personaggio",
           "«"+hero.name+"» e tutto il suo progresso (inventario, missioni, registro battaglie) andranno perduti per sempre. Vuoi davvero ricominciare da zero?",
           ()=>{
@@ -7169,15 +7387,18 @@ function rpgViewInventory(){
   }
   const rows = items.length ? items.map(it=>{
     const equippedSlot = Object.entries(STATE.rpg.hero.equipment).find(([s,id])=>id===it.id);
-    return el("div",{class:"rpg-item-row"},
-      el("div",{class:"rpg-item-main"},
-        el("div",{class:"rpg-item-name", style:"color:"+(RPG_RARITY[it.rarity]||RPG_RARITY.common).color}, it.name+(equippedSlot?" (equip.)":"")),
-        el("div",{class:"muted small"}, it.lore||"")),
-      el("div",{class:"rpg-item-actions"},
-        it.slot!=="relic" ? el("button",{class:"btn sm", disabled:!!equippedSlot, onclick:()=>equip(it)}, equippedSlot?"Indossato":"Equipaggia") : null,
-        el("button",{class:"btn sm ghost", onclick:()=>sell(it)}, "Vendi 🪙"+(it.value||0))));
+    return el("div",{class:"rpg-b44-row"},
+      el("div",{class:"rpg-b44-row-main"},
+        el("div",{class:"rpg-b44-row-name", style:"color:"+(RPG_RARITY[it.rarity]||RPG_RARITY.common).color}, it.name+(equippedSlot?" (equip.)":"")),
+        el("div",{class:"rpg-b44-row-sub"}, it.lore||"")),
+      el("div",{style:"display:flex;gap:6px;flex-shrink:0"},
+        it.slot!=="relic" ? el("button",{class:"rpg-b44-price", disabled:!!equippedSlot, onclick:()=>equip(it)}, equippedSlot?"Indossato":"Equipaggia") : null,
+        el("button",{class:"rpg-b44-price", onclick:()=>sell(it)}, "Vendi 🪙"+(it.value||0))));
   }) : [el("p",{class:"muted"},"Lo zaino è vuoto.")];
-  const content = el("div",{}, el("h3",{class:"rpg-title"},"🎒 Zaino"), el("div",{class:"muted small"},"Pozioni: "+(hero.potions||0)+" · Erbe: "+hero.herbs+" · Minerale: "+hero.ore), ...rows);
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"🎒 Zaino")),
+    el("div",{class:"rpg-resline"}, el("span",{},"🧪 "+(hero.potions||0)), el("span",{},"🌿 "+hero.herbs), el("span",{},"⛏ "+hero.ore)),
+    ...rows);
   return rpgScreen(hero, content, {active:"inventory"});
 }
 
@@ -7192,7 +7413,8 @@ function rpgViewBestiary(){
       el("div",{class:"rpg-item-main"}, el("div",{class:"rpg-item-name"}, c?m.name:"??? ("+m.family+")"), c?el("div",{class:"muted small"},m.lore):null),
       c?el("div",{class:"muted small"}, "Uccisi: "+c.kills):null);
   });
-  const content = el("div",{}, el("h3",{class:"rpg-title"},"Bestiario"), ...rows);
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"📖 Bestiario")), ...rows);
   return rpgScreen(hero, content, {active:"character"});
 }
 
@@ -7200,8 +7422,10 @@ function rpgViewBestiary(){
 function rpgViewLog(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const rows = (STATE.rpg.battleLog||[]).slice(0,40).map(b=>
-    el("div",{class:"rpg-item-row"}, el("div",{}, (b.boss?"👑 ":"")+b.enemy+" · profondità "+b.depth), el("div",{class:"muted small"},"+"+b.xp+" PE, +"+b.gold+" oro"+(b.loot&&b.loot.length?(" · "+b.loot.join(", ")):""))));
-  const content = el("div",{}, el("h3",{class:"rpg-title"},"Registro battaglie"), ...(rows.length?rows:[el("p",{class:"muted"},"Nessuna battaglia registrata ancora.")]));
+    el("div",{class:"rpg-b44-row"}, el("div",{}, (b.boss?"👑 ":"")+b.enemy+" · profondità "+b.depth), el("div",{class:"muted small"},"+"+b.xp+" PE, +"+b.gold+" oro"+(b.loot&&b.loot.length?(" · "+b.loot.join(", ")):""))));
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"Registro battaglie")),
+    ...(rows.length?rows:[el("p",{class:"muted"},"Nessuna battaglia registrata ancora.")]));
   return rpgScreen(hero, content, {active:"character"});
 }
 /* =========================================================================
@@ -43901,7 +44125,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.92.0"; // v1.92.0 (21/10, RESTYLING GRAFICO FEDELE A BASE44 - PASSO 1 (schermata Home/Titolo + Citta' Hollowmark + cornice condivisa). Primo blocco del restyling pixel-per-pixel rimandato dalla v1.91.0, costruito sui dati esatti di DOM/CSS raccolti nello studio diretto dell'editor base44 (vedi mythrender-rpg/02_studio_base44_grafica_meccaniche.md nel progetto): tutta l'arte e' CSS puro (gradients, clip-path, box-shadow), nessuna immagine raster, esattamente come nel prototipo. SCHERMATA HOME/TITOLO: ricostruita da zero come scena notturna - cielo stellato (28 stelle che tremolano), luna a forma di diamante pixel con ombra, montagne in conic-gradient, titolo "MYTHRENDER" in stile pixel-font con bagliore animato, card del personaggio sovrapposta a meta' altezza (ritratto, nome, barre PF/PE, oro, profondita', bottone "Continua la discesa"), locanda con insegna/finestre illuminate/porta e falo' con bagliore pulsante in basso, vignettatura ai bordi. CITTA' (HOLLOWMARK): pannello principale con angoli dorati decorativi (frame-ornate, gli stessi visti incorniciare i pannelli principali in base44), edifici ridisegnati come tessere allineate a sinistra invece che centrate, Diario di viaggio con intestazione e divisore dorato nello stesso stile del pannello "ADVENTURE LOG" osservato nell'editor. CORNICE CONDIVISA (su ogni schermata): la barra risorse in alto e' ora una vera HUD card (ritratto + nome + barre PF/PE con bagliore interno + oro a destra, dentro un pannello con angoli dorati) al posto della semplice barra di testo di prima; la nav inferiore a 5 pulsanti ha ora il tab attivo con bordo dorato, bagliore e barretta indicatrice sopra l'icona, come il bottom nav del prototipo. Le altre schermate (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino/Scheda/Dungeon) condividono gia' la nuova cornice (barra in alto + nav) ma non sono ancora state ridisegnate internamente: restano con lo stile precedente in attesa del prossimo passaggio, volutamente non affrontate tutte insieme per poter verificare con calma ogni schermata senza introdurre regressioni visive sparse su troppi fronti insieme. Verificato: node --check su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito sul CSS; rendering diretto in Node.js con jsdom delle due viste riscritte (Home e Citta'), nessuna eccezione; rieseguita anche la simulazione autonoma di 150 discese con pathfinding BFS reale (0 eccezioni) per confermare che motore/dati non sono stati toccati, solo la presentazione. Non verificato con un browser reale end-to-end in questa sessione: andrebbe controllato dal vivo su schermo reale, specialmente a schermo stretto da telefono, prima di considerare definitivo l'allineamento ai pixel esatti del prototipo. Prossimo passo gia' pianificato, parte della stessa richiesta "fai tutto" di Carmine: restyling delle schermate rimanenti (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino/Scheda/Dungeon), poi arte/immagini dedicate e il debug finale con screenshot di approvazione prima di riattivare la sezione nel menu. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+var ROLLONE_CONTENT_VERSION = "1.93.0"; // v1.93.0 (21/10, RESTYLING GRAFICO FEDELE A BASE44 - PASSO 2 (tutte le schermate rimanenti della sezione economica/scheda, stesso linguaggio visivo introdotto nel passo 1). Prosegue il restyling pixel-per-pixel usando gli stessi dati DOM/CSS esatti raccolti nello studio diretto dell'editor base44 (mythrender-rpg/02_studio_base44_grafica_meccaniche.md nel progetto): pannelli con angoli dorati (frame-ornate), righe stile "WARES" (icona/nome/sottotitolo a sinistra, prezzo o azione a destra, bordo che si illumina al passaggio del dito), intestazioni di sezione con divisore dorato. MERCANTE: battuta del mercante in corsivo, riga risorse ORO/ERBE/MINERALE/POZIONI, sezioni "Merce del giorno"/"Armi"/"Armature" separate, nota a pie' pagina sul rinnovo scorte. FORGIA: motto in corsivo, sezioni "Arma"/"Armatura" con le 4 azioni (forgia/affila) nelle nuove righe. GILDA: riquadro missione con barra di progresso e ricompensa. LOCANDA: PF correnti in evidenza, bottone con etichetta dinamica "Gia' a riposo pieno" quando i PF sono gia' pieni (prima restava sempre "Riposa" anche senza nulla da guarire). TEMPIO: nota a pie' pagina sulla resurrezione. SELEZIONE DUNGEON: righe diventate tessere (pixel-stat-box). SCHEDA EROE: intestazione con ritratto+nome dentro una mini tessera (come il riquadro ritratto base44), barre PF/PE sempre visibili in cima, le 4 statistiche in evidenza (PF/CA/ORO/UCCISI) e le 6 caratteristiche ora dentro tessere invece di semplici box, sezione "Talenti" sempre visibile anche quando vuota (con nota esplicativa) invece di sparire del tutto. ZAINO, BESTIARIO, REGISTRO BATTAGLIE, LISTA EROI: stesse righe in stile base44, dentro pannelli con angoli dorati. Nessuna logica di gioco toccata: solo presentazione. Verificato: node --check su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito sul CSS; rendering diretto in Node.js con jsdom di tutte e 14 le viste riscritte finora (Home, Citta', Mercante, Forgia, Gilda, Locanda, Tempio, Selezione dungeon, Dungeon, Scheda, Zaino, Bestiario, Registro, Lista eroi), nessuna eccezione; rieseguita anche la simulazione autonoma di 150 discese con pathfinding BFS reale (0 eccezioni) per confermare che motore/dati restano intatti. Non verificato con un browser reale end-to-end in questa sessione. Restano ancora da ridisegnare internamente solo la schermata di Combattimento e gli schermi di vittoria/sconfitta/salita di livello, che hanno gia' una loro identita' visiva distinta (cerchio runico, stendardo) e sono rimandati a un passaggio dedicato per non rischiare di snaturarli affrettando il lavoro; poi restano arte/immagini dedicate e il debug finale con screenshot di approvazione prima di riattivare la sezione nel menu, come gia' annunciato. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+// var ROLLONE_CONTENT_VERSION = "1.92.0"; // v1.92.0 (21/10, RESTYLING GRAFICO FEDELE A BASE44 - PASSO 1 (schermata Home/Titolo + Citta' Hollowmark + cornice condivisa). Primo blocco del restyling pixel-per-pixel rimandato dalla v1.91.0, costruito sui dati esatti di DOM/CSS raccolti nello studio diretto dell'editor base44 (vedi mythrender-rpg/02_studio_base44_grafica_meccaniche.md nel progetto): tutta l'arte e' CSS puro (gradients, clip-path, box-shadow), nessuna immagine raster, esattamente come nel prototipo. SCHERMATA HOME/TITOLO: ricostruita da zero come scena notturna - cielo stellato (28 stelle che tremolano), luna a forma di diamante pixel con ombra, montagne in conic-gradient, titolo "MYTHRENDER" in stile pixel-font con bagliore animato, card del personaggio sovrapposta a meta' altezza (ritratto, nome, barre PF/PE, oro, profondita', bottone "Continua la discesa"), locanda con insegna/finestre illuminate/porta e falo' con bagliore pulsante in basso, vignettatura ai bordi. CITTA' (HOLLOWMARK): pannello principale con angoli dorati decorativi (frame-ornate, gli stessi visti incorniciare i pannelli principali in base44), edifici ridisegnati come tessere allineate a sinistra invece che centrate, Diario di viaggio con intestazione e divisore dorato nello stesso stile del pannello "ADVENTURE LOG" osservato nell'editor. CORNICE CONDIVISA (su ogni schermata): la barra risorse in alto e' ora una vera HUD card (ritratto + nome + barre PF/PE con bagliore interno + oro a destra, dentro un pannello con angoli dorati) al posto della semplice barra di testo di prima; la nav inferiore a 5 pulsanti ha ora il tab attivo con bordo dorato, bagliore e barretta indicatrice sopra l'icona, come il bottom nav del prototipo. Le altre schermate (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino/Scheda/Dungeon) condividono gia' la nuova cornice (barra in alto + nav) ma non sono ancora state ridisegnate internamente: restano con lo stile precedente in attesa del prossimo passaggio, volutamente non affrontate tutte insieme per poter verificare con calma ogni schermata senza introdurre regressioni visive sparse su troppi fronti insieme. Verificato: node --check su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito sul CSS; rendering diretto in Node.js con jsdom delle due viste riscritte (Home e Citta'), nessuna eccezione; rieseguita anche la simulazione autonoma di 150 discese con pathfinding BFS reale (0 eccezioni) per confermare che motore/dati non sono stati toccati, solo la presentazione. Non verificato con un browser reale end-to-end in questa sessione: andrebbe controllato dal vivo su schermo reale, specialmente a schermo stretto da telefono, prima di considerare definitivo l'allineamento ai pixel esatti del prototipo. Prossimo passo gia' pianificato, parte della stessa richiesta "fai tutto" di Carmine: restyling delle schermate rimanenti (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino/Scheda/Dungeon), poi arte/immagini dedicate e il debug finale con screenshot di approvazione prima di riattivare la sezione nel menu. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.91.0"; // v1.91.0 (21/10, GESTIONE MULTI-PERSONAGGIO - ultimo punto esplicitamente rimandato dalla v1.90.0, su "fai tutto" di Carmine, che ha anche confermato di lasciare il rifornimento del Mercante com'era: ogni 15 minuti reali, non "a ogni uscita/rientro" come nel prototipo base44). Prima d'ora esisteva un solo personaggio per account, cancellabile solo per intero ("cancella e ricomincia da zero"); ora si possono tenere fino a 6 eroi in parallelo (RPG_ROSTER_MAX), ognuno con la propria scheda, zaino, codice, registro battaglie, mercato del giorno e mappa del dungeon in corso. Nuova schermata "Eroi" (bottone "Eroi" accanto a "Bestiario" sulla Scheda) che elenca tutti i personaggi con un tasto "Gioca" per passare da uno all'altro e un tasto cancella per il singolo personaggio, piu' un bottone "+ Nuovo personaggio" che porta alla creazione gia' esistente riusando la stessa schermata. Un salvataggio precedente con un solo eroe (senza roster) viene adottato automaticamente come primo personaggio della lista al primo accesso, senza bisogno di ricreare nulla. Il cambio di scheda avviene tramite un meccanismo di sincronizzazione (rpgRosterSync/rpgRosterLoad) che copia i dati "attivi" (hero/zaino/codice/registro/mercato/mappa) dentro e fuori dallo slot del roster corrispondente ad ogni cambio di schermata o di personaggio, cosi' nessun'altra funzione del gioco ha dovuto essere toccata: continuano tutte a leggere/scrivere gli stessi campi di sempre, come se ci fosse un solo eroe. Verificato: node --check su tutti i 16 blocchi script del file finale; test dedicato in Node.js della sola logica roster (creazione di un secondo personaggio, sincronizzazione dell'oro guadagnato, cambio scheda, cancellazione del personaggio attivo con passaggio automatico al successivo, svuotamento completo del roster), tutti i casi passati; rieseguita anche la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che motore/dati restano coerenti, dato che la logica di gioco vera e propria non e' stata toccata, solo la gestione di quale scheda sia "attiva". Non verificato con un browser reale end-to-end in questa sessione: in particolare andrebbe provato dal vivo il passaggio da un personaggio all'altro a meta' di un combattimento o di un dungeon in corso, caso che la logica gestisce (lo stato si salva prima di ogni cambio schermata) ma che non e' stato visto su schermo. Resta ancora da fare, parte della stessa richiesta "fai tutto" e troppo ampia per un unico passaggio: grafica pixel-per-pixel identica a base44 (dati di riferimento gia' raccolti nella documentazione di progetto, non ancora applicati al codice - richiede di rifare schermata per schermata Mercante/Forgia/Gilda/Locanda/Tempio/Zaino/Scheda/Dungeon, lavoro corposo da fare con calma per non introdurre regressioni visive), arte/immagini dedicate per ogni elemento di gioco, e il debug finale con screenshot di approvazione prima di riattivare la sezione nel menu. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.90.0"; // v1.90.0 (21/10, DUNGEON IN TEMPO REALE - decisione esplicita di Carmine dopo aver letto lo studio diretto di base44: li' il dungeon e' a turni su griglia, bump-to-fight, mostri fermi finche' non li si urta; Carmine ha scelto di NON restare fedele a questo punto specifico ("trova la soluzione migliore, ma non voglio roba statica ma viva"), quindi qui il dungeon della Discesa si discosta deliberatamente dal prototipo su questo singolo aspetto). Aggiunto un battito regolare (ogni 550ms, attivo solo nella vista dungeon e fuori combattimento) che fa vivere la mappa anche senza input: un mostro entro 3 caselle dall'eroe si "sveglia" e lo insegue una casella a battito lungo l'asse con distanza maggiore, un mostro ancora addormentato vaga a caso con probabilita' 35% per battito; se un mostro raggiunge la cella dell'eroe il combattimento parte da solo, esattamente come quando e' l'eroe a urtare lui. I mostri che hanno individuato l'eroe hanno ora un lieve bagliore rosso pulsante sulla mappa, per vedere a colpo d'occhio chi sta inseguendo. Aggiunta anche una rotellina di movimento trascinabile col dito (vero controllo a 360 gradi: qualunque angolo di trascinamento viene mappato sulla direzione cardinale piu' vicina, dato che i corridoi della griglia sono solo ortogonali) accanto al D-pad a bottoni gia' esistente, che resta anch'esso attivo; tenendo premuta la rotellina il personaggio continua a muoversi passo-passo ogni 260ms, dando la sensazione di movimento continuo pur restando sulla griglia a celle. Corretta la Forgia: oltre al salto di tier gia' esistente, aggiunte le azioni "Affila +1" (arma) e "Rinforza +1" (armatura) viste nella Forgia di base44 ("Hone to +1"), che incrementano il "+N" dell'oggetto gia' equipaggiato invece di sostituirlo, fino a un tetto di +5, con costo crescente ad ogni affilatura; corretto anche un bug scoperto nel farlo: il "+N" dell'armatura (armorPlus) veniva calcolato ma non sommava mai nulla alla CA effettiva nella scheda derivata, quindi "rinforzare" l'armatura prima d'ora non avrebbe avuto alcun effetto reale in combattimento. NON toccato in questo passaggio, volutamente rimandato: gestione multi-personaggio (crea/cancella/cambia - al momento esiste solo "cancella e ricomincia da zero"), studio e replica pixel-per-pixel della grafica di base44 (confrontata a fondo in questa sessione, dettagli salvati nella documentazione di progetto, ma non ancora applicati al codice), e la decisione pendente sul meccanismo di rifornimento del Mercante (ogni 15 minuti come ora, oppure "ogni volta che si esce e si rientra" come osservato nel vero base44 - chiesto a Carmine, risposta non ancora arrivata). Verificato: node --check su tutti i blocchi script; test diretto in Node.js di rpgTickMonsters (un mostro a 4 caselle di distanza individua e raggiunge l'eroe entro pochi battiti; un mostro lontano vaga comunque nel tempo anche senza mai individuare nessuno); rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che generazione mappa e combattimento non sono stati alterati da questa modifica, solo l'IA dei mostri fuori dal combattimento. Non verificato con un browser reale end-to-end in questa sessione: la rotellina a tocco in particolare andrebbe provata su un telefono vero prima di considerarla definitiva. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.89.0"; // v1.89.0 (21/10, CORREZIONI MULTIPLE sulla sezione RPG - ancora disattivata nel menu dalla v1.88.0 su richiesta di Carmine, lavoro di sviluppo in background prima di riattivarla - dopo una nuova lista dettagliata di richieste): 1) RIPOSO IN LOCANDA - ora ripristina anche tutti gli usi delle abilita' di classe (abilityUses={}), prima solo i PF. 2) TEMPIO - corretto un errore meccanico reale: la benedizione dava +2 alla CA invece che +2 al tiro per colpire (coerente col testo osservato su base44), ora costa 60 oro come nel prototipo, e si consuma dopo un solo combattimento (prima restava attiva per sempre: bug trovato sistemando questo, mai segnalato perche' nessuno se n'era accorto). Aggiunta anche la resurrezione a pagamento in caso di sconfitta gia' annunciata dal testo del Tempio ma mai implementata: se l'eroe ha abbastanza oro viene richiamato in vita a un costo scalato sulla profondita', altrimenti si risveglia comunque gratis. 3) BONUS DI COMBATTIMENTO DA STATISTICHE - il tiro per colpire e il danno con l'arma NON usavano mai le caratteristiche del personaggio, solo i bonus piatti dell'equipaggiamento: aggiunto il modificatore di caratteristica corretto per classe (Forza per Guerriero/Barbaro, Destrezza per Ladro/Ranger, Intelligenza per Mago, Saggezza per Chierico, come una vera scheda D&D) piu' il bonus "+N" dell'arma forgiata (gia' calcolato ma mai usato prima). 4) STATISTICHE CASUALI ALLA CREAZIONE - le 6 caratteristiche erano valori fissi identici per ogni personaggio; ora tirate con 4d6-scarta-il-minimo (il metodo classico di creazione di una scheda D&D), tetto di sicurezza a 20 su richiesta esplicita. 5) BOTTINO AUMENTATO - oro di vittoria quasi raddoppiato (+40 extra sui boss), erbe/minerale piu' frequenti e abbondanti, oro dei forzieri quasi raddoppiato, drop di reliquie/equip piu' probabili. 6) MERCANTE A SCORTE ROTANTI - nuova sezione "Merce del giorno" che pesca a caso pozioni/balle di risorse/equip da bottino e si rinnova da sola ogni 15 minuti reali (STATE.rpg.shopStock con timestamp), accanto al percorso fisso di progressione arma/armatura gia' esistente. Punti ancora NON affrontati in questa versione, parte della stessa richiesta di Carmine e rimandati ad un prossimo passaggio piu' corposo: gestione multi-personaggio (crea/cancella/cambia), grafica identica a base44 (studio approfondito ancora da fare), movimento in tempo reale con rotella 360 gradi, mostri con rilevamento a vista e inseguimento, arte/immagini dedicate per ogni elemento. Verificato: node --check su tutti i blocchi script; simulazione autonoma di 150 discese con pathfinding BFS reale rieseguita dopo tutte le modifiche (oltre 1500 combattimenti, 0 eccezioni) per confermare che engine/dati restano coerenti. Non verificato con un browser reale end-to-end in questa sessione. sha256: 0000000000000000000000000000000000000000000000000000000000000.
