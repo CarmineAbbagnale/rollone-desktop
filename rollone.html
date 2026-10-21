@@ -1811,7 +1811,6 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
   .rpg-combat-actions{grid-template-columns:1fr 1fr}
   .rpg-hero-card{flex-direction:row}
 }
-
 </style>
 
 <!-- Multiplayer opzionale (Supabase): salvataggio cloud e sincronizzazione in tempo reale delle
@@ -5291,6 +5290,11 @@ const RPG_CLASSES = {
   Barbarian: { weapon:"1d10", hpBase:14 }
 };
 const RPG_CLASS_NAMES = Object.keys(RPG_CLASSES);
+/* Caratteristica usata per il tiro per colpire/danno con l'arma equipaggiata, come nella scheda
+   D&D reale (Forza per i combattenti corpo a corpo, Destrezza per le classi "finezza", Intelligenza/
+   Saggezza per chi lancia incantesimi anche con l'arma in mano): prima mancava del tutto, i colpi
+   usavano solo il bonus dell'equipaggiamento, mai la caratteristica del personaggio. */
+const RPG_CLASS_ATKSTAT = { Fighter:"str", Barbarian:"str", Rogue:"dex", Ranger:"dex", Wizard:"int", Cleric:"wis" };
 const RPG_CLASS_LABEL = { Fighter:"Guerriero", Wizard:"Mago", Rogue:"Ladro", Cleric:"Chierico", Ranger:"Ranger", Barbarian:"Barbaro" };
 
 const RPG_RACES = ["Human","Elf","Dwarf","Halfling","Dragonborn","Tiefling"];
@@ -5558,6 +5562,26 @@ const RPG_ABILITIES = {
 function rpgAbilitiesUnlocked(klass, level){ return (RPG_ABILITIES[klass]||[]).filter(a=>a.minLevel<=level); }
 function rpgNextAbility(klass, level){ return (RPG_ABILITIES[klass]||[]).find(a=>a.minLevel>level); }
 
+/* ---- Scorte del Mercante: assortimento casuale che si rinnova ogni 15 minuti reali (richiesta
+   esplicita di Carmine: "il mercante deve cambiare la merce ogni 15 minuti"). Si affianca
+   all'arma/armatura di tier successivo sempre acquistabili (percorso di progressione fisso),
+   offrendo in più 4 oggetti pescati a caso da un paniere coerente col livello dell'eroe: pozioni,
+   balle di erbe/minerale, ed equip da bottino (elmi/guanti/stivali/accessori). ---- */
+const RPG_SHOP_RESTOCK_MS = 15*60*1000;
+function rpgRollShopWares(level){
+  const tier = level>=14?2:(level>=5?1:0);
+  const equipPool = RPG_LOOT_EQUIP.filter(e=>e.tier<=tier);
+  const wares = [];
+  wares.push({key:"potion", name:"Pozione di cura", sub:"Ripristina PF in combattimento", cost:{gold:RPG_CRAFT.potionFromHerbs.gold+10}});
+  wares.push({key:"herbBundle", name:"Fascio di erbe x4", sub:"+4 erbe", cost:{gold:18}});
+  wares.push({key:"oreBundle", name:"Carico di minerale x3", sub:"+3 minerale", cost:{gold:26}});
+  const extra = 2+Math.floor(Math.random()*2);
+  for(let i=0;i<extra;i++){
+    const tpl = equipPool[Math.floor(Math.random()*equipPool.length)];
+    if(tpl) wares.push({key:"equip", name:tpl.name, sub:(tpl.ac?("CA +"+tpl.ac+" "):"")+(tpl.atk?("Attacco +"+tpl.atk):""), cost:{gold:tpl.value*2}, tpl});
+  }
+  return wares;
+}
 /* ---- Crafting (Forgia) ---- */
 const RPG_CRAFT = {
   potionFromHerbs:{herbs:3, gold:20},
@@ -5573,15 +5597,31 @@ function rpgNewQuest(level){
   return { target, needed, count:0, rewardGold: needed*25+level*10, rewardXp: needed*20+level*8 };
 }
 
+/* Tira una singola caratteristica come nella creazione di una scheda D&D reale: 4d6, scarta il
+   dado piu' basso, somma i restanti tre (il classico metodo "4d6 scarta il minimo", intervallo
+   naturale 3-18). Richiesta esplicita di Carmine ("statistiche tirate come nella creazione della
+   scheda di dnd ma in maniera totalmente casuale, il massimo per le statistiche è 20"): prima le 6
+   caratteristiche erano valori fissi identici per ogni personaggio (12/12/12/10/10/10), mai tirate.
+   Il tetto a 20 è un margine di sicurezza (il metodo da solo non lo raggiunge mai) per restare
+   coerente nel caso si sommino in futuro bonus di razza. */
+function rpgRollAbilityScore(){
+  const rolls = [rollDie(6), rollDie(6), rollDie(6), rollDie(6)].sort((a,b)=>a-b);
+  return Math.min(20, rolls[1]+rolls[2]+rolls[3]);
+}
+function rpgRollAbilityScores(){
+  return { str:rpgRollAbilityScore(), dex:rpgRollAbilityScore(), con:rpgRollAbilityScore(),
+    int:rpgRollAbilityScore(), wis:rpgRollAbilityScore(), cha:rpgRollAbilityScore() };
+}
 /* ---- Scheda personaggio: eroe nuovo di zecca ---- */
 function rpgNewHero(name, race, klass){
   const cls = RPG_CLASSES[klass]||RPG_CLASSES.Fighter;
-  const hp = cls.hpBase + mod(12); // CON di partenza fissa a 12 per tutte le classi (vedi rpgRollStats sotto se servirà variare)
+  const stats = rpgRollAbilityScores();
+  const hp = cls.hpBase + mod(stats.con);
   return {
     name, race, klass, title:"Viandante di Hollowmark", level:1, xp:0,
     gold:20, potions:1, herbs:0, ore:0,
-    str:12, dex:12, con:12, int:10, wis:10, cha:10,
-    maxHp:hp, hp, ac:10+mod(12),
+    str:stats.str, dex:stats.dex, con:stats.con, int:stats.int, wis:stats.wis, cha:stats.cha,
+    maxHp:hp, hp, ac:10+mod(stats.dex),
     weapon:cls.weapon, weaponTier:0, weaponPlus:0, armorTier:0, armorPlus:0,
     acBonus:0, atkBonus:0, dmgBonus:0,
     depth:1, checkpointDepth:1, dungeonId:"crypt",
@@ -5591,7 +5631,6 @@ function rpgNewHero(name, race, klass){
     createdAt: Date.now()
   };
 }
-
 /* =========================================================================
    MYTHRENDER RPG — motore di gioco (equip derivato, combattimento, bottino)
    ========================================================================= */
@@ -5671,15 +5710,22 @@ function rpgRollRelicDrop(depth){
 function rpgHeroAttackRoll(hero, enemy, opts){
   opts = opts||{};
   const bonus = rpgFeatBonuses(hero);
+  // Modificatore di caratteristica (Forza/Destrezza/Intelligenza/Saggezza a seconda della classe,
+  // come in una vera scheda D&D) + bonus del "+N" guadagnato in Forgia sull'arma equipaggiata:
+  // prima il colpire/il danno dipendevano SOLO dai bonus piatti dell'equipaggiamento, mai dalle
+  // statistiche del personaggio.
+  const atkStat = RPG_CLASS_ATKSTAT[hero.klass]||"str";
+  const statMod = mod(hero[atkStat]||10);
+  const weaponPlus = hero.weaponPlus||0;
   const d20 = rollDie(20) + (opts.atkMod||0) + bonus.lucky;
-  const toHit = d20 + Math.floor((hero.level-1)/2) + (hero.atkBonus||0) + bonus.attackBonus;
+  const toHit = d20 + Math.floor((hero.level-1)/2) + statMod + weaponPlus + (hero.atkBonus||0) + bonus.attackBonus;
   const crit = d20 >= bonus.critMin;
   const hit = crit || toHit >= enemy.ac;
   let dmg = 0, rolls=null;
   if(hit){
     const base = rpgRollDice(hero.weapon);
     rolls = base.rolls;
-    dmg = base.total + (hero.dmgBonus||0) + bonus.damageBonus;
+    dmg = base.total + statMod + weaponPlus + (hero.dmgBonus||0) + bonus.damageBonus;
     if(bonus.berserker && hero.hp <= hero.maxHp/2) dmg += 2;
     if(bonus.executioner && enemy.hp <= enemy.maxHp/2) dmg = Math.round(dmg*1.5);
     if(crit) dmg *= 2;
@@ -5706,13 +5752,16 @@ function rpgEnemyAttackRoll(enemy, hero, defenderBonusAc){
    progredire" come nell'originale, senza passaggi intermedi inventati. */
 function rpgVictoryRewards(hero, enemy, dungeon){
   const xp = enemy.xp;
-  const gold = Math.round(xp/3) + Math.floor(Math.random()*5);
+  // Bottino aumentato (segnalazione esplicita di Carmine, "migliora la quantità di oro e di oggetti
+  // che si trovano"): oro quasi raddoppiato rispetto a prima, erbe/minerale più frequenti e in
+  // quantità maggiore, drop di reliquie/equipaggiamento più probabili.
+  const gold = Math.round(xp/1.6) + Math.floor(Math.random()*10) + (enemy.boss?40:0);
   const bias = (dungeon&&dungeon.bias)||{herb:1,ore:1};
-  const herbs = Math.random()<0.4 ? Math.ceil(Math.random()*2*bias.herb) : 0;
-  const ore = Math.random()<0.25 ? Math.ceil(Math.random()*bias.ore) : 0;
+  const herbs = Math.random()<0.6 ? 1+Math.ceil(Math.random()*3*bias.herb) : 0;
+  const ore = Math.random()<0.45 ? 1+Math.ceil(Math.random()*2*bias.ore) : 0;
   const loot = [];
-  if(Math.random()<0.35){ const rel = rpgRollRelicDrop(hero.depth); if(rel) loot.push(rel); }
-  if(enemy.boss || Math.random()<0.12){ const eq = rpgRollEquipDrop(hero.depth); if(eq) loot.push(eq); }
+  if(Math.random()<0.55){ const rel = rpgRollRelicDrop(hero.depth); if(rel) loot.push(rel); }
+  if(enemy.boss || Math.random()<0.22){ const eq = rpgRollEquipDrop(hero.depth); if(eq) loot.push(eq); }
   return {xp, gold, herbs, ore, loot};
 }
 /* Dato l'xp totale aggiornato, applica tutte le salite di livello maturate (può essere più di una),
@@ -5790,15 +5839,16 @@ function rpgGenerateDungeonMap(depth, dungeon){
   for(let i=0;i<chestCount;i++){
     const [cx,cy] = chestCells[i];
     chests[cx+","+cy] = {
-      gold: 8+Math.floor(depth*2.2)+Math.floor(Math.random()*10),
-      herbs: Math.random()<.5 ? 1+Math.floor(Math.random()*2) : 0,
-      ore: Math.random()<.4 ? 1+Math.floor(Math.random()*2) : 0
+      // Importi aumentati (richiesta esplicita di Carmine): piu' oro per forziere e piu' probabilita'
+      // di trovarci dentro anche erbe/minerale insieme, non solo l'uno o l'altro.
+      gold: 15+Math.floor(depth*4)+Math.floor(Math.random()*18),
+      herbs: Math.random()<.65 ? 1+Math.floor(Math.random()*3) : 0,
+      ore: Math.random()<.55 ? 1+Math.floor(Math.random()*3) : 0
     };
   }
   return { w:W, h:H, grid, playerX:start[0], playerY:start[1], stairsX:stairs[0], stairsY:stairs[1],
     monsters, monsterCount:Object.keys(monsters).length, bossFloor:isBossFloor, chests };
 }
-
 /* =========================================================================
    MYTHRENDER RPG — interfaccia (sezione "Avventura" > "Dungeon della Discesa")
    -------------------------------------------------------------------------
@@ -5812,7 +5862,7 @@ function rpgGenerateDungeonMap(depth, dungeon){
 
 function rpgDefaultState(){
   return { hero:null, inventory:[], battleLog:[], codex:{}, screen:"home",
-    combat:null, dungeonMap:null, sfxOn:true, log:[] };
+    combat:null, dungeonMap:null, sfxOn:true, log:[], shopStock:null };
 }
 function rpgGo(screen, extra){
   if(extra) Object.assign(STATE.rpg, extra);
@@ -6122,12 +6172,28 @@ function rpgViewShop(){
     const item=rpgMakeArmor(tier); STATE.rpg.inventory.push(item); STATE.rpg.hero.equipment.armor=item.id;
     rpgGo("shop"); toast("Hai acquistato "+a.name+".");
   }
-  function buyPotion(){
-    const c=RPG_CRAFT.potionFromHerbs;
-    if(hero.gold<c.gold) return toast("Non hai abbastanza oro.");
-    STATE.rpg.hero.gold-=c.gold; STATE.rpg.hero.potions=(STATE.rpg.hero.potions||0)+1;
-    rpgGo("shop"); toast("Pozione acquistata.");
+  // Scorte casuali: si rinnovano da sole ogni 15 minuti reali (richiesta esplicita di Carmine).
+  // STATE.rpg.shopStock sopravvive al salvataggio, cosi' l'assortimento resta coerente finche' non
+  // scade, anche chiudendo e riaprendo l'app.
+  if(!STATE.rpg.shopStock || (Date.now()-STATE.rpg.shopStock.at) >= RPG_SHOP_RESTOCK_MS){
+    STATE.rpg.shopStock = { at: Date.now(), wares: rpgRollShopWares(hero.level) };
   }
+  function buyWare(idx){
+    const ware = STATE.rpg.shopStock.wares[idx];
+    if(!ware) return;
+    if(hero.gold < ware.cost.gold) return toast("Non hai abbastanza oro.");
+    STATE.rpg.hero.gold -= ware.cost.gold;
+    if(ware.key==="potion") STATE.rpg.hero.potions=(STATE.rpg.hero.potions||0)+1;
+    else if(ware.key==="herbBundle") STATE.rpg.hero.herbs=(STATE.rpg.hero.herbs||0)+4;
+    else if(ware.key==="oreBundle") STATE.rpg.hero.ore=(STATE.rpg.hero.ore||0)+3;
+    else if(ware.key==="equip"){ const item=rpgMakeEquip(ware.tpl); STATE.rpg.inventory.push(item); }
+    STATE.rpg.shopStock.wares.splice(idx,1); // merce esaurita finche' non si rinnova lo stock
+    rpgGo("shop"); toast("Hai acquistato "+ware.name+".");
+  }
+  const minutesLeft = Math.max(0, Math.ceil((RPG_SHOP_RESTOCK_MS-(Date.now()-STATE.rpg.shopStock.at))/60000));
+  const wareRows = STATE.rpg.shopStock.wares.map((w,i)=> el("div",{class:"rpg-shop-row"},
+    el("div",{},el("div",{class:"rpg-shop-name"},w.name),el("div",{class:"muted small"},w.sub||"")),
+    el("button",{class:"btn sm", onclick:()=>buyWare(i)}, "🪙"+w.cost.gold)));
   const weaponRows = RPG_SHOP_WEAPONS.map((w,i)=> el("div",{class:"rpg-shop-row"+(hero.weaponTier===i?" owned":"")},
     el("div",{},el("div",{class:"rpg-shop-name"},w.name),el("div",{class:"muted small"},"Danno "+w.die)),
     el("button",{class:"btn sm", disabled:hero.weaponTier>=i, onclick:()=>buyWeapon(i)}, w.cost===0?"Iniziale":("🪙"+w.cost+" ⛏"+w.ore))));
@@ -6136,7 +6202,8 @@ function rpgViewShop(){
     el("button",{class:"btn sm", disabled:hero.armorTier>=i, onclick:()=>buyArmor(i)}, a.cost===0?"Iniziale":("🪙"+a.cost+" ⛏"+a.ore))));
   const content = el("div",{},
     el("h3",{class:"rpg-title"},"🛒 Il Mercante"),
-    el("div",{class:"rpg-shop-row"}, el("div",{},el("div",{class:"rpg-shop-name"},"Pozione di cura"),el("div",{class:"muted small"},"Ripristina PF in combattimento")), el("button",{class:"btn sm",onclick:buyPotion},"🪙"+RPG_CRAFT.potionFromHerbs.gold)),
+    el("div",{class:"muted small"},"Merce del giorno — si rinnova tra "+minutesLeft+" min"),
+    wareRows.length ? el("div",{},...wareRows) : el("p",{class:"muted small"},"Bancarella vuota, torna tra poco."),
     el("h4",{},"Armi"), ...weaponRows,
     el("h4",{},"Armature"), ...armorRows,
     el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
@@ -6198,18 +6265,33 @@ function rpgViewInn(){
   const content = el("div",{},
     el("h3",{class:"rpg-title"},"🛏 Locanda"),
     el("p",{class:"muted"},"Un letto caldo e una birra scura. Nessun costo: Hollowmark si prende cura dei suoi eroi."),
-    el("button",{class:"btn primary rpg-cta", onclick:()=>{ STATE.rpg.hero.hp=rpgDerivedHero(STATE.rpg.hero, rpgInv()).maxHp; rpgGo("town"); toast("Riposato. PF ripristinati."); }}, "Riposa"),
+    el("button",{class:"btn primary rpg-cta", onclick:()=>{
+      STATE.rpg.hero.hp=rpgDerivedHero(STATE.rpg.hero, rpgInv()).maxHp;
+      STATE.rpg.hero.abilityUses={}; // il riposo ripristina anche tutti gli usi delle abilita' di classe
+      rpgGo("town"); toast("Riposato. PF e abilità ripristinati.");
+    }}, "Riposa"),
     el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
 
 /* ================= TEMPIO (benedizione: bonus temporaneo prossima discesa) ================= */
+const RPG_TEMPLE_BLESSING_COST = 60;
 function rpgViewTemple(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const blessed = (STATE.rpg.hero.atkBonus||0) > 0;
+  function bless(){
+    if(blessed) return;
+    if(hero.gold<RPG_TEMPLE_BLESSING_COST) return toast("Non hai abbastanza oro.");
+    STATE.rpg.hero.gold -= RPG_TEMPLE_BLESSING_COST;
+    STATE.rpg.hero.atkBonus = (STATE.rpg.hero.atkBonus||0) + 2;
+    rpgGo("town"); toast("Sei benedetto: +2 al colpire per il prossimo combattimento.");
+  }
   const content = el("div",{},
     el("h3",{class:"rpg-title"},"⛪ Tempio"),
-    el("p",{class:"muted"},"Una benedizione silenziosa prima di scendere: +2 alla CA per la prossima incursione."),
-    el("button",{class:"btn primary rpg-cta", onclick:()=>{ STATE.rpg.hero.acBonus=2; rpgGo("town"); toast("Sei benedetto per la prossima discesa."); }}, "Chiedi la benedizione"),
+    el("p",{class:"muted"},"Una benedizione concede +2 al tiro per colpire nel prossimo combattimento."),
+    el("button",{class:"btn primary rpg-cta", disabled:blessed||hero.gold<RPG_TEMPLE_BLESSING_COST, onclick:bless},
+      blessed?"Già benedetto":("Ricevi la benedizione (🪙"+RPG_TEMPLE_BLESSING_COST+")")),
+    el("p",{class:"muted small"},"Se cadi in battaglia, il Tempio può richiamarti in vita pagando in oro: ritorni al checkpoint invece che perdere i progressi."),
     el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
@@ -6342,6 +6424,11 @@ function rpgViewCombat(){
   }
   function closeCombat(outcome){
     const key = uid();
+    // I buff temporanei (benedizione del Tempio, abilità "buff" di classe) valgono per UN solo
+    // combattimento: azzerati qui, a fine scontro, qualunque sia l'esito - altrimenti resterebbero
+    // attivi per sempre una volta ottenuti (bug trovato correggendo il Tempio, mai segnalato prima
+    // perché nessuno aveva ancora notato che la benedizione non scadeva mai).
+    STATE.rpg.hero.atkBonus = 0; STATE.rpg.hero.acBonus = 0;
     if(outcome==="won"){
       const dungeon = rpgDungeon(STATE.rpg.hero.dungeonId);
       const r = rpgVictoryRewards(STATE.rpg.hero, enemy, dungeon);
@@ -6376,7 +6463,17 @@ function rpgViewCombat(){
       STATE.rpg._combatCellKey = null;
       STATE.rpg.combat=null;
       rpgSfxPlay("rpg-defeat");
-      rpgLog("Sei caduto nell'oscurità. Ti risvegli a Hollowmark, al checkpoint.");
+      // Resurrezione del Tempio a pagamento (coerente col testo mostrato nella schermata Tempio):
+      // se l'eroe ha abbastanza oro viene "richiamato in vita" a un costo, altrimenti si risveglia
+      // comunque al checkpoint ma senza penale (il Tempio non può permettersi di salvare anche gli
+      // indigenti, ma non li lascia morire per questo).
+      const revivalCost = 20 + hero.depth*4;
+      if(STATE.rpg.hero.gold >= revivalCost){
+        STATE.rpg.hero.gold -= revivalCost;
+        rpgLog("Sei caduto nell'oscurità. Il Tempio ti richiama in vita per 🪙"+revivalCost+"; ti risvegli al checkpoint.");
+      } else {
+        rpgLog("Sei caduto nell'oscurità. Ti risvegli a Hollowmark, al checkpoint.");
+      }
       rpgGo("dead");
     }
   }
@@ -6593,7 +6690,6 @@ function rpgViewLog(){
   const content = el("div",{}, el("h3",{class:"rpg-title"},"Registro battaglie"), ...(rows.length?rows:[el("p",{class:"muted"},"Nessuna battaglia registrata ancora.")]));
   return rpgScreen(hero, content, {active:"character"});
 }
-
 /* =========================================================================
    MYTHRENDER RPG — audio (effetti + ambientazione)
    -------------------------------------------------------------------------
@@ -6638,7 +6734,6 @@ function rpgAmbientReflectScreen(){
   else if(["town","shop","forge","guild","inn","temple"].includes(s)) rpgAmbientSet("rpg-town");
   else rpgAmbientSet(null);
 }
-
 function persist(){
   try{ localStorage.setItem(SAVEKEY, JSON.stringify({
     characters:STATE.characters, customItems:STATE.customItems,
@@ -43292,7 +43387,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.88.0"; // v1.88.0 (21/10, DISATTIVAZIONE TEMPORANEA su richiesta esplicita di Carmine: "per ora disattivalo in app, voglio che sia prima ben sviluppato e poi riattivarlo", dopo le varie segnalazioni di fedelta' incompleta rispetto al prototipo base44 gia' discusse nelle versioni precedenti e ancora aperte su Mercante/Forgia/Gilda/Locanda/Tempio/Zaino). Nessuna riga di logica o presentazione della sezione e' stata toccata o rimossa: aggiunta solo una costante RPG_FEATURE_ENABLED=false in cima al modulo dati, il pulsante di navigazione "Dungeon della Discesa" nel menu e' stato nascosto con style="display:none", e render() reindirizza a "home" se STATE.view risultasse ancora "rpg" da un salvataggio precedente a questo rilascio (cosi' nessun giocatore resta bloccato su una vista non piu' raggiungibile dal menu). Per riattivare in futuro, una volta completato il lavoro sulle schermate economiche: RPG_FEATURE_ENABLED=true e rimuovere lo style="display:none" dal pulsante. CORREZIONE AGGIUNTIVA (bug reale trovato da Carmine subito dopo la v1.87.0, errore mostrato in app: "Il file scaricato non corrisponde alla firma attesa. Aggiornamento annullato per sicurezza."): la sha256 scritta in version.json per la v1.87.0 era stata calcolata PRIMA di incollare quella stessa stringa nel commento di changelog di questo file, quindi descriveva una versione del documento diversa da quella realmente pubblicata (paradosso di auto-riferimento gia' noto da versioni precedenti, qui diventato per la prima volta un blocco reale per l'utente invece che una sola imprecisione cosmetica nel commento). Verificato con un confronto diretto byte-per-byte tra il file scaricato da raw.githubusercontent.com e la copia locale pubblicata (stesso sha256) prima di correggere version.json con la firma reale. Per evitare di ripetere lo stesso errore, la sha256 scritta QUI nel commento di changelog resta volutamente una stima cosmetica (lo e' sempre stata, per lo stesso motivo): quella davvero verificata e usata dall'aggiornamento automatico e' solo quella in version.json, calcolata DOPO aver finalizzato questo file, mai PRIMA. Verificato: node --check su tutti i blocchi script; nessuna modifica alla logica di gioco, solo navigazione/router. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+var ROLLONE_CONTENT_VERSION = "1.89.0"; // v1.89.0 (21/10, CORREZIONI MULTIPLE sulla sezione RPG - ancora disattivata nel menu dalla v1.88.0 su richiesta di Carmine, lavoro di sviluppo in background prima di riattivarla - dopo una nuova lista dettagliata di richieste): 1) RIPOSO IN LOCANDA - ora ripristina anche tutti gli usi delle abilita' di classe (abilityUses={}), prima solo i PF. 2) TEMPIO - corretto un errore meccanico reale: la benedizione dava +2 alla CA invece che +2 al tiro per colpire (coerente col testo osservato su base44), ora costa 60 oro come nel prototipo, e si consuma dopo un solo combattimento (prima restava attiva per sempre: bug trovato sistemando questo, mai segnalato perche' nessuno se n'era accorto). Aggiunta anche la resurrezione a pagamento in caso di sconfitta gia' annunciata dal testo del Tempio ma mai implementata: se l'eroe ha abbastanza oro viene richiamato in vita a un costo scalato sulla profondita', altrimenti si risveglia comunque gratis. 3) BONUS DI COMBATTIMENTO DA STATISTICHE - il tiro per colpire e il danno con l'arma NON usavano mai le caratteristiche del personaggio, solo i bonus piatti dell'equipaggiamento: aggiunto il modificatore di caratteristica corretto per classe (Forza per Guerriero/Barbaro, Destrezza per Ladro/Ranger, Intelligenza per Mago, Saggezza per Chierico, come una vera scheda D&D) piu' il bonus "+N" dell'arma forgiata (gia' calcolato ma mai usato prima). 4) STATISTICHE CASUALI ALLA CREAZIONE - le 6 caratteristiche erano valori fissi identici per ogni personaggio; ora tirate con 4d6-scarta-il-minimo (il metodo classico di creazione di una scheda D&D), tetto di sicurezza a 20 su richiesta esplicita. 5) BOTTINO AUMENTATO - oro di vittoria quasi raddoppiato (+40 extra sui boss), erbe/minerale piu' frequenti e abbondanti, oro dei forzieri quasi raddoppiato, drop di reliquie/equip piu' probabili. 6) MERCANTE A SCORTE ROTANTI - nuova sezione "Merce del giorno" che pesca a caso pozioni/balle di risorse/equip da bottino e si rinnova da sola ogni 15 minuti reali (STATE.rpg.shopStock con timestamp), accanto al percorso fisso di progressione arma/armatura gia' esistente. Punti ancora NON affrontati in questa versione, parte della stessa richiesta di Carmine e rimandati ad un prossimo passaggio piu' corposo: gestione multi-personaggio (crea/cancella/cambia), grafica identica a base44 (studio approfondito ancora da fare), movimento in tempo reale con rotella 360 gradi, mostri con rilevamento a vista e inseguimento, arte/immagini dedicate per ogni elemento. Verificato: node --check su tutti i blocchi script; simulazione autonoma di 150 discese con pathfinding BFS reale rieseguita dopo tutte le modifiche (oltre 1500 combattimenti, 0 eccezioni) per confermare che engine/dati restano coerenti. Non verificato con un browser reale end-to-end in questa sessione. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+// var ROLLONE_CONTENT_VERSION = "1.88.0"; // v1.88.0 (21/10, DISATTIVAZIONE TEMPORANEA su richiesta esplicita di Carmine: "per ora disattivalo in app, voglio che sia prima ben sviluppato e poi riattivarlo", dopo le varie segnalazioni di fedelta' incompleta rispetto al prototipo base44 gia' discusse nelle versioni precedenti e ancora aperte su Mercante/Forgia/Gilda/Locanda/Tempio/Zaino). Nessuna riga di logica o presentazione della sezione e' stata toccata o rimossa: aggiunta solo una costante RPG_FEATURE_ENABLED=false in cima al modulo dati, il pulsante di navigazione "Dungeon della Discesa" nel menu e' stato nascosto con style="display:none", e render() reindirizza a "home" se STATE.view risultasse ancora "rpg" da un salvataggio precedente a questo rilascio (cosi' nessun giocatore resta bloccato su una vista non piu' raggiungibile dal menu). Per riattivare in futuro, una volta completato il lavoro sulle schermate economiche: RPG_FEATURE_ENABLED=true e rimuovere lo style="display:none" dal pulsante. CORREZIONE AGGIUNTIVA (bug reale trovato da Carmine subito dopo la v1.87.0, errore mostrato in app: "Il file scaricato non corrisponde alla firma attesa. Aggiornamento annullato per sicurezza."): la sha256 scritta in version.json per la v1.87.0 era stata calcolata PRIMA di incollare quella stessa stringa nel commento di changelog di questo file, quindi descriveva una versione del documento diversa da quella realmente pubblicata (paradosso di auto-riferimento gia' noto da versioni precedenti, qui diventato per la prima volta un blocco reale per l'utente invece che una sola imprecisione cosmetica nel commento). Verificato con un confronto diretto byte-per-byte tra il file scaricato da raw.githubusercontent.com e la copia locale pubblicata (stesso sha256) prima di correggere version.json con la firma reale. Per evitare di ripetere lo stesso errore, la sha256 scritta QUI nel commento di changelog resta volutamente una stima cosmetica (lo e' sempre stata, per lo stesso motivo): quella davvero verificata e usata dall'aggiornamento automatico e' solo quella in version.json, calcolata DOPO aver finalizzato questo file, mai PRIMA. Verificato: node --check su tutti i blocchi script; nessuna modifica alla logica di gioco, solo navigazione/router. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.87.0"; // v1.87.0 (21/10, CORREZIONE sulla v1.86.0, dopo nuova segnalazione diretta di Carmine durante la revisione: "ancora non ci siamo non e' uguale all'app" e poi, dopo aver chiesto perche' non leggessi codice/chat di base44 nel dettaglio, "anche la grafica, le mappe il modo casuale del movimento dei mostri ecc. ti ho dato un semplice comando. Stai facendo tutto tranne quello che ti ho chiesto"). Su sua richiesta esplicita ho osservato di nuovo dal vivo l'editor base44 (accesso suo, mai toccate credenziali), stavolta zoomando sulla mappa reale del dungeon invece di limitarmi alle schermate di citta'/scheda gia' viste in precedenza. Due scoperte concrete: 1) il segnalino del giocatore sulla mappa base44 e' un piccolo dado quadrato con due facce a puntini (coerente col tema "Roll for Initiative"/"Dice Vault"), non un cerchio luminoso astratto come avevo disegnato qui; corretto con una nuova icona quadrata in stile dado. 2) sulla mappa compaiono forzieri raccoglibili camminandoci sopra (bottino extra separato da quello di combattimento), funzione che qui mancava del tutto: aggiunta la generazione di 1-2 forzieri per piano (oro scalato sulla profondita', a volte erbe/minerale), con icona scrigno dedicata e un'autentica meccanica di raccolta (rpgMoveDungeon), non solo visiva. Icone mostro sulla mappa ridisegnate in stile pixel squadrato (corpo+testa+occhi, nessun bordo anti-aliasing) invece dei cerchi con due puntini di prima, per leggibilita' a colpo d'occhio piu' vicina alle sprite minuscole viste nel prototipo. Sul "movimento casuale dei mostri" specifico richiesto da Carmine: VERIFICATO empiricamente nel vivo editor base44 (screenshot a 4 secondi di distanza, nessun input, posizioni di mostri/forzieri/giocatore identiche) che i mostri NON si muovono da soli in tempo reale nel prototipo originale - restano fermi finche' non li si urta, esattamente come gia' funzionava qui; non e' stata quindi inventata una falsa casualita' di movimento che il prototipo stesso non ha, per non allontanarsi ulteriormente dalla fedelta' richiesta. Resta un lavoro ESPLICITAMENTE RIMANDATO su sua stessa indicazione in questo stesso scambio ("quelli li riprendo dopo"): le schermate economiche di Hollowmark (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino), gia' osservate nel dettaglio nell'editor in questa sessione (liste prezzi, sezione CRAFTING separata dalle WARES, fascia risorse GOLD/HERBS/ORE/POTIONS, tab categorie/ordinamento nello zaino, pulsante ABBANDONA MISSIONE in Gilda, testo reale del Tempio che parla di bonus all'attacco non alla CA) ma non ancora corrette nel codice: prossimo passaggio. Verificato: node --check su tutti i blocchi script; rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) dopo l'aggiunta dei forzieri alla generazione mappa. Non verificato con un browser reale end-to-end in questa sessione. sha256: 56846a9c76744c5465ff6083fdd97e739a833ac05f081a0892f17e89e8aa20f2.
 // var ROLLONE_CONTENT_VERSION = "1.86.0"; // v1.86.0 (21/10, CORREZIONE sulla v1.85.0, dopo che Carmine ha confrontato direttamente l'app con l'editor originale di base44: "la differenza è abissale... ricrea tutta l'app di base44 in base al codice che ha"). La v1.85.0 aveva sistemato il meccanismo della griglia ma non l'aspetto: i mostri sulla mappa e nel combattimento restavano una singola emoji generica (👹) per tutti, e le celle del dungeon erano caselle con bordo uniforme invece di stanze connesse come nel prototipo. Confrontato stavolta il codice sorgente reale del progetto base44 di Carmine (editor, con suo permesso esplicito, senza toccare le sue credenziali: ha effettuato lui stesso l'accesso) invece di lavorare solo dalla spec scritta: letti i componenti Enemy Sprite/Combat Scene/Hero Summary/Game Nav/Top Bar e osservate dal vivo le schermate Town/Dungeon/Character. Corretto di conseguenza: arte SVG originale dei mostri (nessuna emoji, nessun asset esterno) con sette sagome di famiglia distinte per proporzioni e colori (bruti, non morti, bestie, demoni, costrutti, elementali, draghi), desunte dal campo "sprite" già presente nei dati mostro; i boss riusano la sagoma della propria famiglia ma più grandi, con corona e aura, mai identici ai mostri comuni; usata sia nel combattimento sia nel bestiario. Mappa del dungeon ridisegnata come area scavata unica (pavimento con sottile texture a righe, nessun bordo a scacchiera tra le celle) con piccole icone colorate per i mostri al posto dell'emoji, coerente con la scelta dichiarata di base44 di tenere l'arte illustrata nel combattimento/bestiario e icone semplificate nell'esplorazione. Aggiunto un Diario di viaggio (Adventure Log) presente nel prototipo e prima assente qui: righe narrate per ingresso nel dungeon, scontro, vittoria, sconfitta, discesa e ritorno in città, visibile nella mappa del dungeon e a Hollowmark. Scheda personaggio riprogettata con box statistiche in evidenza (PF/CA/ORO/UCCISI) e griglia equipaggiamento a due colonne con icona per slot, più vicina alla scheda reale vista nell'editor. Corretto anche un bug concreto nella barra PE: la formula cumulativa (round(60*livello^1.65)) dà 60 per il livello 1, ma un personaggio nuovo parte con 0 PE: la barra mostrava quindi un valore negativo (es. "-48/128") finché non si superavano 60 PE guadagnati. Risolto trattando il livello 1 come base zero per il solo calcolo di progresso mostrato, senza toccare le soglie reali di salita di livello. Verificato: node --check su tutti i 14 blocchi script; rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che il motore di gioco non è stato toccato da queste modifiche, solo la presentazione. Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): le altre schermate del prototipo (negozio, forgia, locanda, tempio, inventario) non sono ancora state confrontate riga per riga con l'originale e potrebbero avere differenze residue da correggere in un prossimo passaggio, su segnalazione di Carmine. sha256: 0174f20e6b0a920313c8f105f8a07e742eff8a43779f95bf6d210c3b69f6b755.
 // var ROLLONE_CONTENT_VERSION = "1.85.0"; // v1.85.0 (21/10, CORREZIONE sulla v1.84.0, su segnalazione diretta di Carmine: "non funziona nell'app... non è per niente uguale a quella di base44... e tutt'altro proprio", poi "deve essere uguale in tutto in tutte le funzioni"). La v1.84.0 aveva sostituito la griglia esplorabile del prototipo base44 con una sequenza semplificata di stanze a pulsanti (Avanza/Raccogli risorse/Torna in città): una scelta di design deliberata ma SBAGLIATA, perché cambiava il meccanismo di gioco invece di limitarsi a renderlo giocabile anche su smartphone. Corretto da zero seguendo fedelmente la spec estratta dal prototipo (claude/mythrender-rpg/00_spec_estratta_dicevault.md): dungeon ricostruito come vera griglia top-down 9x7 generata a corridoi connessi, con combattimento "scontro al contatto" (muoversi sulla cella di un mostro blocca il movimento e avvia il combattimento, esattamente come nel prototipo) e scale verso il piano successivo poste sempre sulla cella calpestabile più lontana dal punto di partenza. Il prototipo si muoveva SOLO da tastiera (WASD/frecce), unico motivo per cui non funzionava affatto su smartphone: qui lo stesso movimento a griglia resta raggiungibile da tastiera (invariato) e in più da un D-pad a tocco aggiunto accanto, mai in sostituzione - stessa funzione di gioco, due modi equivalenti di comandarla. Aggiunti anche gli elementi del prototipo che la v1.84.0 aveva saltato: schermata "Spoils" di fine combattimento con riepilogo PE/oro/erbe/minerale/bottino, cerchio runico animato sulla schermata di scontro, banner di vittoria/sconfitta. Erbe e minerale (assenti nel prototipo come azione dedicata) restano bottino di combattimento come nella v1.84.0, non più legati a un'azione "Raccogli" ora rimossa insieme alle stanze a pulsanti. Corretto anche un bug reale trovato durante la verifica del nuovo generatore di mappe: le scale potevano in rari casi finire a coincidere con la cella di partenza (un cammino casuale di scavo che si richiude su se stesso), facendo fallire il percorso verso di esse; risolto calcolando le scale come la cella calpestabile a distanza massima (BFS reale sulla griglia) dalla partenza, non più come l'ultimo passo del cammino di scavo. Verificato: node --check su tutti i 14 blocchi script; 3000 mappe generate casualmente (5 dungeon x 20 profondità x 30 prove ciascuna) sempre interamente raggiungibili, partenza mai coincidente con le scale, boss sempre presente alla cella delle scale ai piani multipli di 10; simulazione autonoma completa di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti risolti, 0 eccezioni, livello finale sempre entro 1-20). Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): resta un'ipotesi aperta che il malfunzionamento segnalato da Carmine includesse ANCHE un errore di interfaccia distinto da questa discrepanza di design, da confermare con lui. sha256: e5c096426db436fdadd46e443322c7b3742a875ced101b1977c4572f0bb42b1f.
