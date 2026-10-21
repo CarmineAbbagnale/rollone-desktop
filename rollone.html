@@ -1673,6 +1673,11 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .rpg-portrait{border-radius:14px;overflow:hidden;background:var(--panelA);border:1px solid var(--line);
   display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(255,255,255,.03) inset}
 
+/* ---- roster (gestione piu' personaggi) ---- */
+.rpg-roster-row{display:flex;align-items:center;gap:12px;text-align:left}
+.rpg-roster-row.active{border-color:var(--rpg-gold-bright, var(--gold));box-shadow:0 0 0 1px rgba(201,162,39,.35) inset}
+.rpg-roster-actions{display:flex;gap:6px;flex-shrink:0}
+
 /* ---- scheda eroe (home) ---- */
 .rpg-hero-card{display:flex;align-items:center;gap:14px;text-align:left}
 .rpg-hero-card-name{font-family:"Cinzel",serif;font-size:17px;color:var(--rpg-gold-bright)}
@@ -1828,6 +1833,7 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
   .rpg-combat-actions{grid-template-columns:1fr 1fr}
   .rpg-hero-card{flex-direction:row}
 }
+
 
 </style>
 
@@ -5298,6 +5304,11 @@ function applyTheme(){
    a true per riattivare la sezione una volta completato il lavoro sulle schermate economiche. */
 const RPG_FEATURE_ENABLED = false;
 
+/* Numero massimo di eroi salvabili in parallelo (vedi rpgRosterEnsure/rpgViewRoster in rpg_ui.js):
+   richiesta esplicita di Carmine ("la gestione, cancellazione e creazione di altri personaggi e'
+   inesistente"). Un tetto basso evita che il salvataggio cresca senza controllo. */
+const RPG_ROSTER_MAX = 6;
+
 /* ---- Classi: dado arma iniziale, HP base, et abilita' sbloccate per livello ---- */
 const RPG_CLASSES = {
   Fighter:   { weapon:"1d8",  hpBase:12 },
@@ -5654,6 +5665,7 @@ function rpgNewHero(name, race, klass){
     createdAt: Date.now()
   };
 }
+
 /* =========================================================================
    MYTHRENDER RPG — motore di gioco (equip derivato, combattimento, bottino)
    ========================================================================= */
@@ -5930,6 +5942,7 @@ function rpgTickMonsters(map){
   }
   return null;
 }
+
 /* =========================================================================
    MYTHRENDER RPG — interfaccia (sezione "Avventura" > "Dungeon della Discesa")
    -------------------------------------------------------------------------
@@ -5948,6 +5961,7 @@ function rpgDefaultState(){
 function rpgGo(screen, extra){
   if(extra) Object.assign(STATE.rpg, extra);
   STATE.rpg.screen = screen;
+  if(STATE.rpg.hero && typeof rpgRosterSync==="function") rpgRosterSync(); // tiene il roster sempre aggiornato
   persist();
   if(typeof mpScheduleAccountStatePush==="function") mpScheduleAccountStatePush();
   if(typeof rpgAmbientReflectScreen==="function") rpgAmbientReflectScreen();
@@ -5971,11 +5985,93 @@ function rpgHero(){ return STATE.rpg.hero; }
 function rpgInv(){ return STATE.rpg.inventory; }
 function rpgEquipped(hero, slot){ const id=hero.equipment&&hero.equipment[slot]; return id ? rpgInv().find(i=>i.id===id) : null; }
 
+/* ================= GESTIONE PIU' PERSONAGGI (roster) =================
+   Richiesta esplicita di Carmine: "la gestione, cancellazione e creazione di altri personaggi e'
+   inesistente". STATE.rpg.hero/inventory/codex/battleLog/log/shopStock/dungeonMap restano, come
+   prima, i dati del personaggio ATTIVO (nessuna funzione esistente altrove nel file va toccata per
+   questo); STATE.rpg.roster e' un array di istantanee di TUTTI gli eroi (compreso quello attivo, che
+   va risincronizzato con rpgRosterSync() prima di leggere la lista o di cambiare slot), e
+   STATE.rpg.activeIndex indica quale. Un salvataggio precedente a questa funzione aveva un solo
+   personaggio senza alcun roster: rpgRosterEnsure() lo adotta come primo slot la prima volta che
+   serve, così nessun progresso esistente va perduto. */
+function rpgRosterSnapshot(){
+  return { hero:STATE.rpg.hero, inventory:STATE.rpg.inventory||[], codex:STATE.rpg.codex||{},
+    battleLog:STATE.rpg.battleLog||[], log:STATE.rpg.log||[], shopStock:STATE.rpg.shopStock||null,
+    dungeonMap:STATE.rpg.dungeonMap||null };
+}
+function rpgRosterEnsure(){
+  if(!STATE.rpg.roster) STATE.rpg.roster = [];
+  if(STATE.rpg.hero && (STATE.rpg.activeIndex===undefined || STATE.rpg.activeIndex===null) && !STATE.rpg.roster.length){
+    STATE.rpg.roster = [rpgRosterSnapshot()];
+    STATE.rpg.activeIndex = 0;
+  }
+}
+function rpgRosterSync(){
+  if(STATE.rpg.activeIndex!=null && STATE.rpg.roster && STATE.rpg.roster[STATE.rpg.activeIndex]){
+    STATE.rpg.roster[STATE.rpg.activeIndex] = rpgRosterSnapshot();
+  }
+}
+function rpgRosterLoad(idx){
+  const slot = STATE.rpg.roster[idx]; if(!slot) return;
+  STATE.rpg.hero=slot.hero; STATE.rpg.inventory=slot.inventory||[]; STATE.rpg.codex=slot.codex||{};
+  STATE.rpg.battleLog=slot.battleLog||[]; STATE.rpg.log=slot.log||[]; STATE.rpg.shopStock=slot.shopStock||null;
+  STATE.rpg.dungeonMap=slot.dungeonMap||null; STATE.rpg.combat=null;
+  STATE.rpg.activeIndex = idx;
+}
+function rpgViewRoster(){
+  rpgRosterEnsure(); rpgRosterSync();
+  const roster = STATE.rpg.roster;
+  const rows = roster.map((slot,i)=>{
+    const h = slot.hero, active = i===STATE.rpg.activeIndex;
+    return el("div",{class:"card rpg-card rpg-roster-row"+(active?" active":"")},
+      rpgPortraitSvg(h.race, h.klass, 48),
+      el("div",{style:"flex:1;min-width:0"},
+        el("div",{}, h.name+(active?" · in gioco":"")),
+        el("div",{class:"muted small"}, RPG_RACE_LABEL[h.race]+" "+RPG_CLASS_LABEL[h.klass]+" · Liv. "+h.level+" · Profondità "+(h.depth||1))),
+      el("div",{class:"rpg-roster-actions"},
+        !active ? el("button",{class:"btn sm", onclick:()=>{
+          rpgRosterSync(); rpgRosterLoad(i); rpgGo("town"); toast("Hai ripreso il controllo di «"+h.name+"».");
+        }}, "Gioca") : null,
+        el("button",{class:"btn sm ghost", onclick:()=>{
+          confirmModal("Cancella «"+h.name+"»",
+            "Tutto il suo progresso (inventario, missioni, registro battaglie) andrà perduto per sempre. Continuare?",
+            ()=>{
+              const wasActive = active;
+              STATE.rpg.roster.splice(i,1);
+              if(wasActive){
+                if(STATE.rpg.roster.length){
+                  rpgRosterLoad(0); rpgGo("town");
+                } else {
+                  STATE.rpg.activeIndex=null; STATE.rpg.hero=null; STATE.rpg.inventory=[]; STATE.rpg.codex={};
+                  STATE.rpg.battleLog=[]; STATE.rpg.log=[]; STATE.rpg.shopStock=null; STATE.rpg.dungeonMap=null; STATE.rpg.combat=null;
+                  rpgGo("home");
+                }
+              } else {
+                if(STATE.rpg.activeIndex>i) STATE.rpg.activeIndex--;
+                rpgGo("roster");
+              }
+              rpgSfxPlay("rpg-defeat"); toast("Personaggio cancellato.");
+            });
+        }}, "🗑")));
+  });
+  const maxReached = roster.length >= RPG_ROSTER_MAX;
+  const activeHero = STATE.rpg.hero ? rpgDerivedHero(STATE.rpg.hero, STATE.rpg.inventory) : null;
+  const content = el("div",{},
+    el("h3",{class:"rpg-title"},"👥 I tuoi eroi"),
+    ...(rows.length?rows:[el("p",{class:"muted"},"Nessun eroe ancora.")]),
+    el("button",{class:"btn primary rpg-cta", disabled:maxReached, onclick:()=>{
+      rpgRosterSync(); STATE.rpg._create={name:"",race:"Human",klass:"Fighter"}; STATE.rpg._creatingNew=true; rpgGo("createChar");
+    }}, maxReached?("Massimo "+RPG_ROSTER_MAX+" eroi"):"+ Nuovo personaggio"),
+    activeHero ? el("button",{class:"btn ghost rpg-cta", onclick:()=>rpgGo("character")}, "← Torna alla scheda") : null);
+  return rpgScreen(activeHero, content, {active:"character"});
+}
+
 /* ---- Punto d'ingresso: richiamata da render() per STATE.view==="rpg" ---- */
 function viewRpg(){
   if(!STATE.rpg) STATE.rpg = rpgDefaultState();
+  rpgRosterEnsure();
   const hero = rpgHero();
-  if(!hero) return rpgViewCreate();
+  if(!hero && STATE.rpg.screen!=="createChar") return rpgViewCreate();
   switch(STATE.rpg.screen){
     case "town": return rpgViewTown();
     case "shop": return rpgViewShop();
@@ -5989,6 +6085,8 @@ function viewRpg(){
     case "spoils": return rpgViewSpoils();
     case "inventory": return rpgViewInventory();
     case "character": return rpgViewCharacter();
+    case "roster": return rpgViewRoster();
+    case "createChar": return rpgViewCreate();
     case "bestiary": return rpgViewBestiary();
     case "log": return rpgViewLog();
     case "levelup": return rpgViewLevelUp();
@@ -6048,9 +6146,22 @@ function rpgViewCreate(){
       el("button",{class:"btn primary rpg-cta", disabled:!st.name.trim(), onclick:()=>{
         STATE.rpg.hero = rpgNewHero(st.name.trim(), st.race, st.klass);
         STATE.rpg.inventory = [rpgMakeWeapon(0), rpgMakeArmor(0)];
+        STATE.rpg.codex={}; STATE.rpg.battleLog=[]; STATE.rpg.log=[]; STATE.rpg.shopStock=null; STATE.rpg.dungeonMap=null;
         const h=STATE.rpg.hero;
         h.equipment.weapon = STATE.rpg.inventory[0].id; h.equipment.armor = STATE.rpg.inventory[1].id;
         STATE.rpg._create=null;
+        // Un secondo (o terzo...) eroe creato dalla lista "I tuoi eroi" si aggiunge al roster invece
+        // di sovrascrivere quello gia' attivo (gia' sincronizzato nel roster da rpgViewRoster prima
+        // di arrivare qui); il primo personaggio in assoluto, invece, non ha ancora un roster.
+        if(STATE.rpg._creatingNew){
+          if(!STATE.rpg.roster) STATE.rpg.roster=[];
+          STATE.rpg.roster.push(rpgRosterSnapshot());
+          STATE.rpg.activeIndex = STATE.rpg.roster.length-1;
+        } else {
+          STATE.rpg.roster = [rpgRosterSnapshot()];
+          STATE.rpg.activeIndex = 0;
+        }
+        STATE.rpg._creatingNew=false;
         rpgGo("home");
         rpgSfxPlay("rpg-levelup");
         toast("«"+h.name+"» è pronto a scendere.");
@@ -6799,7 +6910,9 @@ function rpgViewCharacter(){
   const content = el("div",{},
     el("div",{class:"rpg-topbar-row", style:"justify-content:space-between;margin-bottom:6px"},
       el("h3",{class:"rpg-title", style:"margin:0"}, hero.name),
-      el("button",{class:"btn sm ghost", onclick:()=>rpgGo("bestiary")},"📖 Bestiario")),
+      el("div",{style:"display:flex;gap:6px"},
+        el("button",{class:"btn sm ghost", onclick:()=>{ rpgRosterSync(); rpgGo("roster"); }},"👥 Eroi"),
+        el("button",{class:"btn sm ghost", onclick:()=>rpgGo("bestiary")},"📖 Bestiario"))),
     el("div",{class:"rpg-hero-card"}, rpgPortraitSvg(hero.race, hero.klass, 84),
       el("div",{}, el("div",{},RPG_RACE_LABEL[hero.race]+" "+RPG_CLASS_LABEL[hero.klass]+" · Liv. "+hero.level), el("div",{class:"muted small"},hero.title))),
     el("div",{class:"rpg-charstat-grid"},
@@ -6823,7 +6936,22 @@ function rpgViewCharacter(){
       el("button",{class:"btn ghost rpg-cta", onclick:()=>{
         confirmModal("Cancella personaggio",
           "«"+hero.name+"» e tutto il suo progresso (inventario, missioni, registro battaglie) andranno perduti per sempre. Vuoi davvero ricominciare da zero?",
-          ()=>{ STATE.rpg = rpgDefaultState(); persist(); if(typeof mpScheduleAccountStatePush==="function") mpScheduleAccountStatePush(); rpgSfxPlay("rpg-defeat"); render(); toast("Personaggio cancellato."); });
+          ()=>{
+            // Cancella SOLO questo eroe dal roster (non piu' l'intera sezione: con piu' personaggi
+            // possibili, "ricomincia da zero" deve toccare solo lo slot attivo, non gli altri eroi).
+            rpgRosterEnsure();
+            const idx = STATE.rpg.activeIndex;
+            if(idx!=null && STATE.rpg.roster[idx]!=null) STATE.rpg.roster.splice(idx,1);
+            if(STATE.rpg.roster.length){
+              rpgRosterLoad(0); rpgGo("town");
+            } else {
+              STATE.rpg.activeIndex=null; STATE.rpg.hero=null; STATE.rpg.inventory=[]; STATE.rpg.codex={};
+              STATE.rpg.battleLog=[]; STATE.rpg.log=[]; STATE.rpg.shopStock=null; STATE.rpg.dungeonMap=null; STATE.rpg.combat=null;
+              rpgGo("home");
+            }
+            if(typeof mpScheduleAccountStatePush==="function") mpScheduleAccountStatePush();
+            rpgSfxPlay("rpg-defeat"); toast("Personaggio cancellato.");
+          });
       }}, "🗑 Cancella personaggio e ricomincia")));
   return rpgScreen(hero, content, {active:"character"});
 }
@@ -43573,7 +43701,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.90.0"; // v1.90.0 (21/10, DUNGEON IN TEMPO REALE - decisione esplicita di Carmine dopo aver letto lo studio diretto di base44: li' il dungeon e' a turni su griglia, bump-to-fight, mostri fermi finche' non li si urta; Carmine ha scelto di NON restare fedele a questo punto specifico ("trova la soluzione migliore, ma non voglio roba statica ma viva"), quindi qui il dungeon della Discesa si discosta deliberatamente dal prototipo su questo singolo aspetto). Aggiunto un battito regolare (ogni 550ms, attivo solo nella vista dungeon e fuori combattimento) che fa vivere la mappa anche senza input: un mostro entro 3 caselle dall'eroe si "sveglia" e lo insegue una casella a battito lungo l'asse con distanza maggiore, un mostro ancora addormentato vaga a caso con probabilita' 35% per battito; se un mostro raggiunge la cella dell'eroe il combattimento parte da solo, esattamente come quando e' l'eroe a urtare lui. I mostri che hanno individuato l'eroe hanno ora un lieve bagliore rosso pulsante sulla mappa, per vedere a colpo d'occhio chi sta inseguendo. Aggiunta anche una rotellina di movimento trascinabile col dito (vero controllo a 360 gradi: qualunque angolo di trascinamento viene mappato sulla direzione cardinale piu' vicina, dato che i corridoi della griglia sono solo ortogonali) accanto al D-pad a bottoni gia' esistente, che resta anch'esso attivo; tenendo premuta la rotellina il personaggio continua a muoversi passo-passo ogni 260ms, dando la sensazione di movimento continuo pur restando sulla griglia a celle. Corretta la Forgia: oltre al salto di tier gia' esistente, aggiunte le azioni "Affila +1" (arma) e "Rinforza +1" (armatura) viste nella Forgia di base44 ("Hone to +1"), che incrementano il "+N" dell'oggetto gia' equipaggiato invece di sostituirlo, fino a un tetto di +5, con costo crescente ad ogni affilatura; corretto anche un bug scoperto nel farlo: il "+N" dell'armatura (armorPlus) veniva calcolato ma non sommava mai nulla alla CA effettiva nella scheda derivata, quindi "rinforzare" l'armatura prima d'ora non avrebbe avuto alcun effetto reale in combattimento. NON toccato in questo passaggio, volutamente rimandato: gestione multi-personaggio (crea/cancella/cambia - al momento esiste solo "cancella e ricomincia da zero"), studio e replica pixel-per-pixel della grafica di base44 (confrontata a fondo in questa sessione, dettagli salvati nella documentazione di progetto, ma non ancora applicati al codice), e la decisione pendente sul meccanismo di rifornimento del Mercante (ogni 15 minuti come ora, oppure "ogni volta che si esce e si rientra" come osservato nel vero base44 - chiesto a Carmine, risposta non ancora arrivata). Verificato: node --check su tutti i blocchi script; test diretto in Node.js di rpgTickMonsters (un mostro a 4 caselle di distanza individua e raggiunge l'eroe entro pochi battiti; un mostro lontano vaga comunque nel tempo anche senza mai individuare nessuno); rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che generazione mappa e combattimento non sono stati alterati da questa modifica, solo l'IA dei mostri fuori dal combattimento. Non verificato con un browser reale end-to-end in questa sessione: la rotellina a tocco in particolare andrebbe provata su un telefono vero prima di considerarla definitiva. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+var ROLLONE_CONTENT_VERSION = "1.91.0"; // v1.91.0 (21/10, GESTIONE MULTI-PERSONAGGIO - ultimo punto esplicitamente rimandato dalla v1.90.0, su "fai tutto" di Carmine, che ha anche confermato di lasciare il rifornimento del Mercante com'era: ogni 15 minuti reali, non "a ogni uscita/rientro" come nel prototipo base44). Prima d'ora esisteva un solo personaggio per account, cancellabile solo per intero ("cancella e ricomincia da zero"); ora si possono tenere fino a 6 eroi in parallelo (RPG_ROSTER_MAX), ognuno con la propria scheda, zaino, codice, registro battaglie, mercato del giorno e mappa del dungeon in corso. Nuova schermata "Eroi" (bottone "Eroi" accanto a "Bestiario" sulla Scheda) che elenca tutti i personaggi con un tasto "Gioca" per passare da uno all'altro e un tasto cancella per il singolo personaggio, piu' un bottone "+ Nuovo personaggio" che porta alla creazione gia' esistente riusando la stessa schermata. Un salvataggio precedente con un solo eroe (senza roster) viene adottato automaticamente come primo personaggio della lista al primo accesso, senza bisogno di ricreare nulla. Il cambio di scheda avviene tramite un meccanismo di sincronizzazione (rpgRosterSync/rpgRosterLoad) che copia i dati "attivi" (hero/zaino/codice/registro/mercato/mappa) dentro e fuori dallo slot del roster corrispondente ad ogni cambio di schermata o di personaggio, cosi' nessun'altra funzione del gioco ha dovuto essere toccata: continuano tutte a leggere/scrivere gli stessi campi di sempre, come se ci fosse un solo eroe. Verificato: node --check su tutti i 16 blocchi script del file finale; test dedicato in Node.js della sola logica roster (creazione di un secondo personaggio, sincronizzazione dell'oro guadagnato, cambio scheda, cancellazione del personaggio attivo con passaggio automatico al successivo, svuotamento completo del roster), tutti i casi passati; rieseguita anche la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che motore/dati restano coerenti, dato che la logica di gioco vera e propria non e' stata toccata, solo la gestione di quale scheda sia "attiva". Non verificato con un browser reale end-to-end in questa sessione: in particolare andrebbe provato dal vivo il passaggio da un personaggio all'altro a meta' di un combattimento o di un dungeon in corso, caso che la logica gestisce (lo stato si salva prima di ogni cambio schermata) ma che non e' stato visto su schermo. Resta ancora da fare, parte della stessa richiesta "fai tutto" e troppo ampia per un unico passaggio: grafica pixel-per-pixel identica a base44 (dati di riferimento gia' raccolti nella documentazione di progetto, non ancora applicati al codice - richiede di rifare schermata per schermata Mercante/Forgia/Gilda/Locanda/Tempio/Zaino/Scheda/Dungeon, lavoro corposo da fare con calma per non introdurre regressioni visive), arte/immagini dedicate per ogni elemento di gioco, e il debug finale con screenshot di approvazione prima di riattivare la sezione nel menu. sha256: 0000000000000000000000000000000000000000000000000000000000000.
+// var ROLLONE_CONTENT_VERSION = "1.90.0"; // v1.90.0 (21/10, DUNGEON IN TEMPO REALE - decisione esplicita di Carmine dopo aver letto lo studio diretto di base44: li' il dungeon e' a turni su griglia, bump-to-fight, mostri fermi finche' non li si urta; Carmine ha scelto di NON restare fedele a questo punto specifico ("trova la soluzione migliore, ma non voglio roba statica ma viva"), quindi qui il dungeon della Discesa si discosta deliberatamente dal prototipo su questo singolo aspetto). Aggiunto un battito regolare (ogni 550ms, attivo solo nella vista dungeon e fuori combattimento) che fa vivere la mappa anche senza input: un mostro entro 3 caselle dall'eroe si "sveglia" e lo insegue una casella a battito lungo l'asse con distanza maggiore, un mostro ancora addormentato vaga a caso con probabilita' 35% per battito; se un mostro raggiunge la cella dell'eroe il combattimento parte da solo, esattamente come quando e' l'eroe a urtare lui. I mostri che hanno individuato l'eroe hanno ora un lieve bagliore rosso pulsante sulla mappa, per vedere a colpo d'occhio chi sta inseguendo. Aggiunta anche una rotellina di movimento trascinabile col dito (vero controllo a 360 gradi: qualunque angolo di trascinamento viene mappato sulla direzione cardinale piu' vicina, dato che i corridoi della griglia sono solo ortogonali) accanto al D-pad a bottoni gia' esistente, che resta anch'esso attivo; tenendo premuta la rotellina il personaggio continua a muoversi passo-passo ogni 260ms, dando la sensazione di movimento continuo pur restando sulla griglia a celle. Corretta la Forgia: oltre al salto di tier gia' esistente, aggiunte le azioni "Affila +1" (arma) e "Rinforza +1" (armatura) viste nella Forgia di base44 ("Hone to +1"), che incrementano il "+N" dell'oggetto gia' equipaggiato invece di sostituirlo, fino a un tetto di +5, con costo crescente ad ogni affilatura; corretto anche un bug scoperto nel farlo: il "+N" dell'armatura (armorPlus) veniva calcolato ma non sommava mai nulla alla CA effettiva nella scheda derivata, quindi "rinforzare" l'armatura prima d'ora non avrebbe avuto alcun effetto reale in combattimento. NON toccato in questo passaggio, volutamente rimandato: gestione multi-personaggio (crea/cancella/cambia - al momento esiste solo "cancella e ricomincia da zero"), studio e replica pixel-per-pixel della grafica di base44 (confrontata a fondo in questa sessione, dettagli salvati nella documentazione di progetto, ma non ancora applicati al codice), e la decisione pendente sul meccanismo di rifornimento del Mercante (ogni 15 minuti come ora, oppure "ogni volta che si esce e si rientra" come osservato nel vero base44 - chiesto a Carmine, risposta non ancora arrivata). Verificato: node --check su tutti i blocchi script; test diretto in Node.js di rpgTickMonsters (un mostro a 4 caselle di distanza individua e raggiunge l'eroe entro pochi battiti; un mostro lontano vaga comunque nel tempo anche senza mai individuare nessuno); rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) per confermare che generazione mappa e combattimento non sono stati alterati da questa modifica, solo l'IA dei mostri fuori dal combattimento. Non verificato con un browser reale end-to-end in questa sessione: la rotellina a tocco in particolare andrebbe provata su un telefono vero prima di considerarla definitiva. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.89.0"; // v1.89.0 (21/10, CORREZIONI MULTIPLE sulla sezione RPG - ancora disattivata nel menu dalla v1.88.0 su richiesta di Carmine, lavoro di sviluppo in background prima di riattivarla - dopo una nuova lista dettagliata di richieste): 1) RIPOSO IN LOCANDA - ora ripristina anche tutti gli usi delle abilita' di classe (abilityUses={}), prima solo i PF. 2) TEMPIO - corretto un errore meccanico reale: la benedizione dava +2 alla CA invece che +2 al tiro per colpire (coerente col testo osservato su base44), ora costa 60 oro come nel prototipo, e si consuma dopo un solo combattimento (prima restava attiva per sempre: bug trovato sistemando questo, mai segnalato perche' nessuno se n'era accorto). Aggiunta anche la resurrezione a pagamento in caso di sconfitta gia' annunciata dal testo del Tempio ma mai implementata: se l'eroe ha abbastanza oro viene richiamato in vita a un costo scalato sulla profondita', altrimenti si risveglia comunque gratis. 3) BONUS DI COMBATTIMENTO DA STATISTICHE - il tiro per colpire e il danno con l'arma NON usavano mai le caratteristiche del personaggio, solo i bonus piatti dell'equipaggiamento: aggiunto il modificatore di caratteristica corretto per classe (Forza per Guerriero/Barbaro, Destrezza per Ladro/Ranger, Intelligenza per Mago, Saggezza per Chierico, come una vera scheda D&D) piu' il bonus "+N" dell'arma forgiata (gia' calcolato ma mai usato prima). 4) STATISTICHE CASUALI ALLA CREAZIONE - le 6 caratteristiche erano valori fissi identici per ogni personaggio; ora tirate con 4d6-scarta-il-minimo (il metodo classico di creazione di una scheda D&D), tetto di sicurezza a 20 su richiesta esplicita. 5) BOTTINO AUMENTATO - oro di vittoria quasi raddoppiato (+40 extra sui boss), erbe/minerale piu' frequenti e abbondanti, oro dei forzieri quasi raddoppiato, drop di reliquie/equip piu' probabili. 6) MERCANTE A SCORTE ROTANTI - nuova sezione "Merce del giorno" che pesca a caso pozioni/balle di risorse/equip da bottino e si rinnova da sola ogni 15 minuti reali (STATE.rpg.shopStock con timestamp), accanto al percorso fisso di progressione arma/armatura gia' esistente. Punti ancora NON affrontati in questa versione, parte della stessa richiesta di Carmine e rimandati ad un prossimo passaggio piu' corposo: gestione multi-personaggio (crea/cancella/cambia), grafica identica a base44 (studio approfondito ancora da fare), movimento in tempo reale con rotella 360 gradi, mostri con rilevamento a vista e inseguimento, arte/immagini dedicate per ogni elemento. Verificato: node --check su tutti i blocchi script; simulazione autonoma di 150 discese con pathfinding BFS reale rieseguita dopo tutte le modifiche (oltre 1500 combattimenti, 0 eccezioni) per confermare che engine/dati restano coerenti. Non verificato con un browser reale end-to-end in questa sessione. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.88.0"; // v1.88.0 (21/10, DISATTIVAZIONE TEMPORANEA su richiesta esplicita di Carmine: "per ora disattivalo in app, voglio che sia prima ben sviluppato e poi riattivarlo", dopo le varie segnalazioni di fedelta' incompleta rispetto al prototipo base44 gia' discusse nelle versioni precedenti e ancora aperte su Mercante/Forgia/Gilda/Locanda/Tempio/Zaino). Nessuna riga di logica o presentazione della sezione e' stata toccata o rimossa: aggiunta solo una costante RPG_FEATURE_ENABLED=false in cima al modulo dati, il pulsante di navigazione "Dungeon della Discesa" nel menu e' stato nascosto con style="display:none", e render() reindirizza a "home" se STATE.view risultasse ancora "rpg" da un salvataggio precedente a questo rilascio (cosi' nessun giocatore resta bloccato su una vista non piu' raggiungibile dal menu). Per riattivare in futuro, una volta completato il lavoro sulle schermate economiche: RPG_FEATURE_ENABLED=true e rimuovere lo style="display:none" dal pulsante. CORREZIONE AGGIUNTIVA (bug reale trovato da Carmine subito dopo la v1.87.0, errore mostrato in app: "Il file scaricato non corrisponde alla firma attesa. Aggiornamento annullato per sicurezza."): la sha256 scritta in version.json per la v1.87.0 era stata calcolata PRIMA di incollare quella stessa stringa nel commento di changelog di questo file, quindi descriveva una versione del documento diversa da quella realmente pubblicata (paradosso di auto-riferimento gia' noto da versioni precedenti, qui diventato per la prima volta un blocco reale per l'utente invece che una sola imprecisione cosmetica nel commento). Verificato con un confronto diretto byte-per-byte tra il file scaricato da raw.githubusercontent.com e la copia locale pubblicata (stesso sha256) prima di correggere version.json con la firma reale. Per evitare di ripetere lo stesso errore, la sha256 scritta QUI nel commento di changelog resta volutamente una stima cosmetica (lo e' sempre stata, per lo stesso motivo): quella davvero verificata e usata dall'aggiornamento automatico e' solo quella in version.json, calcolata DOPO aver finalizzato questo file, mai PRIMA. Verificato: node --check su tutti i blocchi script; nessuna modifica alla logica di gioco, solo navigazione/router. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.87.0"; // v1.87.0 (21/10, CORREZIONE sulla v1.86.0, dopo nuova segnalazione diretta di Carmine durante la revisione: "ancora non ci siamo non e' uguale all'app" e poi, dopo aver chiesto perche' non leggessi codice/chat di base44 nel dettaglio, "anche la grafica, le mappe il modo casuale del movimento dei mostri ecc. ti ho dato un semplice comando. Stai facendo tutto tranne quello che ti ho chiesto"). Su sua richiesta esplicita ho osservato di nuovo dal vivo l'editor base44 (accesso suo, mai toccate credenziali), stavolta zoomando sulla mappa reale del dungeon invece di limitarmi alle schermate di citta'/scheda gia' viste in precedenza. Due scoperte concrete: 1) il segnalino del giocatore sulla mappa base44 e' un piccolo dado quadrato con due facce a puntini (coerente col tema "Roll for Initiative"/"Dice Vault"), non un cerchio luminoso astratto come avevo disegnato qui; corretto con una nuova icona quadrata in stile dado. 2) sulla mappa compaiono forzieri raccoglibili camminandoci sopra (bottino extra separato da quello di combattimento), funzione che qui mancava del tutto: aggiunta la generazione di 1-2 forzieri per piano (oro scalato sulla profondita', a volte erbe/minerale), con icona scrigno dedicata e un'autentica meccanica di raccolta (rpgMoveDungeon), non solo visiva. Icone mostro sulla mappa ridisegnate in stile pixel squadrato (corpo+testa+occhi, nessun bordo anti-aliasing) invece dei cerchi con due puntini di prima, per leggibilita' a colpo d'occhio piu' vicina alle sprite minuscole viste nel prototipo. Sul "movimento casuale dei mostri" specifico richiesto da Carmine: VERIFICATO empiricamente nel vivo editor base44 (screenshot a 4 secondi di distanza, nessun input, posizioni di mostri/forzieri/giocatore identiche) che i mostri NON si muovono da soli in tempo reale nel prototipo originale - restano fermi finche' non li si urta, esattamente come gia' funzionava qui; non e' stata quindi inventata una falsa casualita' di movimento che il prototipo stesso non ha, per non allontanarsi ulteriormente dalla fedelta' richiesta. Resta un lavoro ESPLICITAMENTE RIMANDATO su sua stessa indicazione in questo stesso scambio ("quelli li riprendo dopo"): le schermate economiche di Hollowmark (Mercante/Forgia/Gilda/Locanda/Tempio/Zaino), gia' osservate nel dettaglio nell'editor in questa sessione (liste prezzi, sezione CRAFTING separata dalle WARES, fascia risorse GOLD/HERBS/ORE/POTIONS, tab categorie/ordinamento nello zaino, pulsante ABBANDONA MISSIONE in Gilda, testo reale del Tempio che parla di bonus all'attacco non alla CA) ma non ancora corrette nel codice: prossimo passaggio. Verificato: node --check su tutti i blocchi script; rieseguita la simulazione autonoma di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti, 0 eccezioni) dopo l'aggiunta dei forzieri alla generazione mappa. Non verificato con un browser reale end-to-end in questa sessione. sha256: 56846a9c76744c5465ff6083fdd97e739a833ac05f081a0892f17e89e8aa20f2.
