@@ -1709,19 +1709,34 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .rpg-dungeon-row.locked{opacity:.5}
 .rpg-dungeon-name{font-family:"Cinzel",serif;font-size:15px;color:var(--rpg-gold-bright);margin-bottom:4px}
 .rpg-dungeonroom{padding-bottom:12px}
-.rpg-room-art{height:150px;border-radius:14px;margin:10px 0;border:1px solid var(--line);
-  background:
-    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--rpg-dungeon-accent, var(--gold)) 25%, transparent), transparent 55%),
-    linear-gradient(180deg, var(--rpg-dungeon-wall, var(--panelA)), var(--rpg-dungeon-floor, var(--bg)));
-  box-shadow:inset 0 0 40px rgba(0,0,0,.5)}
-.rpg-room-actions{display:flex;flex-direction:column;gap:8px}
+.rpg-dungeon-grid{display:grid;gap:3px;margin:12px auto;max-width:360px;aspect-ratio:9/7;
+  background:var(--rpg-dungeon-wall, var(--panelA));border:1px solid var(--line);border-radius:10px;padding:4px;
+  box-shadow:inset 0 0 30px rgba(0,0,0,.5)}
+.rpg-cell{position:relative;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.rpg-cell.wall{background:var(--rpg-dungeon-wall, var(--panelB));opacity:.5}
+.rpg-cell.floor{background:var(--rpg-dungeon-floor, var(--bg))}
+.rpg-cell.stairs{background:color-mix(in srgb, var(--rpg-dungeon-accent, var(--gold)) 35%, var(--rpg-dungeon-floor, var(--bg)))}
+.rpg-cell.monster{box-shadow:inset 0 0 0 2px var(--red2)}
+.rpg-cell.monster.boss{box-shadow:inset 0 0 0 2px var(--gold2)}
+.rpg-cell.player{background:color-mix(in srgb, var(--rpg-dungeon-accent, var(--gold)) 55%, var(--rpg-dungeon-floor, var(--bg)));
+  color:var(--ink);font-weight:700;box-shadow:0 0 10px var(--rpg-dungeon-accent, var(--gold))}
+.rpg-dpad{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,48px);gap:6px;justify-content:center;margin:14px 0}
+.rpg-dpad-btn{border:1px solid var(--line);background:var(--panel);color:var(--rpg-gold-bright);
+  border-radius:10px;font-size:18px;cursor:pointer}
+.rpg-dpad-btn:active{background:var(--navactiveA)}
 
 /* ---- combattimento ---- */
 .rpg-combat{padding-bottom:12px}
-.rpg-combat-stage{background:radial-gradient(circle at 50% 20%, rgba(255,80,40,.08), transparent 60%),
+.rpg-combat-stage{position:relative;background:radial-gradient(circle at 50% 20%, rgba(255,80,40,.08), transparent 60%),
   linear-gradient(180deg,var(--panelA),var(--bg));border:1px solid var(--line);border-radius:16px;
-  padding:16px;text-align:center;margin-bottom:10px}
-.rpg-enemy-name{font-family:"Cinzel",serif;color:var(--red2);font-size:15px;margin-bottom:8px}
+  padding:16px;text-align:center;margin-bottom:10px;overflow:hidden}
+.rpg-runic-circle{position:absolute;left:50%;top:58px;width:140px;height:140px;transform:translateX(-50%);
+  border-radius:50%;border:1px solid var(--rpg-gold-bright);opacity:.35;
+  box-shadow:0 0 30px rgba(217,138,43,.25), inset 0 0 20px rgba(217,138,43,.15);
+  animation:rpgRunicSpin 18s linear infinite}
+.rpg-runic-circle::before{content:"";position:absolute;inset:14px;border-radius:50%;border:1px dashed var(--amber)}
+@keyframes rpgRunicSpin{from{transform:translateX(-50%) rotate(0)}to{transform:translateX(-50%) rotate(360deg)}}
+.rpg-enemy-name{position:relative;font-family:"Cinzel",serif;color:var(--red2);font-size:15px;margin-bottom:8px}
 .rpg-enemy-art{height:96px;border-radius:12px;margin:0 auto 10px;max-width:220px;
   background:radial-gradient(circle,rgba(255,255,255,.06),transparent 70%);
   display:flex;align-items:center;justify-content:center;font-size:44px}
@@ -1744,6 +1759,11 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
   text-shadow:0 0 24px rgba(255,59,48,.4);margin-bottom:10px}
 .rpg-dead-banner.good{color:var(--rpg-gold-bright);text-shadow:0 0 24px var(--rpg-glow-gold,rgba(217,138,43,.5))}
 .rpg-levelup{padding-top:16px;text-align:center}
+.rpg-spoils{text-align:center;padding-top:26px}
+.rpg-victory-banner{font-family:"Cinzel",serif;font-size:26px;letter-spacing:.1em;color:var(--rpg-gold-bright);
+  text-shadow:0 0 24px var(--rpg-glow-gold,rgba(217,138,43,.5));margin-bottom:14px}
+.rpg-spoils-row{font-size:15px;color:var(--ink);margin-bottom:12px}
+.rpg-spoils-loot{max-width:320px;margin:0 auto 10px}
 
 /* ---- scheda personaggio ---- */
 .rpg-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
@@ -5215,52 +5235,6 @@ function applyTheme(){
    ========================================================================= */
 
 /* ---- Classi: dado arma iniziale, HP base, et abilita' sbloccate per livello ---- */
-/* =========================================================================
-   MYTHRENDER RPG — audio (effetti + ambientazione)
-   -------------------------------------------------------------------------
-   Riusa l'infrastruttura Howler.js già presente in Mythrender (sfxLoad(),
-   vedi "Suoni del tavolo"): stessi file CC0/licenza libera ospitati come
-   asset separati nel repo (assets/sfx/), mai incorporati in questo
-   documento, caricati pigramente al primo utilizzo. Qui si aggiungono solo
-   le chiavi nuove per il dungeon crawler, più un interruttore dedicato
-   (STATE.rpg.sfxOn) per non imporre l'audio a chi non lo vuole.
-   ========================================================================= */
-const RPG_SFX_FILES = {
-  "rpg-hit":"rpg-hit.mp3", "rpg-heal":"rpg-heal.mp3", "rpg-levelup":"rpg-levelup.mp3",
-  "rpg-victory":"rpg-victory.mp3", "rpg-defeat":"rpg-defeat.mp3", "rpg-coin":"rpg-coin.mp3",
-  "rpg-boss":"rpg-boss.mp3"
-};
-const RPG_AMBIENT_FILES = { "rpg-town":"rpg-town.mp3", "dungeon":"dungeon.ogg" /* già esistente in Mythrender */ };
-let RPG_CURRENT_AMBIENT = null;
-function rpgSfxOn(){ return !STATE.rpg || STATE.rpg.sfxOn!==false; }
-function rpgSfxPlay(key){
-  if(!rpgSfxOn()) return;
-  const file = RPG_SFX_FILES[key]; if(!file) return;
-  try{ sfxPlayOnce(key, file); }catch(e){ /* audio opzionale: un fallimento di rete non deve mai bloccare il gioco */ }
-}
-/* Avvia un loop ambientale fermando quello precedente (mai due loop insieme); passare null ferma tutto. */
-function rpgAmbientSet(key){
-  if(RPG_CURRENT_AMBIENT===key) return;
-  try{ if(RPG_CURRENT_AMBIENT && SFX_HOWLS[RPG_CURRENT_AMBIENT]) SFX_HOWLS[RPG_CURRENT_AMBIENT].stop(); }catch(e){}
-  RPG_CURRENT_AMBIENT = key;
-  if(!key || !rpgSfxOn()) return;
-  const file = RPG_AMBIENT_FILES[key]; if(!file) return;
-  try{ const h=sfxLoad(key, file, true); h.volume(key==="rpg-town"?0.35:0.3); h.play(); }catch(e){}
-}
-function rpgSfxToggle(){
-  STATE.rpg.sfxOn = !rpgSfxOn();
-  if(!STATE.rpg.sfxOn){ rpgAmbientSet(null); } else { rpgAmbientReflectScreen(); }
-  persist(); render();
-}
-/* Richiamata da rpgGo(): decide l'ambientazione giusta in base alla schermata di destinazione. */
-function rpgAmbientReflectScreen(){
-  const s = STATE.rpg && STATE.rpg.screen;
-  if(s==="dungeon" || s==="combat") rpgAmbientSet("dungeon");
-  else if(["town","shop","forge","guild","inn","temple"].includes(s)) rpgAmbientSet("rpg-town");
-  else rpgAmbientSet(null);
-}
-
-
 const RPG_CLASSES = {
   Fighter:   { weapon:"1d8",  hpBase:12 },
   Wizard:    { weapon:"1d6",  hpBase:8  },
@@ -5565,7 +5539,6 @@ function rpgNewHero(name, race, klass){
   };
 }
 
-
 /* =========================================================================
    MYTHRENDER RPG — motore di gioco (equip derivato, combattimento, bottino)
    ========================================================================= */
@@ -5673,14 +5646,21 @@ function rpgEnemyAttackRoll(enemy, hero, defenderBonusAc){
   return {d20, toHit, crit, hit, dmg};
 }
 
-/* Applica ricompense di vittoria: xp/oro/bottino. Non tocca ancora il livello (vedi rpgApplyLevelUps). */
+/* Applica ricompense di vittoria: xp/oro/erbe/minerale/bottino. Non tocca ancora il livello
+   (vedi rpgApplyLevelUps). Le erbe/il minerale sostituiscono un'azione dedicata di "raccolta" (che
+   il prototipo base44 non aveva): qui arrivano come bottino aggiuntivo di ogni combattimento,
+   influenzato dal bias di risorse del dungeon, così il ciclo di gioco resta "combatti per
+   progredire" come nell'originale, senza passaggi intermedi inventati. */
 function rpgVictoryRewards(hero, enemy, dungeon){
   const xp = enemy.xp;
   const gold = Math.round(xp/3) + Math.floor(Math.random()*5);
+  const bias = (dungeon&&dungeon.bias)||{herb:1,ore:1};
+  const herbs = Math.random()<0.4 ? Math.ceil(Math.random()*2*bias.herb) : 0;
+  const ore = Math.random()<0.25 ? Math.ceil(Math.random()*bias.ore) : 0;
   const loot = [];
   if(Math.random()<0.35){ const rel = rpgRollRelicDrop(hero.depth); if(rel) loot.push(rel); }
   if(enemy.boss || Math.random()<0.12){ const eq = rpgRollEquipDrop(hero.depth); if(eq) loot.push(eq); }
-  return {xp, gold, loot};
+  return {xp, gold, herbs, ore, loot};
 }
 /* Dato l'xp totale aggiornato, applica tutte le salite di livello maturate (può essere più di una),
    restituendo quante "scelte di talento" restano in sospeso (1 ogni 2 livelli guadagnati). */
@@ -5694,26 +5674,85 @@ function rpgApplyLevelUps(hero){
   return leveled;
 }
 
+/* ---- Mappa del dungeon: griglia top-down con stanze collegate da corridoi, esattamente come nel
+   prototipo base44 (dove però il movimento era possibile SOLO da tastiera, WASD/frecce: il motivo
+   dichiarato per cui non funzionava affatto su smartphone). Qui la griglia e la logica
+   "bump-to-fight" sono le stesse; cambia solo il modo di muoversi, che si aggiunge due input
+   equivalenti — tastiera (invariata) e tocco (D-pad) — senza alterare come funziona il dungeon. */
+function rpgGenerateDungeonMap(depth, dungeon){
+  const W=9, H=7;
+  const grid = Array.from({length:H},()=>Array(W).fill(0));
+  let x=1, y=Math.floor(H/2);
+  grid[y][x]=1;
+  const path=[[x,y]];
+  const roomsCount = 11+Math.floor(Math.random()*6);
+  for(let i=0;i<roomsCount;i++){
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
+      const nx=x+dx, ny=y+dy; return nx>=1 && nx<=W-2 && ny>=1 && ny<=H-2;
+    });
+    if(!dirs.length) break;
+    dirs.sort((a,b)=> (a[0]<0?1:0)-(b[0]<0?1:0) + (Math.random()-0.5));
+    const [dx,dy] = dirs[Math.floor(Math.random()*Math.min(2,dirs.length))] || dirs[0];
+    x+=dx; y+=dy;
+    grid[y][x]=1;
+    path.push([x,y]);
+  }
+  const start = path[0];
+  const floorCells = [];
+  for(let yy=0; yy<H; yy++) for(let xx=0; xx<W; xx++) if(grid[yy][xx]===1) floorCells.push([xx,yy]);
+  // Le scale vanno sulla cella calpestabile più lontana dal punto di partenza (distanza BFS reale
+  // sulla griglia, non solo l'ultimo passo della passeggiata casuale che l'ha scavata): così sono
+  // sempre garantite diverse dalla partenza e sempre raggiungibili, anche nei rari casi in cui la
+  // passeggiata casuale si ripiega su se stessa e torna vicino a dove è cominciata.
+  const dist = {}; dist[start[0]+","+start[1]] = 0;
+  const bq = [start];
+  while(bq.length){
+    const [cx,cy] = bq.shift(); const d = dist[cx+","+cy];
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cx+dx, ny=cy+dy, k=nx+","+ny;
+      if(nx<0||ny<0||nx>=W||ny>=H||grid[ny][nx]===0||dist[k]!==undefined) continue;
+      dist[k]=d+1; bq.push([nx,ny]);
+    }
+  }
+  let stairs = start, bestDist = -1;
+  for(const [cx,cy] of floorCells){ const d = dist[cx+","+cy]; if(d!==undefined && d>bestDist){ bestDist=d; stairs=[cx,cy]; } }
+  const candidates = floorCells.filter(([cx,cy])=> !(cx===start[0]&&cy===start[1]) && !(cx===stairs[0]&&cy===stairs[1]));
+  for(let i=candidates.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [candidates[i],candidates[j]]=[candidates[j],candidates[i]]; }
+  const isBossFloor = depth % 10 === 0;
+  const monsterCount = Math.min(candidates.length, 4+Math.floor(depth/5));
+  const monsters = {};
+  for(let i=0;i<monsterCount;i++){
+    const [cx,cy] = candidates[i];
+    monsters[cx+","+cy] = rpgRollEncounter(dungeon.id, depth);
+  }
+  if(isBossFloor){
+    monsters[stairs[0]+","+stairs[1]] = rpgRollBoss(depth, dungeon);
+  }
+  return { w:W, h:H, grid, playerX:start[0], playerY:start[1], stairsX:stairs[0], stairsY:stairs[1],
+    monsters, monsterCount:Object.keys(monsters).length, bossFloor:isBossFloor };
+}
 
 /* =========================================================================
    MYTHRENDER RPG — interfaccia (sezione "Avventura" > "Dungeon della Discesa")
    -------------------------------------------------------------------------
-   Scelta di design deliberata rispetto al prototipo base44: il dungeon NON è
-   una griglia esplorabile con WASD (motivo per cui lì non funziona su
-   smartphone), ma una sequenza di stanze con pulsanti — stesso combattimento
-   a dadi, stessa scala di mostri/bottino/esperienza, ma pienamente giocabile
-   a tocco fin dal primo giorno, senza bisogno di una tastiera.
+   Stessa griglia del prototipo base44 (stanze/corridoi, bump-to-fight contro
+   i mostri sulla mappa, scale per scendere): lì il movimento era possibile
+   SOLO da tastiera (WASD/frecce), motivo dichiarato per cui non funzionava
+   affatto su smartphone. Qui la griglia e le regole restano le stesse; si
+   aggiungono solo due modi equivalenti di muoversi — tastiera (invariata) e
+   un D-pad a tocco — così funziona anche su chi non ha una tastiera.
    ========================================================================= */
 
 function rpgDefaultState(){
   return { hero:null, inventory:[], battleLog:[], codex:{}, screen:"home",
-    combat:null, room:0, roomsInRun:8, gather:{herb:0,ore:0} };
+    combat:null, dungeonMap:null, sfxOn:true };
 }
 function rpgGo(screen, extra){
   if(extra) Object.assign(STATE.rpg, extra);
   STATE.rpg.screen = screen;
   persist();
   if(typeof mpScheduleAccountStatePush==="function") mpScheduleAccountStatePush();
+  if(typeof rpgAmbientReflectScreen==="function") rpgAmbientReflectScreen();
   render();
 }
 function rpgHero(){ return STATE.rpg.hero; }
@@ -5733,8 +5772,9 @@ function viewRpg(){
     case "inn": return rpgViewInn();
     case "temple": return rpgViewTemple();
     case "dungeonSelect": return rpgViewDungeonSelect();
-    case "dungeon": return rpgViewDungeonRoom();
+    case "dungeon": return rpgViewDungeon();
     case "combat": return rpgViewCombat();
+    case "spoils": return rpgViewSpoils();
     case "inventory": return rpgViewInventory();
     case "character": return rpgViewCharacter();
     case "bestiary": return rpgViewBestiary();
@@ -5763,8 +5803,10 @@ function rpgTopBar(hero){
 /* Navigazione inferiore fissa a 5 voci (equivalente mobile-first del bottom nav del prototipo) */
 function rpgBottomNav(active){
   const items = [["character","🧍","Eroe"],["inventory","🎒","Zaino"],["town","🏘","Città"],["guild","📜","Gilda"],["dungeonSelect","🗺","Dungeon"]];
-  return el("div",{class:"rpg-bottomnav"}, ...items.map(([k,ic,label])=>
+  const nav = el("div",{class:"rpg-bottomnav"}, ...items.map(([k,ic,label])=>
     el("button",{class:"rpg-navbtn"+(active===k?" active":""), onclick:()=>rpgGo(k)}, el("span",{class:"rpg-navbtn-ico"},ic), el("span",{class:"rpg-navbtn-lbl"},label))));
+  nav.append(el("button",{class:"rpg-navbtn", title:"Audio", onclick:()=>rpgSfxToggle()}, el("span",{class:"rpg-navbtn-ico"}, rpgSfxOn()?"🔊":"🔇"), el("span",{class:"rpg-navbtn-lbl"},"Audio")));
+  return nav;
 }
 function rpgScreen(hero, contentNode, opts){
   opts=opts||{};
@@ -5798,6 +5840,7 @@ function rpgViewCreate(){
         h.equipment.weapon = STATE.rpg.inventory[0].id; h.equipment.armor = STATE.rpg.inventory[1].id;
         STATE.rpg._create=null;
         rpgGo("home");
+        rpgSfxPlay("rpg-levelup");
         toast("«"+h.name+"» è pronto a scendere.");
       }}, "Inizia l'avventura")));
   return box;
@@ -5972,18 +6015,19 @@ function rpgViewTemple(){
 }
 
 /* ================= SCELTA DUNGEON ================= */
+function rpgDifficultyLabel(d){ return d.mult<=1.15 ? "Equilibrato" : d.mult<=1.45 ? "Ostico" : "Letale"; }
 function rpgViewDungeonSelect(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const rows = RPG_DUNGEONS.map(d=>{
     const locked = hero.level < d.minLevel;
     return el("div",{class:"card rpg-card rpg-dungeon-row"+(locked?" locked":"")},
-      el("div",{class:"rpg-dungeon-name"}, (locked?"🔒 ":"")+d.name),
+      el("div",{class:"rpg-dungeon-name"}, (locked?"🔒 ":"")+d.name+" · "+rpgDifficultyLabel(d)),
       el("div",{class:"muted small"}, d.desc),
       el("div",{class:"muted small"}, "Mostri: "+d.pool.join(", ")),
       locked ? el("div",{class:"muted small"},"Richiede livello "+d.minLevel)
              : el("button",{class:"btn sm primary", onclick:()=>{
                  STATE.rpg.hero.dungeonId=d.id; STATE.rpg.hero.depth=STATE.rpg.hero.checkpointDepth||1;
-                 STATE.rpg.room=0; STATE.rpg.roomsInRun=6+Math.floor(Math.random()*4);
+                 STATE.rpg.dungeonMap = rpgGenerateDungeonMap(STATE.rpg.hero.depth, d);
                  rpgGo("dungeon"); toast("Scendi in "+d.name+".");
                }}, "Scendi a profondità "+ (hero.checkpointDepth||1)));
   });
@@ -5992,47 +6036,77 @@ function rpgViewDungeonSelect(){
   return rpgScreen(hero, content, {active:"dungeonSelect"});
 }
 
-/* ================= STANZA DEL DUNGEON (sequenza di stanze, niente griglia/WASD) =================
-   Ogni stanza propone 2-3 azioni (Esplora/Avanza/Raccogli), pensate per il tocco: niente movimento
-   libero, ma lo stesso ritmo di rischio/ricompensa del prototipo, giocabile con un pollice solo. */
-function rpgViewDungeonRoom(){
+/* ================= GRIGLIA DEL DUNGEON (stanze/corridoi, bump-to-fight, scale) =================
+   Stessa mappa/regole del prototipo base44: ci si muove sulla griglia, urtare un mostro avvia il
+   combattimento, le scale scendono di profondità quando la mappa è ripulita. Due modi di muoversi,
+   entrambi attivi: tastiera (frecce/WASD, invariata rispetto a prima) e D-pad a tocco. */
+function rpgMoveDungeon(dx,dy){
+  if(!STATE.rpg || STATE.rpg.screen!=="dungeon" || STATE.rpg.combat) return;
+  const map = STATE.rpg.dungeonMap; if(!map) return;
+  const nx=map.playerX+dx, ny=map.playerY+dy;
+  if(nx<0||ny<0||nx>=map.w||ny>=map.h||map.grid[ny][nx]===0) return;
+  const key=nx+","+ny;
+  if(map.monsters[key]){
+    const enemy = map.monsters[key];
+    STATE.rpg._combatCellKey = key;
+    STATE.rpg.combat = { enemy, log:[{text:"Un "+enemy.name+" ti blocca il passo."}], turnBusy:false };
+    if(enemy.boss) rpgSfxPlay("rpg-boss");
+    rpgGo("combat");
+    return;
+  }
+  map.playerX=nx; map.playerY=ny;
+  if(nx===map.stairsX && ny===map.stairsY){
+    if(Object.keys(map.monsters).length>0){
+      toast("Ci sono ancora nemici nel dungeon: eliminali prima di scendere.");
+    } else {
+      STATE.rpg.hero.depth += 1;
+      if(STATE.rpg.hero.depth % 5 === 1 && STATE.rpg.hero.depth > STATE.rpg.hero.checkpointDepth) STATE.rpg.hero.checkpointDepth = STATE.rpg.hero.depth;
+      STATE.rpg.dungeonMap = rpgGenerateDungeonMap(STATE.rpg.hero.depth, rpgDungeon(STATE.rpg.hero.dungeonId));
+      toast("Scendi alla profondità "+STATE.rpg.hero.depth+".");
+    }
+  }
+  persist();
+  render();
+}
+/* Listener da tastiera registrato una sola volta al caricamento del documento (non ad ogni
+   render): attivo solo quando la vista dungeon è quella corrente e non si è in combattimento. */
+if(typeof document!=="undefined" && !window.__rpgKeyboardBound){
+  window.__rpgKeyboardBound = true;
+  document.addEventListener("keydown", e=>{
+    if(!STATE || !STATE.rpg || STATE.view!=="rpg" || STATE.rpg.screen!=="dungeon") return;
+    const map = {ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]}[e.key];
+    if(map){ e.preventDefault(); rpgMoveDungeon(map[0],map[1]); }
+  });
+}
+function rpgViewDungeon(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const dungeon = rpgDungeon(hero.dungeonId);
-  const room = STATE.rpg.room||0, total = STATE.rpg.roomsInRun||6;
-  const isBossRoom = (hero.depth % 10 === 0) && room>=total-1;
-  function enterCombat(enemy){
-    STATE.rpg.combat = { enemy, log:[{text:"Un "+enemy.name+" ti sbarra la strada."}], turnBusy:false, fled:false };
-    rpgGo("combat");
+  const map = STATE.rpg.dungeonMap || (STATE.rpg.dungeonMap = rpgGenerateDungeonMap(hero.depth, dungeon));
+  const cells = [];
+  for(let yy=0; yy<map.h; yy++) for(let xx=0; xx<map.w; xx++){
+    const t = map.grid[yy][xx];
+    const isPlayer = xx===map.playerX && yy===map.playerY;
+    const isStairs = xx===map.stairsX && yy===map.stairsY;
+    const monster = map.monsters[xx+","+yy];
+    let cls = "rpg-cell "+(t===0?"wall":"floor");
+    if(isStairs && t===1) cls += " stairs";
+    if(monster) cls += monster.boss ? " monster boss" : " monster";
+    if(isPlayer) cls += " player";
+    cells.push(el("div",{class:cls}, isPlayer?"@":(monster?(monster.boss?"👑":"👹"):(isStairs?"▼":""))));
   }
-  function advance(){
-    if(room+1>=total){
-      if(isBossRoom){ enterCombat(rpgRollBoss(hero.depth, dungeon)); return; }
-      STATE.rpg.hero.depth += 1;
-      if(STATE.rpg.hero.depth > STATE.rpg.hero.checkpointDepth && STATE.rpg.hero.depth % 5 === 1) STATE.rpg.hero.checkpointDepth = STATE.rpg.hero.depth;
-      STATE.rpg.room = 0; STATE.rpg.roomsInRun = 6+Math.floor(Math.random()*4);
-      rpgGo("dungeon"); toast("Scendi alla profondità "+STATE.rpg.hero.depth+".");
-      return;
-    }
-    STATE.rpg.room = room+1;
-    if(Math.random() < 0.7) enterCombat(rpgRollEncounter(dungeon.id, hero.depth));
-    else rpgGo("dungeon");
-  }
-  function gather(){
-    const bias = dungeon.bias||{herb:1,ore:1};
-    const herb = Math.round(1+Math.random()*2*bias.herb/2), ore = Math.round(Math.random()*2*bias.ore/2);
-    STATE.rpg.hero.herbs += herb; STATE.rpg.hero.ore += ore;
-    STATE.rpg.hero.lastGatherAt = Date.now();
-    toast("Raccolto: 🌿"+herb+" ⛏"+ore);
-    rpgGo("dungeon");
-  }
+  const remaining = Object.keys(map.monsters).length;
   const content = el("div",{class:"rpg-dungeonroom", style:"--rpg-dungeon-floor:"+dungeon.palette.floor+";--rpg-dungeon-wall:"+dungeon.palette.wall+";--rpg-dungeon-accent:"+dungeon.palette.accent},
     el("h3",{class:"rpg-title"}, dungeon.name+" · Profondità "+hero.depth),
-    el("div",{class:"muted"}, "Stanza "+(room+1)+" di "+total+(isBossRoom&&room>=total-1?" — il guardiano attende":"")),
-    el("div",{class:"rpg-room-art"}),
-    el("div",{class:"rpg-room-actions"},
-      el("button",{class:"btn primary rpg-cta", onclick:advance}, room+1>=total ? (isBossRoom?"Affronta il guardiano":"Scendi più a fondo") : "Avanza"),
-      el("button",{class:"btn rpg-cta", onclick:gather}, "Raccogli risorse"),
-      el("button",{class:"btn ghost rpg-cta", onclick:()=>{ rpgGo("town"); toast("Sei tornato a Hollowmark; riparti dal checkpoint."); }}, "↩ Torna a Hollowmark")));
+    el("div",{class:"muted"}, map.bossFloor ? "Il guardiano attende alle scale." : (remaining>0 ? (remaining+" nemici ancora nella mappa") : "Mappa ripulita: scendi alle scale ▼")),
+    el("div",{class:"rpg-dungeon-grid", style:"grid-template-columns:repeat("+map.w+",1fr)"}, ...cells),
+    el("div",{class:"rpg-dpad"},
+      el("div",{}),
+      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,-1)}, "▲"),
+      el("div",{}),
+      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(-1,0)}, "◀"),
+      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,1)}, "▼"),
+      el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(1,0)}, "▶")),
+    el("button",{class:"btn ghost rpg-cta", onclick:()=>{ rpgGo("town"); toast("Sei tornato a Hollowmark; riparti dal checkpoint."); }}, "↩ Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"dungeonSelect", bottomnav:false});
 }
 
@@ -6050,8 +6124,10 @@ function rpgViewCombat(){
   function closeCombat(outcome){
     const key = uid();
     if(outcome==="won"){
-      const r = rpgVictoryRewards(STATE.rpg.hero, enemy, rpgDungeon(STATE.rpg.hero.dungeonId));
-      STATE.rpg.hero.xp += r.xp; STATE.rpg.hero.gold += r.gold; STATE.rpg.hero.kills=(STATE.rpg.hero.kills||0)+1;
+      const dungeon = rpgDungeon(STATE.rpg.hero.dungeonId);
+      const r = rpgVictoryRewards(STATE.rpg.hero, enemy, dungeon);
+      STATE.rpg.hero.xp += r.xp; STATE.rpg.hero.gold += r.gold; STATE.rpg.hero.herbs += r.herbs; STATE.rpg.hero.ore += r.ore;
+      STATE.rpg.hero.kills=(STATE.rpg.hero.kills||0)+1;
       if(enemy.boss) STATE.rpg.hero.bossesSlain=(STATE.rpg.hero.bossesSlain||0)+1;
       r.loot.forEach(it=>STATE.rpg.inventory.push(it));
       const baseName = enemy.baseName||enemy.name;
@@ -6061,15 +6137,25 @@ function rpgViewCombat(){
       if(q && q.target===baseName && q.count<q.needed) q.count++;
       STATE.rpg.battleLog.unshift({battle_key:key, enemy:enemy.name, boss:!!enemy.boss, elite:!!enemy.elite, depth:hero.depth, outcome:"win", xp:r.xp, gold:r.gold, loot:r.loot.map(l=>l.name), ts:Date.now()});
       if(STATE.rpg.battleLog.length>200) STATE.rpg.battleLog.length=200;
+      // Rimuove il mostro sconfitto dalla cella della griglia dove si trovava (bump-to-fight):
+      // la mappa resta la stessa, solo quella casella torna libera.
+      if(STATE.rpg._combatCellKey && STATE.rpg.dungeonMap) delete STATE.rpg.dungeonMap.monsters[STATE.rpg._combatCellKey];
+      STATE.rpg._combatCellKey = null;
       STATE.rpg.combat=null;
+      STATE.rpg._spoils = r;
       const leveled = rpgApplyLevelUps(STATE.rpg.hero);
-      rpgGo(leveled>0?"levelup": (enemy.boss?"town":"dungeon"));
-      toast(enemy.boss ? ("Hai abbattuto "+enemy.name+"!") : ("Vittoria! +"+r.xp+" PE, +"+r.gold+" oro."));
+      rpgSfxPlay(r.gold>0?"rpg-coin":"rpg-victory");
+      if(leveled>0) setTimeout(()=>rpgSfxPlay("rpg-levelup"), 450);
+      STATE.rpg._pendingLevelUp = leveled>0;
+      rpgGo("spoils");
     } else {
       STATE.rpg.hero.deaths=(STATE.rpg.hero.deaths||0)+1;
       STATE.rpg.hero.depth = STATE.rpg.hero.checkpointDepth||1;
       STATE.rpg.hero.hp = Math.max(1, Math.floor(rpgDerivedHero(STATE.rpg.hero, rpgInv()).maxHp*0.5));
+      STATE.rpg.dungeonMap = null; // la mappa del piano in cui si è caduti va rigenerata al checkpoint
+      STATE.rpg._combatCellKey = null;
       STATE.rpg.combat=null;
+      rpgSfxPlay("rpg-defeat");
       rpgGo("dead");
     }
   }
@@ -6079,12 +6165,13 @@ function rpgViewCombat(){
     if(kind==="attack"){
       const r = rpgHeroAttackRoll(STATE.rpg.hero, enemy);
       pushLog("Tiri "+r.d20+(r.crit?" — CRITICO!":"")+": "+(r.hit?("colpisci per "+r.dmg+" danni"):"mancato"), r.hit?"hit":"miss");
-      if(r.hit) enemy.hp = Math.max(0, enemy.hp - r.dmg);
+      if(r.hit){ enemy.hp = Math.max(0, enemy.hp - r.dmg); rpgSfxPlay("rpg-hit"); }
     } else if(kind==="potion"){
       if((STATE.rpg.hero.potions||0)<=0){ toast("Non hai pozioni."); combat.turnBusy=false; return; }
       STATE.rpg.hero.potions--; const heal = rpgRollDice("2d8+2").total;
       STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp+heal);
       pushLog("Bevi una pozione: recuperi "+heal+" PF.", "heal");
+      rpgSfxPlay("rpg-heal");
     } else if(kind==="ability"){
       const uses = (STATE.rpg.hero.abilityUses||{})[ability.id]||0;
       const bonus = rpgFeatBonuses(STATE.rpg.hero);
@@ -6095,6 +6182,7 @@ function rpgViewCombat(){
         const heal = rpgRollDice(ability.dice).total + mod(STATE.rpg.hero[ability.stat]||10);
         STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp+heal);
         pushLog(ability.name+": recuperi "+heal+" PF.", "heal");
+        rpgSfxPlay("rpg-heal");
       } else if(ability.type==="buff"){
         STATE.rpg.hero.acBonus = (STATE.rpg.hero.acBonus||0) + (ability.ac||0);
         STATE.rpg.hero.atkBonus = (STATE.rpg.hero.atkBonus||0) + (ability.atk||0);
@@ -6110,6 +6198,7 @@ function rpgViewCombat(){
         }
         enemy.hp = Math.max(0, enemy.hp-total);
         pushLog(ability.name+": infliggi "+total+" danni.", "hit");
+        if(total>0) rpgSfxPlay("rpg-hit");
       }
     } else if(kind==="flee"){
       const bonus = rpgFeatBonuses(STATE.rpg.hero);
@@ -6121,7 +6210,7 @@ function rpgViewCombat(){
     if(!outcome){
       const er = rpgEnemyAttackRoll(enemy, STATE.rpg.hero, 0);
       pushLog(enemy.name+" tira "+er.d20+(er.crit?" — critico!":"")+": "+(er.hit?("ti infligge "+er.dmg+" danni"):"manca il colpo"), er.hit?"enemyhit":"miss");
-      if(er.hit) STATE.rpg.hero.hp = Math.max(0, STATE.rpg.hero.hp-er.dmg);
+      if(er.hit){ STATE.rpg.hero.hp = Math.max(0, STATE.rpg.hero.hp-er.dmg); rpgSfxPlay("rpg-hit"); }
       outcome = checkEnd();
     }
     combat.turnBusy=false;
@@ -6132,6 +6221,7 @@ function rpgViewCombat(){
   const hpPct = Math.max(2, Math.round(100*enemy.hp/enemy.maxHp));
   const content = el("div",{class:"rpg-combat"},
     el("div",{class:"rpg-combat-stage"},
+      el("div",{class:"rpg-runic-circle"}),
       el("div",{class:"rpg-enemy-name"}, (enemy.boss?"👑 ":enemy.elite?"★ ":"")+enemy.name+(enemy.title?(" — "+enemy.title):"")),
       el("div",{class:"rpg-enemy-art", "data-sprite":enemy.sprite}),
       el("div",{class:"rpg-bar rpg-bar-hp"}, el("div",{class:"rpg-bar-fill",style:"width:"+hpPct+"%"}), el("span",{class:"rpg-bar-label"}, enemy.hp+"/"+enemy.maxHp))),
@@ -6145,6 +6235,27 @@ function rpgViewCombat(){
       el("button",{class:"btn", disabled:(STATE.rpg.hero.potions||0)<=0, onclick:()=>playerAction("potion")}, "🧪 Pozione ("+(STATE.rpg.hero.potions||0)+")"),
       el("button",{class:"btn ghost", onclick:()=>playerAction("flee")}, "🏃 Fuggi")),
     el("div",{class:"rpg-combat-log"}, ...combat.log.slice(0,12).map(l=>el("div",{class:"rpg-log-line "+(l.cls||"")}, l.text))));
+  return rpgScreen(null, content, {bottomnav:false});
+}
+
+/* ================= SPOILS (stendardo di vittoria + bottino) ================= */
+function rpgViewSpoils(){
+  const r = STATE.rpg._spoils || {xp:0,gold:0,herbs:0,ore:0,loot:[]};
+  const bits = [];
+  if(r.xp) bits.push("+"+r.xp+" PE");
+  if(r.gold) bits.push("+"+r.gold+" 🪙");
+  if(r.herbs) bits.push("+"+r.herbs+" 🌿");
+  if(r.ore) bits.push("+"+r.ore+" ⛏");
+  function proceed(){
+    STATE.rpg._spoils = null;
+    const leveled = STATE.rpg._pendingLevelUp; STATE.rpg._pendingLevelUp = false;
+    rpgGo(leveled ? "levelup" : "dungeon");
+  }
+  const content = el("div",{class:"rpg-spoils"},
+    el("div",{class:"rpg-victory-banner"}, "VITTORIA"),
+    el("div",{class:"rpg-spoils-row"}, bits.join("  ·  ") || "Nessun bottino questa volta."),
+    r.loot.length ? el("div",{class:"rpg-spoils-loot"}, ...r.loot.map(it=>el("div",{class:"rpg-item-row"}, el("div",{class:"rpg-item-name", style:"color:"+(RPG_RARITY[it.rarity]||RPG_RARITY.common).color}, it.name)))) : null,
+    el("button",{class:"btn primary rpg-cta", onclick:proceed}, "Continua"));
   return rpgScreen(null, content, {bottomnav:false});
 }
 
@@ -6193,7 +6304,13 @@ function rpgViewCharacter(){
       const it = rpgEquipped(hero, slot);
       return el("div",{class:"rpg-shop-row"}, el("div",{},label+": "+(it?it.name:"—")), it?el("span",{class:"muted small"},RPG_RARITY[it.rarity].label):null);
     }),
-    hero.feats&&hero.feats.length? el("div",{}, el("h4",{},"Talenti"), ...hero.feats.map(id=>el("div",{class:"rpg-shop-row"}, rpgFeatData(id)?rpgFeatData(id).name:id))) : null);
+    hero.feats&&hero.feats.length? el("div",{}, el("h4",{},"Talenti"), ...hero.feats.map(id=>el("div",{class:"rpg-shop-row"}, rpgFeatData(id)?rpgFeatData(id).name:id))) : null,
+    el("div",{class:"rpg-danger-zone"},
+      el("button",{class:"btn ghost rpg-cta", onclick:()=>{
+        confirmModal("Cancella personaggio",
+          "«"+hero.name+"» e tutto il suo progresso (inventario, missioni, registro battaglie) andranno perduti per sempre. Vuoi davvero ricominciare da zero?",
+          ()=>{ STATE.rpg = rpgDefaultState(); persist(); if(typeof mpScheduleAccountStatePush==="function") mpScheduleAccountStatePush(); rpgSfxPlay("rpg-defeat"); render(); toast("Personaggio cancellato."); });
+      }}, "🗑 Cancella personaggio e ricomincia")));
   return rpgScreen(hero, content, {active:"character"});
 }
 
@@ -6245,6 +6362,50 @@ function rpgViewLog(){
   return rpgScreen(hero, content, {active:"character"});
 }
 
+/* =========================================================================
+   MYTHRENDER RPG — audio (effetti + ambientazione)
+   -------------------------------------------------------------------------
+   Riusa l'infrastruttura Howler.js già presente in Mythrender (sfxLoad(),
+   vedi "Suoni del tavolo"): stessi file CC0/licenza libera ospitati come
+   asset separati nel repo (assets/sfx/), mai incorporati in questo
+   documento, caricati pigramente al primo utilizzo. Qui si aggiungono solo
+   le chiavi nuove per il dungeon crawler, più un interruttore dedicato
+   (STATE.rpg.sfxOn) per non imporre l'audio a chi non lo vuole.
+   ========================================================================= */
+const RPG_SFX_FILES = {
+  "rpg-hit":"rpg-hit.mp3", "rpg-heal":"rpg-heal.mp3", "rpg-levelup":"rpg-levelup.mp3",
+  "rpg-victory":"rpg-victory.mp3", "rpg-defeat":"rpg-defeat.mp3", "rpg-coin":"rpg-coin.mp3",
+  "rpg-boss":"rpg-boss.mp3"
+};
+const RPG_AMBIENT_FILES = { "rpg-town":"rpg-town.mp3", "dungeon":"dungeon.ogg" /* già esistente in Mythrender */ };
+let RPG_CURRENT_AMBIENT = null;
+function rpgSfxOn(){ return !STATE.rpg || STATE.rpg.sfxOn!==false; }
+function rpgSfxPlay(key){
+  if(!rpgSfxOn()) return;
+  const file = RPG_SFX_FILES[key]; if(!file) return;
+  try{ sfxPlayOnce(key, file); }catch(e){ /* audio opzionale: un fallimento di rete non deve mai bloccare il gioco */ }
+}
+/* Avvia un loop ambientale fermando quello precedente (mai due loop insieme); passare null ferma tutto. */
+function rpgAmbientSet(key){
+  if(RPG_CURRENT_AMBIENT===key) return;
+  try{ if(RPG_CURRENT_AMBIENT && SFX_HOWLS[RPG_CURRENT_AMBIENT]) SFX_HOWLS[RPG_CURRENT_AMBIENT].stop(); }catch(e){}
+  RPG_CURRENT_AMBIENT = key;
+  if(!key || !rpgSfxOn()) return;
+  const file = RPG_AMBIENT_FILES[key]; if(!file) return;
+  try{ const h=sfxLoad(key, file, true); h.volume(key==="rpg-town"?0.35:0.3); h.play(); }catch(e){}
+}
+function rpgSfxToggle(){
+  STATE.rpg.sfxOn = !rpgSfxOn();
+  if(!STATE.rpg.sfxOn){ rpgAmbientSet(null); } else { rpgAmbientReflectScreen(); }
+  persist(); render();
+}
+/* Richiamata da rpgGo(): decide l'ambientazione giusta in base alla schermata di destinazione. */
+function rpgAmbientReflectScreen(){
+  const s = STATE.rpg && STATE.rpg.screen;
+  if(s==="dungeon" || s==="combat" || s==="spoils") rpgAmbientSet("dungeon");
+  else if(["town","shop","forge","guild","inn","temple"].includes(s)) rpgAmbientSet("rpg-town");
+  else rpgAmbientSet(null);
+}
 
 function persist(){
   try{ localStorage.setItem(SAVEKEY, JSON.stringify({
@@ -42890,7 +43051,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.84.0"; // v1.84.0 (21/10, NUOVA SEZIONE: "Dungeon della Discesa", su richiesta esplicita di Carmine: "ho creato questo mini gioco su base44 (dice-vault-core, poi rinominato in gioco 'Mythrender RPG')... estrai tutti i dati, codici ecc... implementalo nella mia app e fallo funzionare anche su smartphone"). Dungeon crawler a turni con dadi reali: 6 classi, 6 stirpi, creazione personaggio con ritratto generato via SVG (nessun asset esterno), 14 mostri + 6 boss unici, 5 dungeon tematici, città (Mercante/Forgia/Gilda a missioni/Locanda/Tempio), negozio ed equipaggiamento a livelli, 12 talenti, abilità di classe sbloccate per livello, bestiario, registro battaglie. Dati/formule (curva esperienza, scaling mostri per profondità, bottino) ricostruiti studiando il prototipo base44 di Carmine: l'export ZIP e l'editor di codice erano bloccati dal piano gratuito ("solo piani a pagamento"), MAI proposto un upgrade non richiesto; estratti invece dal pannello chat/cronologia dell'editor (non bloccato) e dal bundle JavaScript/CSS pubblico del gioco pubblicato, entrambi liberamente accessibili. SCELTA DI DESIGN DICHIARATA: il dungeon del prototipo è una griglia esplorabile solo con tasti WASD, motivo per cui su smartphone non funzionava affatto; qui non è stata clonata la griglia ma sostituita con una sequenza di stanze a pulsanti (Avanza/Raccogli risorse/Torna in città), stesso combattimento a dadi e stessa economia, ma giocabile a tocco con un pollice fin dal primo giorno - una soluzione pensata per essere affidabile su mobile, non un tentativo di replicare 1:1 i comandi da tastiera del prototipo. Salvataggio: nuovo campo STATE.rpg, incluso in persist()/loadState() e nella sincronizzazione account esistente (mpSanitizeAccountStateForCloud/mpApplyCloudAccountState), nessuna tabella Supabase nuova. Nuova voce di navigazione dedicata "Dungeon della Discesa" sotto "Avventura". Aggiunto anche: scheda personaggio con possibilità di cancellare il personaggio e ricominciare da zero (richiesta esplicita, con conferma tramite il modale già esistente in app); effetti sonori e ambientazione musicale (colpo d'arma, cura, salita di livello, vittoria, sconfitta, moneta, arrivo boss, ambientazione città/dungeon) riusando l'infrastruttura Howler.js già presente in Mythrender per i "Suoni del tavolo" - stessa modalità di hosting (file CC0/licenza libera ospitati come asset separati nel repo, mai incorporati in questo documento, caricati pigramente al primo utilizzo), con un interruttore audio dedicato nella nuova sezione. Verificato: node --check su tutti i 14 blocchi script; simulazione autonoma di 500 combattimenti consecutivi sul solo modulo dati/motore (nessuna eccezione, nessun ciclo infinito, livello sempre entro 1-20); controllo manuale di ogni token CSS citato dal nuovo stile contro la palette già esistente (nessuno nuovo, nessuna ridefinizione). Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): se emergono bug di interfaccia non catturati dal controllo di sintassi, vanno segnalati a Carmine per una correzione mirata. sha256: c1d6ec5353a4fc23f86d830185e36a870d7c8c4dda87cfa87d3c2d3b5a70a1c4.
+var ROLLONE_CONTENT_VERSION = "1.85.0"; // v1.85.0 (21/10, CORREZIONE sulla v1.84.0, su segnalazione diretta di Carmine: "non funziona nell'app... non è per niente uguale a quella di base44... e tutt'altro proprio", poi "deve essere uguale in tutto in tutte le funzioni"). La v1.84.0 aveva sostituito la griglia esplorabile del prototipo base44 con una sequenza semplificata di stanze a pulsanti (Avanza/Raccogli risorse/Torna in città): una scelta di design deliberata ma SBAGLIATA, perché cambiava il meccanismo di gioco invece di limitarsi a renderlo giocabile anche su smartphone. Corretto da zero seguendo fedelmente la spec estratta dal prototipo (claude/mythrender-rpg/00_spec_estratta_dicevault.md): dungeon ricostruito come vera griglia top-down 9x7 generata a corridoi connessi, con combattimento "scontro al contatto" (muoversi sulla cella di un mostro blocca il movimento e avvia il combattimento, esattamente come nel prototipo) e scale verso il piano successivo poste sempre sulla cella calpestabile più lontana dal punto di partenza. Il prototipo si muoveva SOLO da tastiera (WASD/frecce), unico motivo per cui non funzionava affatto su smartphone: qui lo stesso movimento a griglia resta raggiungibile da tastiera (invariato) e in più da un D-pad a tocco aggiunto accanto, mai in sostituzione - stessa funzione di gioco, due modi equivalenti di comandarla. Aggiunti anche gli elementi del prototipo che la v1.84.0 aveva saltato: schermata "Spoils" di fine combattimento con riepilogo PE/oro/erbe/minerale/bottino, cerchio runico animato sulla schermata di scontro, banner di vittoria/sconfitta. Erbe e minerale (assenti nel prototipo come azione dedicata) restano bottino di combattimento come nella v1.84.0, non più legati a un'azione "Raccogli" ora rimossa insieme alle stanze a pulsanti. Corretto anche un bug reale trovato durante la verifica del nuovo generatore di mappe: le scale potevano in rari casi finire a coincidere con la cella di partenza (un cammino casuale di scavo che si richiude su se stesso), facendo fallire il percorso verso di esse; risolto calcolando le scale come la cella calpestabile a distanza massima (BFS reale sulla griglia) dalla partenza, non più come l'ultimo passo del cammino di scavo. Verificato: node --check su tutti i 14 blocchi script; 3000 mappe generate casualmente (5 dungeon x 20 profondità x 30 prove ciascuna) sempre interamente raggiungibili, partenza mai coincidente con le scale, boss sempre presente alla cella delle scale ai piani multipli di 10; simulazione autonoma completa di 150 discese con pathfinding BFS reale (oltre 1500 combattimenti risolti, 0 eccezioni, livello finale sempre entro 1-20). Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): resta un'ipotesi aperta che il malfunzionamento segnalato da Carmine includesse ANCHE un errore di interfaccia distinto da questa discrepanza di design, da confermare con lui. sha256: e5c096426db436fdadd46e443322c7b3742a875ced101b1977c4572f0bb42b1f.
+// var ROLLONE_CONTENT_VERSION = "1.84.0"; // v1.84.0 (21/10, NUOVA SEZIONE: "Dungeon della Discesa", su richiesta esplicita di Carmine: "ho creato questo mini gioco su base44 (dice-vault-core, poi rinominato in gioco 'Mythrender RPG')... estrai tutti i dati, codici ecc... implementalo nella mia app e fallo funzionare anche su smartphone"). Dungeon crawler a turni con dadi reali: 6 classi, 6 stirpi, creazione personaggio con ritratto generato via SVG (nessun asset esterno), 14 mostri + 6 boss unici, 5 dungeon tematici, città (Mercante/Forgia/Gilda a missioni/Locanda/Tempio), negozio ed equipaggiamento a livelli, 12 talenti, abilità di classe sbloccate per livello, bestiario, registro battaglie. Dati/formule (curva esperienza, scaling mostri per profondità, bottino) ricostruiti studiando il prototipo base44 di Carmine: l'export ZIP e l'editor di codice erano bloccati dal piano gratuito ("solo piani a pagamento"), MAI proposto un upgrade non richiesto; estratti invece dal pannello chat/cronologia dell'editor (non bloccato) e dal bundle JavaScript/CSS pubblico del gioco pubblicato, entrambi liberamente accessibili. SCELTA DI DESIGN DICHIARATA: il dungeon del prototipo è una griglia esplorabile solo con tasti WASD, motivo per cui su smartphone non funzionava affatto; qui non è stata clonata la griglia ma sostituita con una sequenza di stanze a pulsanti (Avanza/Raccogli risorse/Torna in città), stesso combattimento a dadi e stessa economia, ma giocabile a tocco con un pollice fin dal primo giorno - una soluzione pensata per essere affidabile su mobile, non un tentativo di replicare 1:1 i comandi da tastiera del prototipo. Salvataggio: nuovo campo STATE.rpg, incluso in persist()/loadState() e nella sincronizzazione account esistente (mpSanitizeAccountStateForCloud/mpApplyCloudAccountState), nessuna tabella Supabase nuova. Nuova voce di navigazione dedicata "Dungeon della Discesa" sotto "Avventura". Aggiunto anche: scheda personaggio con possibilità di cancellare il personaggio e ricominciare da zero (richiesta esplicita, con conferma tramite il modale già esistente in app); effetti sonori e ambientazione musicale (colpo d'arma, cura, salita di livello, vittoria, sconfitta, moneta, arrivo boss, ambientazione città/dungeon) riusando l'infrastruttura Howler.js già presente in Mythrender per i "Suoni del tavolo" - stessa modalità di hosting (file CC0/licenza libera ospitati come asset separati nel repo, mai incorporati in questo documento, caricati pigramente al primo utilizzo), con un interruttore audio dedicato nella nuova sezione. Verificato: node --check su tutti i 14 blocchi script; simulazione autonoma di 500 combattimenti consecutivi sul solo modulo dati/motore (nessuna eccezione, nessun ciclo infinito, livello sempre entro 1-20); controllo manuale di ogni token CSS citato dal nuovo stile contro la palette già esistente (nessuno nuovo, nessuna ridefinizione). Non verificato con un browser reale end-to-end in questa sessione (ambiente senza DOM completo): se emergono bug di interfaccia non catturati dal controllo di sintassi, vanno segnalati a Carmine per una correzione mirata. sha256: c1d6ec5353a4fc23f86d830185e36a870d7c8c4dda87cfa87d3c2d3b5a70a1c4.
 
 // var ROLLONE_CONTENT_VERSION = "1.83.0"; // v1.83.0 (20/10, sistema di qualita' 3D adattivo, su richiesta esplicita di Carmine dopo aver citato GDevelop5: "ridefinisci il motore 3D in base a GDevelop5... sfrutta la sua struttura funzionale per tutte le parti 3d... applica l'uso delle schede grafiche per mobile e pc... non surriscaldi il dispositivo"). ONESTA' dichiarata: GDevelop5 e' un programma/editor di giochi completo e separato, non una libreria incorporabile in una pagina web esistente - verificato via ricerca web (voce Wikipedia "GDevelop" + blog.brightcoding.dev) che il suo motore usa PixiJS per il 2D e Three.js per il 3D, cioe' la STESSA libreria gia' in uso qui, non qualcosa di diverso da "importare". Una riscrittura reale del motore 3D su quel modello resta un lavoro a parte ("mesi non settimane", gia' dichiarato in precedenza), non fatto oggi. Fatto invece, concreto e verificabile: un sistema condiviso di qualita' 3D adattiva applicato a tutte e tre le superfici 3D oggi esistenti nell'app (dadi via @3d-dice/dice-box, Vista 3D del dungeon, Vista 3D del Tavolo condiviso - "i villaggi" citati da Carmine non esistono ancora come funzionalita', quindi non c'e' nulla li' da convertire). Nuova funzione detect3DQualityTier(): rileva un livello approssimativo (basso/medio/alto) da core CPU, presenza touch/mobile e la stringa GPU reale (quando il browser la espone via WEBGL_debug_renderer_info), e imposta di conseguenza il tetto del pixel ratio, se attivare le ombre e la risoluzione della mappa ombre - su dispositivi deboli niente ombre e pixel ratio piu' basso per restare leggeri sulla GPU, su desktop con scheda dedicata tutto come prima. Applicato a: ensureDiceBox3D (enableShadows, opzione gia' documentata dalla libreria stessa come "performance bump" se disattivata), render3DRoom (Vista 3D del dungeon), openTable3DView (Vista 3D del Tavolo, incluso lo stress test a 60x60 celle gia' noto). Aggiunto anche un guardiano prestazioni in tempo reale (createPerfWatchdog): se il framerate resta sostenuto basso per circa un secondo (sintomo di un dispositivo sotto sforzo o di throttling termico della GPU), abbassa automaticamente ombre e pixel ratio una sola volta per quella sessione di vista 3D, senza oscillare su e giu'. Verificato: node --check su tutti i 14 blocchi script, test Playwright dedicato sulla funzione di rilevamento (cache corretta, nessun errore anche quando l'estensione GPU non e' disponibile), sulle due viste 3D con il sistema attivo (dungeon e stress test Tavolo 60x60, zero errori, canvas presente), e sul guardiano prestazioni isolato (simulazione di 70 frame lenti → downgrade applicato una sola volta; simulazione di 70 frame a 60fps → nessun downgrade, come atteso). sha256: 00000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.82.0"; // v1.82.0 (20/10, CORREZIONI MULTIPLE, richieste dirette di Carmine dopo la v1.81.1): 1) BUG WIZARD PATHFINDER - il campo nome nell'ultimo passo di creazione (Rifinitura) non chiamava mai render() dopo averlo scritto (per non far perdere il focus/cursore ad ogni tasto, come gli altri campi testo dello stesso passo), ma il pulsante "Crea Personaggio" aveva disabled:!ok calcolato una sola volta al render E la sua chiusura onclick catturava quello stesso "ok" vecchio: il personaggio restava bloccabile per sempre dopo aver scritto il nome, finche' non si tornava indietro e si riavanzava di un passo (unico modo che rifaceva il render). Corretto ricalcolando pfValidateStep(w) sia per abilitare visivamente il pulsante sia dentro il suo stesso onclick, invece di fidarsi di un valore catturato al render. 2) EXPORT PDF SENZA DESCRIZIONI (segnalato da Carmine: "la scheda del PG non ha nulla di quello che mostra l'app... con le descrizioni relative") - la scheda D&D elencava incantesimi per solo nome e armi senza danno/proprieta'; aggiunte le descrizioni complete (spellObj()/weaponData(), gia' usate altrove nell'app, nessuna fonte dati nuova). 3) NESSUN EXPORT PDF PATHFINDER - non esisteva affatto; aggiunta exportPfCharacterPdf() equivalente a quella D&D (caratteristiche, combattimento, abilita', equipaggiamento, talenti generali/ascendenza/classe/abilita' con descrizione dove il database li copre, trucchetti e incantesimi di ogni rango con descrizione, storia del personaggio), nuovo pulsante "🖨 Stampa scheda" nella scheda Pathfinder. 4) FUNZIONI 3D (segnalazione di Carmine: resa grafica povera, problemi di performance, bug/instabilita', tutte e tre confermate) - individuate e corrette tre cause concrete leggendo il codice, senza toccare l'architettura (nessuna libreria nuova, nessun motore esterno tipo GDevelop5, suggerito da terzi a Carmine ma non ancora valutato: resta un lavoro a parte, "mesi non settimane" come gia' dichiarato): nessuna vista 3D aveva mai ombre attive (luce piatta, aspetto "povero" - attivate PCFSoftShadowMap su torcia/muri/mostri/arredo nella Vista 3D del dungeon e sulla luce direzionale/muri/pavimento nella Vista 3D del Tavolo, frustum dimensionato sulla mappa reale invece di un valore fisso); nessuna vista gestiva il ridimensionamento della finestra (rotazione telefono/resize browser deformava la scena fino a chiudere e riaprire - aggiunto un resize reattivo su entrambe); il loop di rendering continuava a girare anche con l'app in background (consumo GPU/batteria inutile, nessun controllo document.hidden in tutto il file prima d'ora - aggiunta una pausa su visibilitychange su entrambe le viste). Verificato: node --check su tutti i 16 blocchi (una sola riga attiva, v1.81.1 preservata sotto come commento storico, v1.81.0 ancora sotto quella); test Playwright dedicato sul bug del wizard (personaggio creato correttamente subito dopo aver scritto il nome, senza piu' il giro indietro/avanti); test dedicato su entrambi gli export PDF (D&D con incantesimi/armi di prova, Pathfinder con una classe incantatrice, talenti e incantesimi di piu' ranghi, entrambi 0 errori); test dedicato sulle due viste 3D (Vista 3D del dungeon e Vista 3D del Tavolo, 0 errori, canvas presente, ombre renderizzate) e un confronto diretto di framerate con/senza ombre sullo stress test da 60x60 celle gia' noto (differenza contenuta, ~12%, lo stesso ordine di grandezza su hardware GPU reale sara' minore che nell'ambiente software di test); rieseguita la suite di backup/import della v1.81.1, zero regressioni. sha256: 97cf5b38baa750dcbbf09fb6e4ed5e14ceb27e5f4e6f8f1d5e9c7a2b3d4e5f6a7.
