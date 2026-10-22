@@ -6787,7 +6787,15 @@ function rpgTopBar(hero){
 function rpgBottomNav(active){
   const items = [["character","🧍","Eroe"],["inventory","🎒","Zaino"],["town","🏘","Città"],["guild","📜","Gilda"],["dungeonSelect","🗺","Dungeon"]];
   const nav = el("div",{class:"pixel-nav"}, ...items.map(([k,ic,label])=>
-    el("button",{class:"pixel-nav-btn"+(active===k?" active":""), onclick:()=>rpgGo(k)}, el("span",{class:"ico"},ic), el("span",{class:"lbl"},label))));
+    el("button",{class:"pixel-nav-btn"+((active===k||(k==="dungeonSelect"&&active==="dungeon"))?" active":""), onclick:()=>{
+      // FIX (segnalazione Carmine, "non posso tornare indietro" dalla scheda personaggio): se c'e'
+      // gia' un'esplorazione in corso, la voce "Dungeon" deve riprenderla direttamente (rpgGo("dungeon")),
+      // MAI passare dalla schermata di scelta dungeon, che rigenera la mappa da zero e farebbe perdere
+      // tutto il progresso (mostri uccisi, forzieri aperti, posizione). Si passa da dungeonSelect
+      // solo quando non c'e' ancora nessuna esplorazione attiva.
+      if(k==="dungeonSelect" && STATE.rpg.dungeonMap) rpgGo("dungeon");
+      else rpgGo(k);
+    }}, el("span",{class:"ico"},ic), el("span",{class:"lbl"},label))));
   nav.append(el("button",{class:"pixel-nav-btn", title:"Audio", onclick:()=>rpgSfxToggle()}, el("span",{class:"ico"}, rpgSfxOn()?"🔊":"🔇"), el("span",{class:"lbl"},"Audio")));
   return nav;
 }
@@ -7396,14 +7404,34 @@ function rpgViewTemple(){
 function rpgDifficultyLabel(d){ return d.mult<=1.15 ? "Equilibrato" : d.mult<=1.45 ? "Ostico" : "Letale"; }
 function rpgViewDungeonSelect(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  // FIX (segnalazione Carmine, "non posso tornare indietro"/perdita di progresso): se e' lo stesso
+  // dungeon di un'esplorazione gia' in corso, offri di RIPRENDERLA (rpgGo("dungeon") senza rigenerare
+  // la mappa) invece di forzare sempre "Scendi a profondita' X", che ricreava la mappa da zero
+  // cancellando mostri uccisi, forzieri aperti e posizione - anche quando si voleva solo tornare
+  // alla propria esplorazione dopo aver dato un'occhiata alla scheda o allo zaino.
+  const inProgress = !!STATE.rpg.dungeonMap;
   const rows = RPG_DUNGEONS.map(d=>{
     const locked = hero.level < d.minLevel;
+    const resumable = inProgress && hero.dungeonId===d.id;
     return el("div",{class:"pixel-stat-box", style:"padding:12px;margin-bottom:10px"+(locked?";opacity:.5":"")},
       el("div",{class:"rpg-dungeon-name"}, (locked?"🔒 ":"")+d.name+" · "+rpgDifficultyLabel(d)),
       el("div",{class:"muted small"}, d.desc),
       el("div",{class:"muted small"}, "Mostri: "+d.pool.join(", ")),
       locked ? el("div",{class:"muted small", style:"margin-top:6px"},"Richiede livello "+d.minLevel)
-             : el("button",{class:"pixel-btn", style:"margin-top:8px", onclick:()=>{
+             : resumable
+               ? el("div",{},
+                   el("button",{class:"pixel-btn", style:"margin-top:8px", onclick:()=>rpgGo("dungeon")}, "↩ Riprendi l'esplorazione (Profondità "+hero.depth+")"),
+                   el("button",{class:"pixel-btn ghost small", style:"margin-top:6px", onclick:()=>{
+                       confirmModal("Ricomincia la discesa",
+                         "L'esplorazione in corso a profondità "+hero.depth+" (mostri rimasti, forzieri trovati, posizione) andrà persa e la mappa sarà rigenerata da capo. Vuoi davvero ricominciare?",
+                         ()=>{
+                           STATE.rpg.hero.depth=STATE.rpg.hero.checkpointDepth||1;
+                           STATE.rpg.dungeonMap = rpgGenerateDungeonMap(STATE.rpg.hero.depth, d);
+                           rpgLog("Varchi di nuovo l'ingresso di "+d.name+". Il buio si chiude alle tue spalle.");
+                           rpgGo("dungeon"); toast("Scendi in "+d.name+".");
+                         });
+                     }}, "Ricomincia da capo"))
+               : el("button",{class:"pixel-btn", style:"margin-top:8px", onclick:()=>{
                  STATE.rpg.hero.dungeonId=d.id; STATE.rpg.hero.depth=STATE.rpg.hero.checkpointDepth||1;
                  STATE.rpg.dungeonMap = rpgGenerateDungeonMap(STATE.rpg.hero.depth, d);
                  rpgLog("Varchi l'ingresso di "+d.name+". Il buio si chiude alle tue spalle.");
@@ -7467,7 +7495,9 @@ function rpgMoveDungeon(dx,dy){
     }
   }
   persist();
-  render();
+  // rpgDungeonPatch aggiorna in-place la griglia (vedi definizione sopra rpgViewDungeon); se la
+  // mappa è stata appena rigenerata (sceso di un piano) se ne accorge da sé e ricade su render().
+  rpgDungeonPatch();
 }
 /* Listener da tastiera registrato una sola volta al caricamento del documento (non ad ogni
    render): attivo solo quando la vista dungeon è quella corrente e non si è in combattimento. */
@@ -7501,7 +7531,7 @@ if(typeof window!=="undefined" && !window.__rpgMonsterLoopBound){
     if(result.changed){
       rpgTickN++;
       if(rpgTickN % 3 === 0) persist(); // salva ogni 3 battiti "con cambiamento", non ad ogni singolo tick
-      render();
+      rpgDungeonPatch(); // aggiorna solo le celle cambiate, non l'intera app (vedi nota sopra rpgViewDungeon)
     }
   }, 550);
   window.addEventListener("pointerup", ()=>{ if(STATE && STATE.rpg) STATE.rpg._joyDir=null; });
@@ -7530,8 +7560,11 @@ function rpgJoystickEl(){
   function onDown(e){
     const rect = e.currentTarget.getBoundingClientRect();
     STATE.rpg._joyDir = rpgJoystickDir(e.clientX, e.clientY, rect);
+    // FIX (vedi nota su rpgDungeonPatch sopra): un tocco sul joystick non deve più ricostruire
+    // l'intera app, solo la griglia (via rpgMoveDungeon, che ora patcha in-place da sé).
     if(STATE.rpg._joyDir) rpgMoveDungeon(STATE.rpg._joyDir[0], STATE.rpg._joyDir[1]);
-    render();
+    const knob0 = document.querySelector(".rpg-joystick-knob");
+    if(knob0) knob0.style.transform = STATE.rpg._joyDir ? ("translate("+(STATE.rpg._joyDir[0]*16)+"px,"+(STATE.rpg._joyDir[1]*16)+"px)") : "translate(0,0)";
     function onMove(ev){
       const p = ev.touches ? ev.touches[0] : ev;
       STATE.rpg._joyDir = rpgJoystickDir(p.clientX, p.clientY, rect);
@@ -7542,7 +7575,8 @@ function rpgJoystickEl(){
       STATE.rpg._joyDir = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      render();
+      const knob = document.querySelector(".rpg-joystick-knob");
+      if(knob) knob.style.transform = "translate(0,0)";
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -7553,32 +7587,95 @@ function rpgJoystickEl(){
     el("div",{class:"rpg-joystick-ring"}),
     el("div",{class:"rpg-joystick-knob", style:knobStyle}));
 }
+/* FIX (segnalazione Carmine, "il refresh continuo... la schermata deve essere stabile come
+   nell'app di base44"): prima, ogni battito di vita del dungeon (mostri che si muovono) o ogni
+   passo del giocatore richiamava il render() globale, che ricostruisce da zero l'INTERA app
+   (vedi app.innerHTML="" in render(), definito altrove nel file) - barra laterale, header, dpad/
+   joystick compresi - anche quando sulla griglia era cambiata una sola cella. È questo a produrre
+   lo sfarfallio percepito come "refresh continuo", non risolto del tutto dal solo skip-se-niente-
+   cambia della v1.97.1. Ora, mentre si resta sulla vista dungeon, si aggiornano in-place SOLO le
+   celle della griglia e il testo di stato effettivamente cambiati (confronto per firma testuale),
+   senza mai ricreare il DOM dei controlli. Il render() completo resta l'unico percorso quando si
+   cambia schermata, la mappa viene rigenerata (nuova profondità) o il riferimento DOM salvato non
+   è più valido: rpgDungeonPatch verifica da sé tutte queste condizioni e ricade su render(). */
+function rpgDungeonCellSig(hero, map, xx, yy){
+  const t = map.grid[yy][xx];
+  const isPlayer = xx===map.playerX && yy===map.playerY;
+  const isStairs = xx===map.stairsX && yy===map.stairsY;
+  const monster = map.monsters[xx+","+yy];
+  const chest = map.chests && map.chests[xx+","+yy];
+  let cls = "rpg-cell "+(t===0?"wall":"floor");
+  if(isStairs && t===1) cls += " stairs";
+  if(monster) cls += monster.boss ? " monster boss" : " monster";
+  if(monster && monster.alert) cls += " alert";
+  if(chest) cls += " chest";
+  if(isPlayer) cls += " player";
+  const iconKey = isPlayer ? ("p:"+hero.race+":"+hero.klass)
+    : monster ? ("m:"+monster.sprite+":"+(!!monster.boss)+":"+monster.name)
+    : chest ? "c" : (isStairs ? "s" : "");
+  return {cls, iconKey};
+}
+function rpgDungeonCellIcon(hero, map, xx, yy){
+  const isPlayer = xx===map.playerX && yy===map.playerY;
+  if(isPlayer) return rpgPlayerMapIcon(hero.race, hero.klass);
+  const monster = map.monsters[xx+","+yy];
+  if(monster) return rpgMonsterMapIcon(monster.sprite, monster.boss, monster.name);
+  const chest = map.chests && map.chests[xx+","+yy];
+  if(chest) return rpgChestIcon();
+  const isStairs = xx===map.stairsX && yy===map.stairsY;
+  return isStairs ? "▼" : "";
+}
+function rpgDungeonPatch(){
+  const dom = STATE.rpg && STATE.rpg._dungeonDom;
+  const map = STATE.rpg && STATE.rpg.dungeonMap;
+  if(!STATE.rpg || STATE.rpg.screen!=="dungeon" || !dom || !map || dom.map!==map ||
+     !dom.grid.isConnected || dom.w!==map.w || dom.h!==map.h){
+    render();
+    return;
+  }
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  for(let yy=0; yy<map.h; yy++) for(let xx=0; xx<map.w; xx++){
+    const idx = yy*map.w+xx;
+    const cellEl = dom.cells[idx]; if(!cellEl) continue;
+    const s = rpgDungeonCellSig(hero, map, xx, yy);
+    const key = s.cls+"|"+s.iconKey;
+    if(dom.sig[idx]===key) continue;
+    dom.sig[idx] = key;
+    if(cellEl.className!==s.cls) cellEl.className = s.cls;
+    cellEl.innerHTML = "";
+    const icon = rpgDungeonCellIcon(hero, map, xx, yy);
+    if(icon && icon.nodeType) cellEl.append(icon);
+    else if(icon) cellEl.textContent = icon;
+  }
+  if(dom.status){
+    const remaining = Object.keys(map.monsters).length;
+    const alerted = Object.values(map.monsters).some(m=>m.alert);
+    const txt = map.bossFloor ? "Il guardiano attende alle scale." : (remaining>0 ? (remaining+" nemici ancora nella mappa"+(alerted?" — alcuni ti hanno fiutato!":"")) : "Mappa ripulita: scendi alle scale ▼");
+    if(dom.status.textContent!==txt) dom.status.textContent = txt;
+  }
+}
 function rpgViewDungeon(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const dungeon = rpgDungeon(hero.dungeonId);
   const map = STATE.rpg.dungeonMap || (STATE.rpg.dungeonMap = rpgGenerateDungeonMap(hero.depth, dungeon));
-  const cells = [];
+  const cells = [], sig = [];
   for(let yy=0; yy<map.h; yy++) for(let xx=0; xx<map.w; xx++){
-    const t = map.grid[yy][xx];
-    const isPlayer = xx===map.playerX && yy===map.playerY;
-    const isStairs = xx===map.stairsX && yy===map.stairsY;
-    const monster = map.monsters[xx+","+yy];
-    const chest = map.chests && map.chests[xx+","+yy];
-    let cls = "rpg-cell "+(t===0?"wall":"floor");
-    if(isStairs && t===1) cls += " stairs";
-    if(monster) cls += monster.boss ? " monster boss" : " monster";
-    if(monster && monster.alert) cls += " alert";
-    if(chest) cls += " chest";
-    if(isPlayer) cls += " player";
-    cells.push(el("div",{class:cls}, isPlayer?rpgPlayerMapIcon(hero.race,hero.klass):(monster?rpgMonsterMapIcon(monster.sprite,monster.boss,monster.name):(chest?rpgChestIcon():(isStairs?"▼":"")))));
+    const s = rpgDungeonCellSig(hero, map, xx, yy);
+    sig.push(s.cls+"|"+s.iconKey);
+    cells.push(el("div",{class:s.cls}, rpgDungeonCellIcon(hero, map, xx, yy)));
   }
   const remaining = Object.keys(map.monsters).length;
   const alerted = Object.values(map.monsters).some(m=>m.alert);
+  const statusEl = el("div",{class:"muted"}, map.bossFloor ? "Il guardiano attende alle scale." : (remaining>0 ? (remaining+" nemici ancora nella mappa"+(alerted?" — alcuni ti hanno fiutato!":"")) : "Mappa ripulita: scendi alle scale ▼"));
+  const gridEl = el("div",{class:"rpg-dungeon-grid", style:"grid-template-columns:repeat("+map.w+",1fr)"}, ...cells);
+  // Riferimenti DOM salvati per gli aggiornamenti "in-place" di rpgDungeonPatch (vedi sopra): così
+  // il battito dei mostri e i passi del giocatore non ricostruiscono più questa vista da zero.
+  STATE.rpg._dungeonDom = {map, w:map.w, h:map.h, grid:gridEl, cells, sig, status:statusEl};
   const content = el("div",{class:"rpg-dungeonroom", style:"--rpg-dungeon-floor:"+dungeon.palette.floor+";--rpg-dungeon-wall:"+dungeon.palette.wall+";--rpg-dungeon-accent:"+dungeon.palette.accent},
     el("h3",{class:"rpg-title"}, dungeon.name+" · Profondità "+hero.depth),
-    el("div",{class:"muted"}, map.bossFloor ? "Il guardiano attende alle scale." : (remaining>0 ? (remaining+" nemici ancora nella mappa"+(alerted?" — alcuni ti hanno fiutato!":"")) : "Mappa ripulita: scendi alle scale ▼")),
+    statusEl,
     el("div",{class:"rpg-dungeon-legend"},"Rotellina, frecce o D-pad per muoverti · il dungeon vive: i mostri vagano e ti inseguono se ti avvicini · cammina su un forziere per raccoglierlo · le scale scendono"),
-    el("div",{class:"rpg-dungeon-grid", style:"grid-template-columns:repeat("+map.w+",1fr)"}, ...cells),
+    gridEl,
     el("div",{class:"rpg-dungeon-controls"},
       rpgJoystickEl(),
       el("div",{class:"rpg-dpad"},
@@ -7588,6 +7685,16 @@ function rpgViewDungeon(){
         el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(-1,0)}, "◀"),
         el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(0,1)}, "▼"),
         el("button",{class:"rpg-dpad-btn", onclick:()=>rpgMoveDungeon(1,0)}, "▶"))),
+    el("div",{style:"display:flex;gap:8px;margin-top:8px"},
+      // FIX (segnalazione Carmine, "zaino e inventario non sono visibili... al di fuori del fight
+      // non posso usare le pozioni"): la vista dungeon nasconde la barra di navigazione inferiore
+      // (bottomnav:false, per lasciare spazio a joystick/D-pad) e questo rendeva lo zaino
+      // irraggiungibile durante l'esplorazione. Un accesso rapido diretto qui risolve sia il
+      // problema di raggiungere lo zaino sia quello delle pozioni (ora usabili anche da lì).
+      el("button",{class:"pixel-btn ghost", style:"flex:1", onclick:()=>rpgGo("inventory")}, "🎒 Zaino"),
+      (STATE.rpg.hero.potions||0)>0
+        ? el("button",{class:"pixel-btn", style:"flex:1", disabled:hero.hp>=hero.maxHp, onclick:rpgUsePotionOutOfCombat}, "🧪 Pozione ("+(STATE.rpg.hero.potions||0)+")")
+        : null),
     el("button",{class:"btn ghost rpg-cta", onclick:()=>{ rpgLog("Torni a Hollowmark; riparti dal checkpoint."); rpgGo("town"); toast("Sei tornato a Hollowmark; riparti dal checkpoint."); }}, "↩ Torna a Hollowmark"),
     rpgAdventureLogPanel(6));
   return rpgScreen(hero, content, {active:"dungeonSelect", bottomnav:false});
@@ -7782,7 +7889,10 @@ function rpgViewLevelUp(){
     hero.feats = hero.feats||[]; hero.feats.push(featId);
     hero.pendingChoices = Math.max(0, (hero.pendingChoices||1)-1);
     hero.maxHp = rpgMaxHp(hero);
-    rpgGo(hero.pendingChoices>0?"levelup":"town");
+    // FIX (segnalazione Carmine, "ad ogni level up esce fuori dal dungeon"): il level up puo'
+    // avvenire anche durante un'esplorazione in corso (dopo rpgViewSpoils), quindi non deve mai
+    // forzare il ritorno in citta' - torna al dungeon se c'e' una mappa attiva, altrimenti in citta'.
+    rpgGo(hero.pendingChoices>0 ? "levelup" : (STATE.rpg.dungeonMap ? "dungeon" : "town"));
     toast("Nuovo talento: "+rpgFeatData(featId).name);
   }
   const content = el("div",{class:"pixel-panel frame-ornate rpg-levelup"},
@@ -7861,6 +7971,25 @@ function rpgViewCharacter(){
 }
 
 /* ================= ZAINO / INVENTARIO ================= */
+/* FIX (segnalazione Carmine, "al di fuori del fight non posso usare le pozioni"): finora la pozione
+   si poteva bere SOLO dentro rpgViewCombat (vedi kind==="potion" qui sopra) - niente di equivalente
+   esisteva fuori combattimento, nemmeno dallo zaino. Stessa cura (2d8+2) e stessa spesa di una
+   pozione, usabile da qui in esplorazione/città/ovunque tranne quando si è in combattimento
+   (lì resta il bottone dedicato nella schermata di combattimento). */
+function rpgUsePotionOutOfCombat(){
+  if(STATE.rpg.combat){ toast("Sei in combattimento: usa la pozione dalla schermata di battaglia."); return; }
+  if((STATE.rpg.hero.potions||0)<=0){ toast("Non hai pozioni."); return; }
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  if(hero.hp>=hero.maxHp){ toast("Sei già in piena salute."); return; }
+  STATE.rpg.hero.potions--;
+  const heal = rpgRollDice("2d8+2").total;
+  STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp + heal);
+  rpgLog("Bevi una pozione: recuperi "+heal+" PF.");
+  rpgSfxPlay("rpg-heal");
+  persist();
+  rpgGo(STATE.rpg.screen);
+  toast("Bevi una pozione: +"+heal+" PF.");
+}
 function rpgViewInventory(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
   const items = rpgInv();
@@ -7884,6 +8013,9 @@ function rpgViewInventory(){
   const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
     el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"🎒 Zaino")),
     el("div",{class:"rpg-resline"}, el("span",{},"🧪 "+(hero.potions||0)), el("span",{},"🌿 "+hero.herbs), el("span",{},"⛏ "+hero.ore)),
+    el("button",{class:"pixel-btn", style:"margin-bottom:12px", disabled:(STATE.rpg.hero.potions||0)<=0||hero.hp>=hero.maxHp, onclick:rpgUsePotionOutOfCombat},
+      "🧪 Usa una pozione ("+hero.hp+"/"+hero.maxHp+" PF)"),
+    STATE.rpg.dungeonMap ? el("button",{class:"pixel-btn ghost", style:"margin-bottom:12px", onclick:()=>rpgGo("dungeon")}, "↩ Torna all'esplorazione") : null,
     ...rows);
   return rpgScreen(hero, content, {active:"inventory"});
 }
@@ -44611,7 +44743,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.97.3"; // v1.97.3 (22/10, SCELTA DELLE CARATTERISTICHE IN CREAZIONE, su richiesta esplicita di Carmine: "nella creazione non posso scegliere che statistiche mettere, come faccio per la scheda che si crea quando si gioca a dnd... voglio lo stesso principio". Prima rpgNewHero tirava le 6 caratteristiche (str/dex/con/int/wis/cha, metodo 4d6-scarta-il-minimo) e le assegnava direttamente, senza alcuna scelta per il giocatore. Ora la creazione del personaggio (rpgViewCreate in rpg_ui.js) usa lo STESSO PRINCIPIO del passo "Caratteristiche" del wizard di creazione scheda D&D gia' presente in questo stesso progetto (viewWizard/rollSixValues): tira un "mazzo" di 6 valori (nuova rpgRollSixScores in rpg_data.js, stesso 4d6-scarta-il-minimo di sempre) e li mostra come pool; il giocatore assegna ciascun valore a una caratteristica tramite un menu a tendina per abilita', con anteprima del modificatore in tempo reale; ogni valore e' disponibile una sola volta (stesso algoritmo di disponibilita' del wizard D&D: un valore doppio nel pool resta assegnabile due volte, un valore gia' usato sparisce dalle altre tendine ma resta visibile nella propria); un bottone "Ritira tutto" rigenera il pool scartando le assegnazioni fatte finora. rpgNewHero accetta ora un quarto parametro "scores" con l'assegnazione scelta dal giocatore (resta un ripiego di sicurezza che tira comunque caratteristiche valide se il parametro arrivasse incompleto, cosi' nessun personaggio puo' mai nascere con caratteristiche indefinite). Il bottone "Inizia l'avventura" blocca la creazione con un messaggio chiaro se non tutte e sei le caratteristiche sono state assegnate (stesso principio del fix v1.97.2 sul nome: controllo dentro al click, mai un "disabled" HTML silenzioso). Nessun'altra logica di gioco toccata. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che verificano: il pool di 6 valori viene generato al primo ingresso; il bottone blocca la creazione con messaggio se le caratteristiche non sono tutte assegnate; l'eroe creato riceve ESATTAMENTE le caratteristiche scelte dal giocatore (non valori casuali) e i PF derivati sono coerenti con il CON scelto; un valore duplicato nel pool resta assegnabile due volte, un valore unico sparisce dalle altre tendine una volta usato ma resta nella propria; rpgNewHero senza "scores" (ripiego) produce comunque un personaggio con tutte e sei le caratteristiche definite. sha256: dcc0397c80aac2da01283923bf08f3a1edb7bdcf3239bfcb7ef1e5cd1b24177c.
+var ROLLONE_CONTENT_VERSION = "1.97.4"; // v1.97.4 (22/10, CINQUE CORREZIONI AL "DUNGEON DELLA DISCESA", su segnalazione multipla e dettagliata di Carmine dopo aver provato a lungo l'esplorazione reale: cinque problemi distinti, tutti corretti in rpg_ui.js (nessuna modifica a rpg_data.js/rpg_engine.js/rpg_styles.css). (1) "Non posso tornare indietro dalla scheda personaggio": la voce "Dungeon" della barra inferiore passava SEMPRE da rpgViewDungeonSelect, la cui unica azione rigenerava STATE.rpg.dungeonMap da zero anche quando si trattava dello stesso dungeon già in corso - tornare alla scheda personaggio e poi provare a "tornare indietro" cancellava quindi mostri uccisi, forzieri aperti e posizione sulla mappa. Ora quella voce, se un'esplorazione è già attiva, porta DIRETTAMENTE a rpgGo("dungeon") senza rigenerare nulla; rpgViewDungeonSelect stesso, per il dungeon già in corso, propone ora "Riprendi l'esplorazione" (nessuna rigenerazione) con "Ricomincia da capo" come scelta esplicita e confermata separatamente per chi vuole davvero ripartire da zero. (2) "Zaino e inventario non sono visibili, al di fuori del fight non posso usare le pozioni": la vista dungeon nasconde la barra di navigazione (bottomnav:false, per lasciare spazio a joystick/D-pad), rendendo lo zaino irraggiungibile durante l'esplorazione; le pozioni, inoltre, erano utilizzabili SOLO dentro rpgViewCombat, senza alcun equivalente fuori combattimento. Aggiunto un accesso rapido "🎒 Zaino" e un bottone pozione diretto nei controlli della vista dungeon, più una nuova rpgUsePotionOutOfCombat() (stessa cura 2d8+2 della pozione in combattimento) richiamabile anche dalla schermata zaino stessa; il bottone resta disabilitato se non si hanno pozioni o si è già in piena salute, e rifiuta l'uso se si è in combattimento (lì resta il bottone dedicato della schermata di battaglia). (3) "Ad ogni level up esce fuori dal dungeon": rpgViewLevelUp/choose() forzava SEMPRE rpgGo("town") una volta assegnati tutti i talenti in sospeso, anche se il level up avveniva a metà di un'esplorazione (dopo rpgViewSpoils, vedi v1.9x); ora torna al dungeon se STATE.rpg.dungeonMap esiste, altrimenti in città come prima (nessun cambiamento quando non si sta esplorando). (4) "Il refresh continuo mentre si muovono i mostri o il giocatore... la schermata deve essere stabile come nell'app di base44": il fix v1.97.1 (ridisegna solo se qualcosa cambia davvero) non bastava perché anche un SOLO cambiamento continuava a richiamare il render() globale, che ricostruisce da zero l'INTERA app (sidebar, header, dpad/joystick compresi) - percepito come sfarfallio/instabilità. Nuova rpgDungeonPatch(): mentre si resta sulla vista dungeon, aggiorna in-place SOLO le celle della griglia e il testo di stato realmente cambiati (confronto per firma testuale per cella), senza mai ricreare i nodi DOM di griglia/joystick/D-pad; usata ora dal battito dei mostri, da rpgMoveDungeon e dal tocco sul joystick. Se il riferimento alla mappa salvato non corrisponde più (nuova profondità, cambio schermata) ricade automaticamente su un render() completo, quindi resta sicura in ogni caso. (5) Oggetti/scrigni aggiuntivi in stile Darkest Dungeon: non ancora implementati in questa versione, restano da progettare con Carmine (tipologie, effetti, arte) prima di procedere. Verificato: node --check pulito su tutti i blocchi script del file finale; bilanciamento graffe pulito sui blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che riproducono ciascuno dei quattro scenari segnalati (ripresa non distruttiva dal bottom-nav e da dungeonSelect, zaino e pozione raggiungibili dal dungeon e utilizzabili fuori combattimento con rifiuto esplicito in combattimento, level up che torna al dungeon se c'è una mappa attiva, identità dei nodi DOM di griglia/joystick/D-pad invariata dopo un movimento/battito e corretto fallback su render() completo quando il riferimento mappa non è più valido). Nota tecnica sulla pubblicazione: lo script di splice usato per v1.97.3 aveva marcatori di fine-sezione per CSS e dati ormai superati (risalenti a prima dell'aggiunta delle sezioni "RESTYLING FEDELE A BASE44" e "ARTE DEDICATA", v1.96.0): usarli senza controllo avrebbe orfanizzato/duplicato ~496KB di contenuto legittimo già presente identico sia nel file pubblicato che in quello locale. Individuato PRIMA di scrivere qualunque file, grazie a un controllo di sanità automatico (rapporto dimensione-vecchio-blocco/dimensione-file-locale, atteso vicino a 1.0 per i file non toccati) aggiunto da ora in poi allo script di splice; corretto usando la coda letterale, verificata unica, dei file locali attuali come nuovi marcatori di fine-sezione. sha256: 1dbad164e01447f68b90f08431983db0a24fec28640eabfdfb158ba5a1dbd397.
+// var ROLLONE_CONTENT_VERSION = "1.97.3"; // v1.97.3 (22/10, SCELTA DELLE CARATTERISTICHE IN CREAZIONE, su richiesta esplicita di Carmine: "nella creazione non posso scegliere che statistiche mettere, come faccio per la scheda che si crea quando si gioca a dnd... voglio lo stesso principio". Prima rpgNewHero tirava le 6 caratteristiche (str/dex/con/int/wis/cha, metodo 4d6-scarta-il-minimo) e le assegnava direttamente, senza alcuna scelta per il giocatore. Ora la creazione del personaggio (rpgViewCreate in rpg_ui.js) usa lo STESSO PRINCIPIO del passo "Caratteristiche" del wizard di creazione scheda D&D gia' presente in questo stesso progetto (viewWizard/rollSixValues): tira un "mazzo" di 6 valori (nuova rpgRollSixScores in rpg_data.js, stesso 4d6-scarta-il-minimo di sempre) e li mostra come pool; il giocatore assegna ciascun valore a una caratteristica tramite un menu a tendina per abilita', con anteprima del modificatore in tempo reale; ogni valore e' disponibile una sola volta (stesso algoritmo di disponibilita' del wizard D&D: un valore doppio nel pool resta assegnabile due volte, un valore gia' usato sparisce dalle altre tendine ma resta visibile nella propria); un bottone "Ritira tutto" rigenera il pool scartando le assegnazioni fatte finora. rpgNewHero accetta ora un quarto parametro "scores" con l'assegnazione scelta dal giocatore (resta un ripiego di sicurezza che tira comunque caratteristiche valide se il parametro arrivasse incompleto, cosi' nessun personaggio puo' mai nascere con caratteristiche indefinite). Il bottone "Inizia l'avventura" blocca la creazione con un messaggio chiaro se non tutte e sei le caratteristiche sono state assegnate (stesso principio del fix v1.97.2 sul nome: controllo dentro al click, mai un "disabled" HTML silenzioso). Nessun'altra logica di gioco toccata. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che verificano: il pool di 6 valori viene generato al primo ingresso; il bottone blocca la creazione con messaggio se le caratteristiche non sono tutte assegnate; l'eroe creato riceve ESATTAMENTE le caratteristiche scelte dal giocatore (non valori casuali) e i PF derivati sono coerenti con il CON scelto; un valore duplicato nel pool resta assegnabile due volte, un valore unico sparisce dalle altre tendine una volta usato ma resta nella propria; rpgNewHero senza "scores" (ripiego) produce comunque un personaggio con tutte e sei le caratteristiche definite. sha256: dcc0397c80aac2da01283923bf08f3a1edb7bdcf3239bfcb7ef1e5cd1b24177c.
 // var ROLLONE_CONTENT_VERSION = "1.97.2"; // v1.97.2 (22/10, CORREZIONE BUG CREAZIONE PERSONAGGIO, su segnalazione esplicita di Carmine: "ho fatto un pg nuovo, ma non fa andare avanti nella creazione, clicco su inizia avventura ma nulla, non va avanti". Causa: il bottone "Inizia l'avventura" usava l'attributo HTML disabled, calcolato SOLO al momento del render; ma scrivere il nome nel campo sopra (oninput) non richiama render() di proposito in tutto il file, per non far perdere il focus all'input ad ogni tasto premuto (lo stesso motivo per cui altrove il render() ricostruisce interi pannelli solo quando serve davvero, vedi v1.97.1). Risultato: il bottone restava con l'attributo disabled della primissima volta (nome vuoto) finche' l'utente non toccava anche una pillola razza/classe (che ri-renderizza), cosa facile da non fare visto che razza/classe hanno gia' un default preselezionato - scrivere solo il nome e premere subito "Inizia l'avventura" lasciava il bottone bloccato e il click non scattava affatto, esattamente il sintomo segnalato. Ora il bottone non e' mai bloccato dall'HTML: il controllo sul nome avviene dentro al click stesso (rpgViewCreate in rpg_ui.js), con un messaggio chiaro ("Scrivi un nome per il tuo eroe...") se il nome e' ancora vuoto, invece di restare silenziosamente inerte. Nessun'altra logica toccata. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicato che riproduce esattamente lo scenario segnalato (nome scritto via oninput SENZA toccare le pillole razza/classe, poi click sullo stesso bottone catturato prima della digitazione, senza alcun render nel mezzo) e conferma che l'eroe viene creato e si arriva alla schermata home; verificato anche il caso nome vuoto (nessun eroe creato, messaggio mostrato). sha256: 8f80956a8864603fdb46da95fb9e5fdf5a62b83ec5e1d856e78ce6419f457cf8.
 // var ROLLONE_CONTENT_VERSION = "1.97.1"; // v1.97.1 (22/10, CORREZIONE BUG DI FUNZIONAMENTO nel "Dungeon della Discesa", su segnalazione esplicita di Carmine dopo aver provato l'app reale pubblicata ("tutto quello che hai testato nel tuo artefatto nell'app non funziona"): tre problemi distinti, ora corretti nel motore/interfaccia reali (rpg_engine.js/rpg_ui.js), non nell'artefatto di prova isolato usato finora per i test visivi, che non include la shell completa dell'app (barra laterale, tab) e quindi non mostrava questi sintomi. (1) "Refresh continuo nel dungeon": il battito in tempo reale dei mostri (ogni 550ms) chiamava render() - che ricostruisce da zero l'INTERA app, non solo la vista dungeon - INCONDIZIONATAMENTE ad ogni battito, anche quando sulla mappa non cambiava nulla; ora rpgTickMonsters() segnala se qualcosa e' davvero cambiato (un mostro si e' mosso o si e' "svegliato") e si ridisegna solo in quel caso. (2) "Se clicco sul personaggio non apre l'intera gestione": la barra in alto col ritratto dell'eroe (presente anche nel dungeon, dove la barra di navigazione inferiore con la voce "Eroe" e' nascosta) non aveva MAI avuto un gestore di click - il ritratto era solo decorativo; ora toccarla apre sempre la scheda del personaggio (rpgViewCharacter: inventario, missioni, gestione/cancellazione/creazione eroi). (3) "Le icone non rispecchiano il pg giocante ne' i mostri": le icone sulla griglia del dungeon (giocatore e mostri) erano sempre forme generiche (un dado per il giocatore, una sagoma colorata solo per famiglia per i mostri, es. Orco e Troll indistinguibili) - mai l'arte dedicata introdotta in v1.96.0/v1.97.0; ora mostrano quella stessa arte in miniatura quando esiste (stesso fallback a piu' livelli), ricadendo sulla forma generica solo se manca anche quella. Nessuna meccanica di gioco toccata (XP/oro/combattimento identici): solo tre correzioni di interfaccia/prestazioni. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicato che confronta prima/dopo su rpgTickMonsters (nessun mostro sulla mappa -> changed=false, nessun render sprecato), sul click della barra superiore (porta davvero a "character"), e sulle icone mappa (mostrano <img> con l'arte quando esiste, ricadono su SVG solo quando manca). sha256: 38b1e569a24439c7972de5c278c5ed3fcd39fd31695a69dba2d83302ac094fad.
 // var ROLLONE_CONTENT_VERSION = "1.97.0"; // v1.97.0 (22/10, RITRATTI DEDICATI RAZZA x CLASSE (prima parte), su richiesta esplicita di Carmine dopo aver visto l'arte dedicata di v1.96.0 ("Falle", riferito alle 36 combinazioni razza x classe invece del solo ritratto base-razza). Generazione interrotta a meta' lavoro dalla quota crediti Canva esaurita (non piu' un intoppo transitorio come in precedenza: 3 tentativi consecutivi falliti con lo stesso errore): completate le 9 combinazioni gia' pronte quando la quota si e' esaurita (Umano tutte e 6 le classi: Guerriero/Mago/Furfante/Chierico/Ramingo/Barbaro; Elfo Guerriero/Mago/Furfante), su decisione concordata con Carmine di pubblicare subito quanto fatto e completare le restanti 27 (Elfo Chierico/Ramingo/Barbaro, poi Nano/ Halfling/Draconide/Tiefling su tutte e 6 le classi) in una prossima sessione quando la quota si ricarica. Nuovo blocco RPG_PORTRAIT_ART in fondo a rpg_data.js (chiave "Razza|Classe"), stessa compressione delle altre arti (180x180 JPEG qualita' 82: +90KB circa sul peso del file). rpgPortraitSvg in rpg_ui.js ora ha tre livelli di fallback in ordine: ritratto dedicato razza+classe, poi ritratto base-razza (v1.96.0), poi SVG procedurale (sempre presente) - nessuna combinazione resta mai senza immagine, nemmeno durante il completamento progressivo. Nessuna logica di gioco toccata: solo arte. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; verifica programmatica della catena di fallback su tutte le 36 combinazioni razza x classe (9 dedicate, 27 su ritratto base-razza, 0 su SVG nuda). sha256: 0000000000000000000000000000000000000000000000000000000000000.
