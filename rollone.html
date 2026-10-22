@@ -1731,11 +1731,29 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .rpg-dungeon-row{text-align:left}
 .rpg-dungeon-row.locked{opacity:.5}
 .rpg-dungeon-name{font-family:"Cinzel",serif;font-size:15px;color:var(--rpg-gold-bright);margin-bottom:4px}
-.rpg-dungeonroom{padding-bottom:12px}
+/* FIX v1.98.0 (segnalazione Carmine: "non si adatta né si centra né sul PC né su dispositivo
+   mobile anche ruotandolo"): prima il titolo e il testo di stato sopra la griglia restavano ad
+   allineamento normale (a sinistra) mentre la griglia e i controlli sotto erano centrati - il
+   blocco nel complesso non sembrava affatto centrato. rpg-dungeonroom centra ora tutto il blocco
+   per coerenza con lo stesso stile di .rpg-panel-title usato dal resto del modulo. */
+.rpg-dungeonroom{padding-bottom:12px;text-align:center}
 .rpg-dungeon-legend{font-size:11.5px;color:var(--muted);text-align:center;margin:2px 0 10px;letter-spacing:.02em}
 /* Le celle "pavimento" non hanno bordo tra loro: stanze e corridoi appaiono come un'unica area
    scavata nel buio, con una sottile texture a righe orizzontali (non una griglia a scacchiera). */
-.rpg-dungeon-grid{display:grid;gap:0;margin:12px auto;max-width:380px;aspect-ratio:9/7;
+/* FIX v1.98.0: griglia ingrandita da 9x7 a 11x9 (vedi rpgGenerateDungeonMap in rpg_engine.js),
+   aspect-ratio aggiornato di conseguenza perche' le celle restino quadrate.
+   FIX v1.98.0 ("non si adatta... anche ruotandolo"): prima la larghezza dipendeva SOLO dalla
+   larghezza disponibile (max-width:380px), mai dall'altezza - in orizzontale su telefono
+   (ruotato), dove l'altezza dello schermo è la vera risorsa scarsa, la griglia restava alla sua
+   larghezza "normale" e la sua altezza (derivata dall'aspect-ratio) finiva per non entrare più nello
+   schermo insieme a titolo/stato/leggenda/joystick/D-pad/pulsanti sotto. "width" ora è il più
+   piccolo tra: il tetto di sempre (380px), la larghezza disponibile (100%), e la larghezza che
+   l'altezza disponibile (100dvh meno un budget approssimativo per tutto il resto dell'interfaccia
+   sopra/sotto la griglia) permetterebbe mantenendo lo stesso aspect-ratio - così la griglia si
+   restringe da sola quando lo spazio verticale è quello che scarseggia, invece di sforare. */
+.rpg-dungeon-grid{display:grid;gap:0;margin:12px auto;
+  width:min(380px, 100%, calc((100dvh - 320px) * 11 / 9));
+  aspect-ratio:11/9;
   background:var(--rpg-ink-deep, var(--bg));border:1px solid var(--line);border-radius:10px;padding:3px;
   box-shadow:inset 0 0 40px rgba(0,0,0,.6)}
 .rpg-cell{position:relative;display:flex;align-items:center;justify-content:center;font-size:13px}
@@ -1939,6 +1957,14 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
   transform:translateY(-1px);box-shadow:rgba(232,207,138,.3) 0 1px inset,rgba(201,162,39,.55) 0 0 20px -4px}
 .pixel-btn:active:not(:disabled){transform:translateY(1px)}
 .pixel-btn:disabled{opacity:.4;cursor:default}
+/* FIX v1.98.0 (segnalazione Carmine: "mancano le descrizioni delle abilità e cosa fanno"): seconda
+   riga di testo dentro il bottone abilità di combattimento, con stile leggibile (non tutto
+   maiuscolo/spaziato come il nome - .pixel-btn di base è pensato per etichette corte, non per
+   frasi) invece di lasciare il giocatore a indovinare cosa faccia ciascuna abilità. */
+.rpg-ability-btn{padding:9px 10px;text-align:left}
+.rpg-ability-btn-name{font-size:11px}
+.rpg-ability-btn-desc{font-size:9.5px;letter-spacing:0;text-transform:none;font-weight:400;
+  color:rgba(240,212,138,.65);margin-top:3px;white-space:normal;line-height:1.3}
 
 /* ---- HUD condiviso (barra risorse in alto): ritratto + nome + Lv/Profondità + barre + oro ---- */
 .rpg-hud{display:flex;align-items:center;gap:10px;margin:10px 0 14px;padding:12px}
@@ -2037,9 +2063,14 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .pixel-btn.ghost{background:transparent;border-color:rgba(120,134,180,.4);color:rgba(222,212,189,.75);
   box-shadow:none;font-weight:500}
 .pixel-btn.ghost:hover:not(:disabled){background:rgba(120,134,180,.1);box-shadow:none;transform:none}
-.rpg-quest-box{text-align:center}
+/* FIX v1.98.0 (richiesta esplicita di Carmine: "la gilda deve avere più missioni da attivare
+   contemporaneamente"): hero.activeQuest (singolo) è diventato hero.activeQuests (array, fino a
+   RPG_MAX_ACTIVE_QUESTS, vedi rpg_data.js) - più caselle missione impilate nella stessa bacheca
+   richiedono un margine tra l'una e l'altra, prima non necessario perché ce n'era sempre una sola. */
+.rpg-quest-box{text-align:center;margin-bottom:12px}
 .rpg-quest-box .target{font-size:14px;color:#e8cf8a;letter-spacing:.04em;margin-bottom:8px}
 .rpg-quest-reward{font-size:10.5px;color:rgba(255,255,255,.6);margin:8px 0 12px}
+.rpg-quest-empty{text-align:center;padding:10px;opacity:.75}
 
 /* ---- Scheda eroe: header con CODEX, griglia equip in pixel-stat-box ---- */
 .rpg-hero-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
@@ -5991,18 +6022,37 @@ const RPG_BOSSES = [
 ];
 function rpgBossFor(level){ const list=RPG_BOSSES.filter(b=>b.minLevel<=level); return list[list.length-1]||RPG_BOSSES[0]; }
 
-/* ---- Dungeon: pool di mostri propri, moltiplicatore difficolta', bias risorse, palette ---- */
+/* ---- Dungeon: pool di mostri propri, moltiplicatore difficolta', bias risorse, palette ----
+   FIX v1.98.0 (segnalazione Carmine: "servono più tipi di dungeon" + "a livello 14 si blocca
+   perché non ci sono talenti né nulla"): da 5 a 10 tipi di dungeon, con sblocchi distribuiti più
+   fitti nella progressione (1,2,3,5,6,8,10,14,15,17 invece di 1,3,6,10,15) - in particolare un
+   nuovo dungeon si sblocca esattamente al livello 14, dove prima non c'era alcun nuovo contenuto
+   tra l'ultima abilità di classe (livello 12) e la successiva (livello 16, vedi RPG_ABILITIES più
+   sotto, ora con una nuova abilità anche a livello 14 per tutte le classi) né alcun nuovo dungeon
+   tra "Santuario del Vuoto" (livello 10) e "Cittadella di Cenere" (livello 15): un giocatore che
+   arrivava lì non aveva letteralmente nulla di nuovo da sbloccare per 4-5 livelli di fila, da cui
+   la sensazione di essere "bloccato". */
 const RPG_DUNGEONS = [
   {id:"crypt", name:"Cripta Sommersa", desc:"Corridoi aridi di ossa sotto la vecchia cappella.", minLevel:1,  mult:1,    xpMult:1,    bias:{herb:3,ore:1}, pool:["Goblin","Skeleton","Giant Spider","Dire Wolf"],
     palette:{floor:"#151d34",wall:"#0e1428",accent:"#d4af58"}},
+  {id:"grove", name:"Boschi Corrotti", desc:"Radici nere che strisciano sotto la luna malata.", minLevel:2, mult:1.08, xpMult:1.08, bias:{herb:4,ore:1}, pool:["Goblin","Dire Wolf","Giant Spider","Gnoll"],
+    palette:{floor:"#16241a",wall:"#0d160f",accent:"#7cc26a"}},
   {id:"mines", name:"Miniere di Brace", desc:"Fornaci ancora accese nel buio.", minLevel:3,  mult:1.15, xpMult:1.15, bias:{herb:1,ore:3}, pool:["Skeleton","Gnoll","Giant Spider","Orc","Hellhound","Stone Golem"],
     palette:{floor:"#2a1a14",wall:"#180e0a",accent:"#e08a30"}},
+  {id:"sewers", name:"Fogne di Hollowmark", desc:"Sotto la città, dove nessuna legge del Tempio arriva.", minLevel:5, mult:1.22, xpMult:1.22, bias:{herb:2,ore:2}, pool:["Skeleton","Giant Spider","Gnoll","Orc"],
+    palette:{floor:"#1b2420",wall:"#0f1613",accent:"#5fae8a"}},
   {id:"frost", name:"Rovine Gelate",   desc:"Sale ghiacciate dove nulla si decompone.", minLevel:6,  mult:1.3,  xpMult:1.3,  bias:{herb:2,ore:2}, pool:["Dire Wolf","Giant Spider","Wraith","Stone Golem","Troll"],
     palette:{floor:"#1a2a3a",wall:"#0e1a28",accent:"#8ad0e8"}},
+  {id:"fortress", name:"Fortezza Infestata", desc:"Le sue sentinelle non hanno mai smesso il turno di guardia.", minLevel:8, mult:1.38, xpMult:1.38, bias:{herb:1,ore:3}, pool:["Wraith","Skeleton","Orc","Hellhound"],
+    palette:{floor:"#241820",wall:"#140d16",accent:"#c9638a"}},
   {id:"void",  name:"Santuario del Vuoto", desc:"Una cattedrale di stelle che non dovrebbero brillare.", minLevel:10, mult:1.45, xpMult:1.45, bias:{herb:2,ore:2}, pool:["Wraith","Hellhound","Troll","Ember Elemental","Lich","Dragon Whelp"],
     palette:{floor:"#1e1430",wall:"#120b20",accent:"#b07ae8"}},
+  {id:"brokenpact", name:"Rovine del Patto Infranto", desc:"Qui un giuramento tra razze fu spezzato, e la terra non l'ha perdonato.", minLevel:14, mult:1.55, xpMult:1.55, bias:{herb:2,ore:3}, pool:["Troll","Wraith","Hellhound","Stone Golem"],
+    palette:{floor:"#2a1020",wall:"#170912",accent:"#e0507a"}},
   {id:"ashen", name:"Cittadella di Cenere", desc:"Il trono di ciò che ha divorato gli dèi.", minLevel:15, mult:1.6,  xpMult:1.6,  bias:{herb:1,ore:4}, pool:["Orc","Hellhound","Stone Golem","Ember Elemental","Basilisk","Dragon Whelp","Lich"],
-    palette:{floor:"#2a1410",wall:"#160806",accent:"#ff7030"}}
+    palette:{floor:"#2a1410",wall:"#160806",accent:"#ff7030"}},
+  {id:"basilisklair", name:"Covo del Basilisco", desc:"Nessuno torna a raccontare cosa si nasconde sotto quello sguardo.", minLevel:17, mult:1.8, xpMult:1.8, bias:{herb:1,ore:3}, pool:["Basilisk","Dragon Whelp","Ember Elemental","Stone Golem"],
+    palette:{floor:"#1c2414",wall:"#10150a",accent:"#9ec93c"}}
 ];
 function rpgDungeon(id){ return RPG_DUNGEONS.find(d=>d.id===id) || RPG_DUNGEONS[0]; }
 
@@ -6105,7 +6155,28 @@ const RPG_ALTAR_OUTCOMES = [
   {weight:2, kind:"dmg",     dice:"2d8"}
 ];
 
-/* ---- Talenti (scelti alla salita di livello: uno ogni 2 livelli, 1 pendingChoice da spendere) ---- */
+/* ---- Talenti (scelti alla salita di livello: uno ogni 2 livelli, 1 pendingChoice da spendere) ----
+   FIX v1.98.0 (segnalazione Carmine: "le skill passive non funzionano correttamente"): rileggendo
+   rpgFeatBonuses/il motore di combattimento, TRE talenti su dodici non avevano alcun effetto reale
+   nel gioco, nonostante fossero selezionabili e "spendessero" normalmente la scelta di livello:
+   - "ironhide" (+1 CA permanente): il bonus non era MAI incluso nel calcolo di hero.ac in
+     rpgDerivedHero (rpg_engine.js) - prenderlo non cambiava nulla, né in combattimento né sulla
+     scheda. Corretto: rpgFeatBonuses espone ora "acBonusFlat", applicato in rpgDerivedHero.
+   - "regen" (recupera 2 PF ogni turno): il campo "regen" veniva calcolato qui ma non era MAI letto
+     da nessuna parte del motore di combattimento - nessun codice applicava mai quella cura.
+     Corretto: applicato ora a fine di ogni turno di combattimento in rpgViewCombat/rpg_ui.js.
+   - "bulwark" (+3 CA quando ti difendi): oltre a non essere mai applicato, il suo stesso
+     presupposto non esisteva nel gioco - non c'è mai stata un'azione "difendersi" nel combattimento
+     in tempo reale di questo modulo (solo Attacca/Abilità/Pozione/Fuggi). Ridefinito in modo
+     funzionante e comunque fedele al nome/icona (un bastione che tiene quando sei alle corde):
+     +3 CA mentre sei sotto la metà dei PF, applicato in rpgEnemyAttackRoll come le altre condizioni
+     esistenti (vedi "berserker"/"executioner" più sotto, stesso pattern già corretto). Descrizione
+     aggiornata di conseguenza.
+   Anche "arcane" (+2 danno abilità, +1 uso abilità) era SOLO PARZIALMENTE funzionante: il bonus di
+   uso extra (+1) funzionava, ma il bonus di danno (+2, "skillDamageBonus") non veniva mai aggiunto
+   al danno delle abilità in rpg_ui.js/playerAction - corretto insieme al resto delle abilità attive
+   (vedi commento su RPG_ABILITIES più sotto). Aggiunto anche un nuovo talento, "vampiric" (prima
+   assente), per dare più varietà di scelta oltre a correggere quelli già esistenti. */
 const RPG_FEATS = [
   {id:"tough",       name:"Robusto",         desc:"+2 PF massimi per livello"},
   {id:"weapon_master",name:"Maestro d'Armi", desc:"+1 al colpire e +1 al danno"},
@@ -6117,8 +6188,9 @@ const RPG_FEATS = [
   {id:"regen",       name:"Rigenerazione",   desc:"Recupera 2 PF ogni turno"},
   {id:"lucky",       name:"Fortunato",       desc:"+1 a tutti i tiri di d20"},
   {id:"executioner", name:"Giustiziere",     desc:"+50% danno ai nemici feriti"},
-  {id:"bulwark",     name:"Baluardo",        desc:"+3 CA quando ti difendi"},
-  {id:"fleet",       name:"Piè Veloce",      desc:"+5 ai tiri di fuga"}
+  {id:"bulwark",     name:"Baluardo",        desc:"+3 CA quando sei sotto la metà dei PF"},
+  {id:"fleet",       name:"Piè Veloce",      desc:"+5 ai tiri di fuga"},
+  {id:"vampiric",    name:"Lama Vampirica",  desc:"Recuperi il 15% del danno infierito in mischia come PF"}
 ];
 function rpgFeatData(id){ return RPG_FEATS.find(f=>f.id===id); }
 function rpgFeatBonuses(hero){
@@ -6130,11 +6202,22 @@ function rpgFeatBonuses(hero){
     skillDamageBonus: has("arcane")?2:0,
     extraUses: has("arcane")?1:0,
     berserker: has("berserker"), regen: has("regen")?2:0, lucky: has("lucky")?1:0,
-    executioner: has("executioner"), bulwark: has("bulwark")?3:0, fleeBonus: has("fleet")?5:0
+    executioner: has("executioner"), bulwark: has("bulwark")?3:0, fleeBonus: has("fleet")?5:0,
+    acBonusFlat: has("ironhide")?1:0, vampiric: has("vampiric")?0.15:0
   };
 }
 
-/* ---- Abilita' di classe: sbloccate per livello, ad usi limitati per discesa (niente mana) ---- */
+/* ---- Abilita' di classe: sbloccate per livello, ad usi limitati per discesa (niente mana) ----
+   FIX v1.98.0 (segnalazione Carmine: "a livello 14 si blocca perché non ci sono talenti né
+   nulla" + "le skill non funzionano correttamente"): prima non c'era ALCUNA nuova abilità tra il
+   livello 12 e il livello 16 per nessuna classe - aggiunta una nuova abilità a livello 14 per
+   tutte le 6 classi, a metà tra le due esistenti. Separatamente, molte abilità con un effetto
+   secondario (dot/debuff/selfDebuff, vedi trip_attack/poisoned_blade/reckless_attack/
+   intimidating_presence qui sotto) erano definite nei dati ma quell'effetto non veniva MAI
+   applicato da playerAction in rpg_ui.js - solo il danno/cura principale funzionava, il resto
+   dell'abilità no (veleno/spine che non infliggevano mai danno nei turni successivi, -Attacco
+   nemico che non riduceva mai nulla, -CA su se stessi che non si applicava mai). Corretto in
+   rpg_ui.js/rpgViewCombat: vedi commento estesa lì. */
 const RPG_ABILITIES = {
   Fighter:[
     {id:"second_wind", name:"Secondo Fiato", minLevel:1, uses:1, type:"heal", dice:"1d10", stat:"con", desc:"Recupera 1d10 + COS PF"},
@@ -6142,6 +6225,7 @@ const RPG_ABILITIES = {
     {id:"trip_attack", name:"Attacco Sgambetto", minLevel:5, uses:2, type:"attack", mult:1.5, debuff:{enemyAtk:-2,turns:2}, desc:"150% danno, -2 Attacco nemico"},
     {id:"indomitable", name:"Indomabile", minLevel:8, uses:1, type:"buff", ac:4, turns:2, desc:"+4 CA per 2 turni"},
     {id:"whirlwind", name:"Colpo Vorticoso", minLevel:12, uses:1, type:"attack", mult:1.3, hits:3, desc:"Tre colpi al 130%"},
+    {id:"parrying_strike", name:"Parata e Contrattacco", minLevel:14, uses:1, type:"attack", mult:1.4, debuff:{enemyAtk:-2,turns:1}, desc:"140% danno, -2 Attacco nemico per 1 turno"},
     {id:"avatar_of_war", name:"Avatar della Guerra", minLevel:16, uses:1, type:"attack", mult:3, desc:"300% del danno dell'arma"}
   ],
   Wizard:[
@@ -6150,6 +6234,7 @@ const RPG_ABILITIES = {
     {id:"fireball", name:"Palla di Fuoco", minLevel:5, uses:1, type:"spell", dice:"4d6", stat:"int", desc:"4d6 + INT danno da fuoco"},
     {id:"scorching_ray", name:"Raggio Ardente", minLevel:8, uses:2, type:"spell", dice:"2d6", stat:"int", hits:3, desc:"Tre raggi da 2d6 + INT"},
     {id:"ice_storm", name:"Tempesta di Ghiaccio", minLevel:12, uses:1, type:"spell", dice:"5d8", stat:"int", debuff:{enemyAtk:-3,turns:2}, desc:"5d8 + INT, -3 Attacco nemico"},
+    {id:"cone_of_cold", name:"Cono di Freddo", minLevel:14, uses:1, type:"spell", dice:"6d8", stat:"int", desc:"6d8 + INT danno da gelo"},
     {id:"disintegrate", name:"Disintegrazione", minLevel:16, uses:1, type:"spell", dice:"8d6+10", stat:"int", desc:"8d6+10 + INT danno di forza"}
   ],
   Rogue:[
@@ -6158,6 +6243,7 @@ const RPG_ABILITIES = {
     {id:"poisoned_blade", name:"Lama Avvelenata", minLevel:3, uses:2, type:"attack", mult:1, dot:{dice:"1d6",turns:3}, desc:"1d6 veleno per 3 turni"},
     {id:"uncanny_dodge", name:"Schivata Prodigiosa", minLevel:5, uses:2, type:"buff", ac:6, turns:1, desc:"+6 CA per 1 turno"},
     {id:"assassinate", name:"Assassinio", minLevel:8, uses:1, type:"attack", mult:3, desc:"300% del danno dell'arma"},
+    {id:"vanish", name:"Dissolversi", minLevel:14, uses:1, type:"buff", ac:8, turns:1, desc:"+8 CA per 1 turno"},
     {id:"death_strike", name:"Colpo Mortale", minLevel:16, uses:1, type:"attack", mult:2, hits:2, desc:"Due colpi al 200%"}
   ],
   Cleric:[
@@ -6166,6 +6252,7 @@ const RPG_ABILITIES = {
     {id:"guiding_bolt", name:"Dardo Guida", minLevel:3, uses:2, type:"spell", dice:"2d6", stat:"wis", desc:"2d6 + SAG danno radiante"},
     {id:"spirit_guardians", name:"Spiriti Guardiani", minLevel:8, uses:1, type:"spell", dice:"2d8", stat:"wis", dot:{dice:"1d6",turns:3}, desc:"2d8 + SAG, 1d6 a turno"},
     {id:"flame_strike", name:"Colonna di Fuoco", minLevel:12, uses:1, type:"spell", dice:"4d6", stat:"wis", desc:"4d6 + SAG danno da fuoco"},
+    {id:"mass_cure", name:"Cura di Massa", minLevel:14, uses:1, type:"heal", dice:"3d8+4", stat:"wis", desc:"Recupera 3d8+4 + SAG PF"},
     {id:"sunburst", name:"Esplosione Solare", minLevel:16, uses:1, type:"spell", dice:"6d8", stat:"wis", debuff:{enemyAtk:-3,turns:2}, desc:"6d8 + SAG, -3 Attacco nemico"}
   ],
   Ranger:[
@@ -6175,6 +6262,7 @@ const RPG_ABILITIES = {
     {id:"volley", name:"Raffica", minLevel:5, uses:1, type:"attack", mult:.85, hits:3, desc:"Tre tiri rapidi"},
     {id:"lightning_arrow", name:"Freccia Fulminante", minLevel:8, uses:2, type:"attack", mult:1, bonusDice:"3d8", desc:"Danno arma + 3d8 fulmine"},
     {id:"swift_quiver", name:"Faretra Rapida", minLevel:12, uses:1, type:"attack", mult:.9, hits:4, desc:"Quattro tiri rapidi"},
+    {id:"barrage", name:"Raffica Precisa", minLevel:14, uses:1, type:"attack", mult:1, bonusDice:"4d6", desc:"Danno arma + 4d6"},
     {id:"foe_slayer", name:"Flagello dei Nemici", minLevel:16, uses:1, type:"attack", mult:3, desc:"300% del danno dell'arma"}
   ],
   Barbarian:[
@@ -6184,6 +6272,7 @@ const RPG_ABILITIES = {
     {id:"intimidating_presence", name:"Presenza Intimidatoria", minLevel:5, uses:1, type:"debuff", enemyAtk:-3, turns:3, desc:"-3 Attacco nemico per 3 turni"},
     {id:"brutal_critical", name:"Critico Brutale", minLevel:8, uses:1, type:"attack", mult:2.5, desc:"250% del danno dell'arma"},
     {id:"relentless_rage", name:"Furia Inarrestabile", minLevel:12, uses:1, type:"heal", dice:"3d8", stat:"con", desc:"Recupera 3d8 + COS PF"},
+    {id:"unstoppable", name:"Furia Instancabile", minLevel:14, uses:1, type:"buff", atk:4, turns:3, desc:"+4 Attacco per 3 turni"},
     {id:"rampage", name:"Rampage", minLevel:16, uses:1, type:"attack", mult:1.5, hits:3, desc:"Tre colpi al 150%"}
   ]
 };
@@ -6235,7 +6324,30 @@ function rpgNewQuest(level){
   // sorpresa al momento della riscossione.
   const rewardPotions = Math.random()<0.5 ? 1+Math.floor(Math.random()*2) : 0;
   const rewardItem = Math.random()<0.35 ? rpgRollQuestItem(level) : null;
-  return { target, needed, count:0, rewardGold: needed*25+level*10, rewardXp: needed*20+level*8, rewardPotions, rewardItem };
+  // "id" univoco (richiesto dalla v1.98.0 in poi, vedi rpgHeroQuests sotto): prima la gilda teneva
+  // una sola missione attiva alla volta (hero.activeQuest, oggetto singolo), quindi non serviva
+  // distinguerla da nessun'altra; ora che possono essercene più di una contemporaneamente serve un
+  // identificatore stabile per sapere quale riscuotere/mostrare.
+  return { id:uid(), target, needed, count:0, rewardGold: needed*25+level*10, rewardXp: needed*20+level*8, rewardPotions, rewardItem };
+}
+/* ---- Missioni multiple della Gilda (richiesta esplicita di Carmine: "la gilda deve avere più
+   missioni da attivare contemporaneamente") ----
+   Prima la Gilda teneva un'unica missione attiva alla volta (hero.activeQuest): completarla la
+   sostituiva automaticamente con una nuova, senza mai la possibilità di averne più d'una in corso.
+   Ora hero.activeQuests è un array, fino a RPG_MAX_ACTIVE_QUESTS missioni contemporanee, accettate
+   una alla volta dalla bacheca della Gilda (rpgViewGuild in rpg_ui.js) invece di essere assegnate
+   automaticamente - più scelta su cosa cacciare, e si può continuare a riscuotere ricompense senza
+   restare mai senza nulla da fare mentre si sceglie la prossima missione.
+   rpgHeroQuests(hero) migra in modo trasparente (e permanente, la prima volta che viene letta) i
+   salvataggi precedenti alla v1.98.0 che avevano ancora il vecchio hero.activeQuest singolo,
+   trasferendolo nel nuovo array: nessuna missione in corso viene persa per chi aggiorna l'app. */
+const RPG_MAX_ACTIVE_QUESTS = 3;
+function rpgHeroQuests(hero){
+  if(!hero.activeQuests){
+    hero.activeQuests = hero.activeQuest ? [hero.activeQuest] : [];
+    delete hero.activeQuest;
+  }
+  return hero.activeQuests;
 }
 
 /* Tira una singola caratteristica come nella creazione di una scheda D&D reale: 4d6, scarta il
@@ -6284,7 +6396,7 @@ function rpgNewHero(name, race, klass, scores){
     weapon:cls.weapon, weaponTier:0, weaponPlus:0, armorTier:0, armorPlus:0,
     acBonus:0, atkBonus:0, dmgBonus:0,
     depth:1, checkpointDepth:1, dungeonId:"crypt",
-    feats:[], pendingChoices:0, activeQuest: rpgNewQuest(1),
+    feats:[], pendingChoices:0, activeQuests: [rpgNewQuest(1)],
     equipment:{weapon:null,armor:null,helm:null,gloves:null,boots:null,accessory:null},
     kills:0, deaths:0, bossesSlain:0, abilityUses:{}, lastGatherAt:0,
     createdAt: Date.now()
@@ -6377,7 +6489,10 @@ function rpgMaxHp(hero){
    mostrare la scheda o di entrare in combattimento, mai salvata permanentemente nell'eroe. */
 function rpgDerivedHero(hero, inventory){
   const find = id => id ? inventory.find(i=>i.id===id) : null;
-  let ac = 10 + mod(hero.dex) + (hero.acBonus||0), atkBonus=0, dmgBonus=0;
+  // FIX v1.98.0 (segnalazione Carmine: "le skill passive non funzionano correttamente"): il
+  // talento "ironhide" (Pellediferro, +1 CA permanente) non veniva mai incluso qui - prenderlo non
+  // cambiava letteralmente nulla. Vedi il commento esteso su RPG_FEATS in rpg_data.js.
+  let ac = 10 + mod(hero.dex) + (hero.acBonus||0) + rpgFeatBonuses(hero).acBonusFlat, atkBonus=0, dmgBonus=0;
   for(const slot of ["weapon","armor","helm","gloves","boots","accessory"]){
     const it = find(hero.equipment && hero.equipment[slot]);
     if(it){ ac += it.ac||0; atkBonus += it.atk||0; if(slot==="gloves") dmgBonus += Math.floor((it.atk||0)/2); }
@@ -6580,13 +6695,25 @@ function rpgApplyLevelUps(hero){
    dichiarato per cui non funzionava affatto su smartphone). Qui la griglia e la logica
    "bump-to-fight" sono le stesse; cambia solo il modo di muoversi, che si aggiunge due input
    equivalenti — tastiera (invariata) e tocco (D-pad) — senza alterare come funziona il dungeon. */
+/* FIX v1.98.0 (segnalazione Carmine: "dungeon troppo piccoli, poco popolati, poche cose da fare" +
+   "i mostri non danno tempo di evitarli visto lo spazio ristretto"): griglia ingrandita da 9×7
+   (63 celle, area calpestabile interna 7×5=35) a 11×9 (99 celle, area interna 9×7=63, quasi il
+   doppio) - vedi anche .rpg-dungeon-grid in rpg_styles.css (aspect-ratio aggiornato di conseguenza)
+   e il D-pad/joystick, che restano invariati (lavorano già su coordinate generiche map.w/map.h, non
+   su valori fissi). roomsCount, monsterCount e il numero di forzieri/trappole/altari/casse di
+   scorte sono stati scalati di conseguenza più sotto, non solo la dimensione della griglia - prima
+   restavano agli stessi valori bassi anche se il dungeon era più grande, col risultato di sentirlo
+   "vuoto". RPG_MONSTER_DETECT_RADIUS inoltre scende da 3 a 2 (vedi sotto): su una griglia più
+   grande un mostro "sveglio" aveva comunque meno spazio reale rispetto al corridoio tipico per
+   essere evitato - un raggio di rilevamento più piccolo lascia più margine per allontanarsi o
+   deviare per un altro corridoio prima che il mostro si accorga del giocatore. */
 function rpgGenerateDungeonMap(depth, dungeon){
-  const W=9, H=7;
+  const W=11, H=9;
   const grid = Array.from({length:H},()=>Array(W).fill(0));
   let x=1, y=Math.floor(H/2);
   grid[y][x]=1;
   const path=[[x,y]];
-  const roomsCount = 11+Math.floor(Math.random()*6);
+  const roomsCount = 24+Math.floor(Math.random()*12);
   for(let i=0;i<roomsCount;i++){
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>{
       const nx=x+dx, ny=y+dy; return nx>=1 && nx<=W-2 && ny>=1 && ny<=H-2;
@@ -6620,7 +6747,11 @@ function rpgGenerateDungeonMap(depth, dungeon){
   const candidates = floorCells.filter(([cx,cy])=> !(cx===start[0]&&cy===start[1]) && !(cx===stairs[0]&&cy===stairs[1]));
   for(let i=candidates.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [candidates[i],candidates[j]]=[candidates[j],candidates[i]]; }
   const isBossFloor = depth % 10 === 0;
-  const monsterCount = Math.min(candidates.length, 4+Math.floor(depth/5));
+  // Popolazione piu' ricca (segnalazione Carmine: "poco popolati, poche cose da fare") - scala con
+  // la dimensione reale del dungeon generato (candidates.length), non solo con la profondita' come
+  // prima, cosi' un dungeon piu' grande e' sempre anche piu' popolato, non solo piu' vuoto da
+  // attraversare.
+  const monsterCount = Math.min(candidates.length, 6+Math.floor(depth/4)+Math.floor(candidates.length*0.22));
   const monsters = {};
   for(let i=0;i<monsterCount;i++){
     const [cx,cy] = candidates[i];
@@ -6634,7 +6765,8 @@ function rpgGenerateDungeonMap(depth, dungeon){
   // di combattimento. Diamo oro/erbe/minerale bilanciati sulla profondita' corrente.
   const chestCells = candidates.filter(([cx,cy])=> !monsters[cx+","+cy]);
   const chests = {};
-  const chestCount = Math.min(chestCells.length, 1+(Math.random()<.5?1:0));
+  // FIX v1.98.0 (dungeon piu' grande, "poche cose da fare"): 2-3 forzieri a piano invece di 1-2.
+  const chestCount = Math.min(chestCells.length, 2+(Math.random()<.6?1:0));
   for(let i=0;i<chestCount;i++){
     const [cx,cy] = chestCells[i];
     // Forziere "sospetto" (richiesta esplicita di Carmine: "casse, scelte rischio/ricompensa", stile
@@ -6658,23 +6790,27 @@ function rpgGenerateDungeonMap(depth, dungeon){
   const takeFree = n => { const out = freeCells.slice(freeIdx, freeIdx+n); freeIdx += n; return out; };
 
   // Trappole (richiesta esplicita di Carmine: "trappole"): invisibili finche' non si ci cammina
-  // sopra (vedi rpgTriggerTrap), 1-2 a piano, un filo piu' frequenti in profondita'.
+  // sopra (vedi rpgTriggerTrap). FIX v1.98.0: 2-3 a piano invece di 1-2 (dungeon piu' grande).
   const traps = {};
-  const trapCount = Math.min(freeCells.length-freeIdx, 1+(Math.random()<Math.min(.7,.3+depth*.02)?1:0));
+  const trapCount = Math.min(freeCells.length-freeIdx, 2+(Math.random()<Math.min(.8,.35+depth*.02)?1:0));
   for(const [cx,cy] of takeFree(Math.max(0,trapCount))) traps[cx+","+cy] = true;
 
   // Altari (richiesta esplicita di Carmine: "altari, scelte rischio/ricompensa"): non su ogni piano
-  // (altrimenti perderebbero la sensazione di scoperta), ~55% di probabilita', al massimo uno.
+  // (altrimenti perderebbero la sensazione di scoperta). FIX v1.98.0: dungeon piu' grande, fino a 2
+  // a piano invece di 1 (tirati indipendentemente, cosi' resta comunque possibile non trovarne).
   const altars = {};
-  if(Math.random()<.55){ const c = takeFree(1); if(c.length) altars[c[0][0]+","+c[0][1]] = true; }
+  for(let i=0;i<2;i++){ if(Math.random()<.5){ const c = takeFree(1); if(c.length) altars[c[0][0]+","+c[0][1]] = true; } }
 
   // Casse di scorte (richiesta esplicita di Carmine: "casse"): a differenza dei forzieri (oro/
   // erbe/minerale), danno sempre almeno una pozione - raccolte camminandoci sopra come i forzieri
-  // normali, nessuna scelta rischiosa qui (quella e' riservata ai forzieri "sospetti" sopra).
+  // normali, nessuna scelta rischiosa qui (quella e' riservata ai forzieri "sospetti" sopra). FIX
+  // v1.98.0: fino a 2 a piano invece di 1 (dungeon piu' grande, "poche cose da fare").
   const crates = {};
-  if(Math.random()<.5){
-    const c = takeFree(1);
-    if(c.length) crates[c[0][0]+","+c[0][1]] = { potions: 1+Math.floor(Math.random()*2), herbs: Math.random()<.3 ? 1+Math.floor(Math.random()*2) : 0 };
+  for(let i=0;i<2;i++){
+    if(Math.random()<.45){
+      const c = takeFree(1);
+      if(c.length) crates[c[0][0]+","+c[0][1]] = { potions: 1+Math.floor(Math.random()*2), herbs: Math.random()<.3 ? 1+Math.floor(Math.random()*2) : 0 };
+    }
   }
 
   return { w:W, h:H, grid, playerX:start[0], playerY:start[1], stairsX:stairs[0], stairsY:stairs[1],
@@ -6696,7 +6832,7 @@ function rpgGenerateDungeonMap(depth, dungeon){
      resta fermo per quel tick.
    Ritorna {key, mon} se un mostro ha raggiunto la cella del giocatore (scontro da avviare), altrimenti
    null. */
-const RPG_MONSTER_DETECT_RADIUS = 3;
+const RPG_MONSTER_DETECT_RADIUS = 2;
 const RPG_MONSTER_WANDER_CHANCE = 0.35;
 /* Ritorna {hit, changed}: "hit" e' l'eventuale incontro scatenato dal mostro che raggiunge il
    giocatore; "changed" indica se qualcosa sulla mappa e' davvero cambiato in questo battito
@@ -7525,32 +7661,50 @@ function rpgViewForge(){
 }
 
 /* ================= GILDA (missione a taglia attiva) ================= */
+/* FIX v1.98.0 (richiesta esplicita di Carmine: "la gilda deve avere più missioni da attivare
+   contemporaneamente"): prima la Gilda teneva una sola missione attiva alla volta
+   (hero.activeQuest), rimpiazzata automaticamente al completamento. Ora rpgHeroQuests(hero)
+   restituisce un array (fino a RPG_MAX_ACTIVE_QUESTS, vedi rpg_data.js) e questa schermata mostra
+   una casella per ogni missione in corso più, se c'è ancora posto, un bottone per accettarne una
+   nuova dalla bacheca - niente più assegnazione automatica, il giocatore scegli quando prendere
+   la prossima missione. */
 function rpgViewGuild(){
   const hero = rpgDerivedHero(rpgHero(), rpgInv());
-  const q = STATE.rpg.hero.activeQuest;
+  const quests = rpgHeroQuests(STATE.rpg.hero);
+  function claim(q){
+    STATE.rpg.hero.gold+=q.rewardGold; STATE.rpg.hero.xp+=q.rewardXp;
+    STATE.rpg.hero.potions = (STATE.rpg.hero.potions||0) + (q.rewardPotions||0);
+    if(q.rewardItem) STATE.rpg.inventory.push(q.rewardItem);
+    const lv=rpgApplyLevelUps(STATE.rpg.hero);
+    const list = rpgHeroQuests(STATE.rpg.hero);
+    const idx = list.findIndex(x=>x.id===q.id);
+    if(idx>=0) list.splice(idx,1);
+    // Stesso principio del fix sul level up da dungeon: se un'esplorazione è in corso (si può
+    // raggiungere la Gilda anche da lì tramite la barra inferiore), non interromperla.
+    rpgGo(lv>0?"levelup":(STATE.rpg.dungeonMap?"dungeon":"guild"));
+    toast("Missione completata!"+(q.rewardItem?" Hai ottenuto: "+q.rewardItem.name+".":""));
+  }
+  function acceptNew(){
+    rpgHeroQuests(STATE.rpg.hero).push(rpgNewQuest(STATE.rpg.hero.level));
+    rpgGo("guild");
+  }
+  const questBoxes = quests.map(q=>
+    el("div",{class:"pixel-stat-box rpg-quest-box"},
+      el("div",{class:"target"},"Caccia: "+q.target),
+      el("div",{class:"hud-bar hud-xp", style:"height:12px"}, el("span",{style:"width:"+Math.round(100*q.count/q.needed)+"%"})),
+      // Ricompense variabili (richiesta esplicita di Carmine: "missioni con ricompense varie
+      // anche in oggetti pozioni equipaggiamento"): mostrate PRIMA di completare la missione,
+      // cosi' il giocatore sa sempre cosa otterrà, non solo oro/PE come prima.
+      el("div",{class:"rpg-quest-reward"}, q.count+"/"+q.needed+" · Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"
+        +(q.rewardPotions?" · 🧪×"+q.rewardPotions:"")
+        +(q.rewardItem?" · "+q.rewardItem.name:"")),
+      q.count>=q.needed ? el("button",{class:"pixel-btn", onclick:()=>claim(q)}, "Riscuoti ricompensa") : null));
+  const emptySlots = Math.max(0, RPG_MAX_ACTIVE_QUESTS - quests.length);
   const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
     el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"📜 Gilda degli Avventurieri")),
-    q ? el("div",{class:"rpg-quest-box"},
-        el("div",{class:"target"},"Caccia: "+q.target),
-        el("div",{class:"hud-bar hud-xp", style:"height:12px"}, el("span",{style:"width:"+Math.round(100*q.count/q.needed)+"%"})),
-        // Ricompense variabili (richiesta esplicita di Carmine: "missioni con ricompense varie
-        // anche in oggetti pozioni equipaggiamento"): mostrate PRIMA di completare la missione,
-        // cosi' il giocatore sa sempre cosa otterrà, non solo oro/PE come prima.
-        el("div",{class:"rpg-quest-reward"}, q.count+"/"+q.needed+" · Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"
-          +(q.rewardPotions?" · 🧪×"+q.rewardPotions:"")
-          +(q.rewardItem?" · "+q.rewardItem.name:"")),
-        q.count>=q.needed ? el("button",{class:"pixel-btn", onclick:()=>{
-          STATE.rpg.hero.gold+=q.rewardGold; STATE.rpg.hero.xp+=q.rewardXp;
-          STATE.rpg.hero.potions = (STATE.rpg.hero.potions||0) + (q.rewardPotions||0);
-          if(q.rewardItem) STATE.rpg.inventory.push(q.rewardItem);
-          const lv=rpgApplyLevelUps(STATE.rpg.hero);
-          STATE.rpg.hero.activeQuest=rpgNewQuest(STATE.rpg.hero.level);
-          // Stesso principio del fix sul level up da dungeon: se un'esplorazione è in corso (si può
-          // raggiungere la Gilda anche da lì tramite la barra inferiore), non interromperla.
-          rpgGo(lv>0?"levelup":(STATE.rpg.dungeonMap?"dungeon":"guild"));
-          toast("Missione completata!"+(q.rewardItem?" Hai ottenuto: "+q.rewardItem.name+".":""));
-        }}, "Riscuoti ricompensa") : null)
-      : el("p",{class:"muted", style:"text-align:center"},"Nessuna missione attiva."),
+    quests.length ? questBoxes : el("p",{class:"muted", style:"text-align:center"},"Nessuna missione attiva."),
+    emptySlots>0 ? el("button",{class:"pixel-btn ghost", onclick:acceptNew}, "📜 Accetta una nuova missione ("+quests.length+"/"+RPG_MAX_ACTIVE_QUESTS+")")
+      : el("p",{class:"rpg-quest-empty muted"},"Bacheca piena ("+RPG_MAX_ACTIVE_QUESTS+"/"+RPG_MAX_ACTIVE_QUESTS+") — riscuoti una missione per farne posto a un'altra."),
     el("button",{class:"pixel-btn ghost", style:"margin-top:14px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
   return rpgScreen(hero, content, {active:"town"});
 }
@@ -7649,7 +7803,9 @@ function rpgViewDungeonSelect(){
 function rpgEngageMonster(key, enemy, monsterInitiated){
   STATE.rpg._combatCellKey = key;
   const verb = monsterInitiated ? " ti assale!" : " ti blocca il passo.";
-  STATE.rpg.combat = { enemy, log:[{text:(enemy.boss?"Il guardiano ":"Un ")+enemy.name+verb}], turnBusy:false };
+  // "heroSelfDebuff" (FIX v1.98.0, vedi commento esteso su playerAction in rpgViewCombat) vive solo
+  // per la durata di QUESTO scontro, mai persistito sull'eroe - azzerato qui ad ogni nuovo scontro.
+  STATE.rpg.combat = { enemy, log:[{text:(enemy.boss?"Il guardiano ":"Un ")+enemy.name+verb}], turnBusy:false, heroSelfDebuff:null };
   rpgLog((enemy.boss?"Il guardiano ":"Un ")+enemy.name+verb);
   if(enemy.boss) rpgSfxPlay("rpg-boss");
   rpgGo("combat");
@@ -7976,8 +8132,11 @@ function rpgViewCombat(){
       const baseName = enemy.baseName||enemy.name;
       const c = STATE.rpg.codex[baseName] || {creature:baseName, family:(rpgMonsterData(baseName).family), kills:0, encounters:0, first_depth:hero.depth};
       c.kills++; c.encounters++; STATE.rpg.codex[baseName]=c;
-      const q = STATE.rpg.hero.activeQuest;
-      if(q && q.target===baseName && q.count<q.needed) q.count++;
+      // FIX v1.98.0 (richiesta esplicita di Carmine: "la gilda deve avere più missioni da attivare
+      // contemporaneamente"): hero.activeQuest (singolo) e' diventato hero.activeQuests (array) -
+      // un mostro sconfitto avanza TUTTE le missioni attive che lo hanno come bersaglio, non solo
+      // un'unica missione come prima.
+      rpgHeroQuests(STATE.rpg.hero).forEach(q=>{ if(q.target===baseName && q.count<q.needed) q.count++; });
       STATE.rpg.battleLog.unshift({battle_key:key, enemy:enemy.name, boss:!!enemy.boss, elite:!!enemy.elite, depth:hero.depth, outcome:"win", xp:r.xp, gold:r.gold, loot:r.loot.map(l=>l.name), ts:Date.now()});
       if(STATE.rpg.battleLog.length>200) STATE.rpg.battleLog.length=200;
       // Rimuove il mostro sconfitto dalla cella della griglia dove si trovava (bump-to-fight):
@@ -8014,13 +8173,57 @@ function rpgViewCombat(){
       rpgGo("dead");
     }
   }
+  /* FIX v1.98.0 (segnalazione Carmine: "le skill non funzionano correttamente" + "le skill passive
+     non funzionano correttamente"): rileggendo RPG_ABILITIES/RPG_FEATS in rpg_data.js, diversi
+     effetti secondari delle abilità attive erano definiti nei dati ma MAI applicati qui:
+     - "debuff":{enemyAtk,turns} su un'abilità di tipo "attack"/"spell" (es. trip_attack,
+       ice_storm, sunburst) riduceva sulla carta l'Attacco del nemico, ma quella riduzione non
+       veniva mai effettivamente sottratta al tiro per colpire del nemico nei turni successivi.
+     - "dot":{dice,turns} (veleno/spine: poisoned_blade, ensnaring_strike, spirit_guardians) non
+       infliggeva MAI danno nei turni dopo quello in cui l'abilità veniva usata - l'effetto "a
+       turno" semplicemente non esisteva nel motore di combattimento.
+     - "selfDebuff":{ac,turns} (reckless_attack: -2 CA per 2 turni) non veniva mai applicato alla
+       propria CA quando il nemico attaccava.
+     - le abilità di tipo "debuff" puro, senza alcun attacco (intimidating_presence: SOLO -Attacco
+       nemico, nessun danno) cadevano nel ramo "altro" e finivano per eseguire comunque un debole
+       attacco con moltiplicatore 1 invece di applicare soltanto il debuff previsto.
+     - il bonus "arcane" (+2 danno abilità) non veniva mai aggiunto al danno delle abilità,
+       nonostante il talento lo promettesse esplicitamente (il suo +1 uso, invece, funzionava).
+     Tutto questo è ora tracciato con stato ESCLUSIVAMENTE di combattimento (mai persistito
+     sull'eroe, azzerato automaticamente alla fine di ogni scontro in closeCombat, come già
+     avveniva per i buff "ac"/"atk"): enemy.dot, enemy.atkDebuff su "enemy" (vive quanto
+     STATE.rpg.combat.enemy), combat.heroSelfDebuff su "combat". */
+  function tickStatusEffects(){
+    // Veleno/spine: infligge danno una volta per round (qui, prima del turno del nemico), poi
+    // scala il contatore; smette da solo quando i turni finiscono.
+    if(enemy.dot && enemy.dot.turns>0){
+      const dotDmg = rpgRollDice(enemy.dot.dice).total;
+      enemy.hp = Math.max(0, enemy.hp-dotDmg);
+      pushLog("Il veleno infligge "+dotDmg+" danni a "+enemy.name+".", "hit");
+      enemy.dot.turns--; if(enemy.dot.turns<=0) enemy.dot=null;
+    }
+  }
+  function decayRoundCounters(){
+    if(enemy.atkDebuff){ enemy.atkDebuff.turns--; if(enemy.atkDebuff.turns<=0) enemy.atkDebuff=null; }
+    if(combat.heroSelfDebuff){ combat.heroSelfDebuff.turns--; if(combat.heroSelfDebuff.turns<=0) combat.heroSelfDebuff=null; }
+  }
   function playerAction(kind, ability){
     if(combat.turnBusy) return;
     combat.turnBusy=true;
+    const bonus = rpgFeatBonuses(STATE.rpg.hero);
     if(kind==="attack"){
       const r = rpgHeroAttackRoll(STATE.rpg.hero, enemy);
       pushLog("Tiri "+r.d20+(r.crit?" — CRITICO!":"")+": "+(r.hit?("colpisci per "+r.dmg+" danni"):"mancato"), r.hit?"hit":"miss");
-      if(r.hit){ enemy.hp = Math.max(0, enemy.hp - r.dmg); rpgSfxPlay("rpg-hit"); }
+      if(r.hit){
+        enemy.hp = Math.max(0, enemy.hp - r.dmg); rpgSfxPlay("rpg-hit");
+        // "vampiric" (talento, FIX v1.98.0): recupera il 15% del danno infierito IN MISCHIA come
+        // PF - solo sull'attacco base, non sulle abilità a distanza (coerente col nome/icona).
+        if(bonus.vampiric){
+          const heal = Math.max(1, Math.round(r.dmg*bonus.vampiric));
+          STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp+heal);
+          pushLog("Lama vampirica: recuperi "+heal+" PF.", "heal");
+        }
+      }
     } else if(kind==="potion"){
       if((STATE.rpg.hero.potions||0)<=0){ toast("Non hai pozioni."); combat.turnBusy=false; return; }
       STATE.rpg.hero.potions--; const heal = rpgRollDice("2d8+2").total;
@@ -8029,7 +8232,6 @@ function rpgViewCombat(){
       rpgSfxPlay("rpg-heal");
     } else if(kind==="ability"){
       const uses = (STATE.rpg.hero.abilityUses||{})[ability.id]||0;
-      const bonus = rpgFeatBonuses(STATE.rpg.hero);
       const maxUses = ability.uses + bonus.extraUses;
       if(uses>=maxUses){ toast("Abilità esaurita per questa discesa."); combat.turnBusy=false; return; }
       STATE.rpg.hero.abilityUses = STATE.rpg.hero.abilityUses||{}; STATE.rpg.hero.abilityUses[ability.id]=uses+1;
@@ -8042,6 +8244,11 @@ function rpgViewCombat(){
         STATE.rpg.hero.acBonus = (STATE.rpg.hero.acBonus||0) + (ability.ac||0);
         STATE.rpg.hero.atkBonus = (STATE.rpg.hero.atkBonus||0) + (ability.atk||0);
         pushLog(ability.name+" attiva!", "buff");
+      } else if(ability.type==="debuff"){
+        // Abilità di puro debuff (es. intimidating_presence): niente attacco, solo l'effetto sul
+        // nemico - prima finiva nel ramo "altro" ed eseguiva comunque un debole colpo a vuoto.
+        enemy.atkDebuff = {amount: ability.enemyAtk, turns: ability.turns};
+        pushLog(ability.name+": -"+(-ability.enemyAtk)+" Attacco a "+enemy.name+" per "+ability.turns+" turni.", "buff");
       } else {
         const hits = ability.hits||1; let total=0;
         for(let i=0;i<hits;i++){
@@ -8051,23 +8258,42 @@ function rpgViewCombat(){
           if(ability.bonusDice) dmg += rpgRollDice(ability.bonusDice).total;
           total += dmg;
         }
-        enemy.hp = Math.max(0, enemy.hp-total);
-        pushLog(ability.name+": infliggi "+total+" danni.", "hit");
+        if(total>0) total += bonus.skillDamageBonus; // "arcane": +2 danno abilità (una volta, non per colpo)
+        enemy.hp = Math.max(0, enemy.hp-Math.max(0,total));
+        pushLog(ability.name+": infliggi "+Math.max(0,total)+" danni.", "hit");
         if(total>0) rpgSfxPlay("rpg-hit");
+        if(ability.dot){ enemy.dot = {dice: ability.dot.dice, turns: ability.dot.turns}; pushLog(ability.name+" lascia un effetto che continua a mordere.", "buff"); }
+        if(ability.debuff){ enemy.atkDebuff = {amount: ability.debuff.enemyAtk, turns: ability.debuff.turns}; }
+        if(ability.selfDebuff){ combat.heroSelfDebuff = {ac: ability.selfDebuff.ac, turns: ability.selfDebuff.turns}; }
       }
     } else if(kind==="flee"){
-      const bonus = rpgFeatBonuses(STATE.rpg.hero);
       const roll = rollDie(20)+bonus.fleeBonus;
       if(roll>=12 && !enemy.boss){ pushLog("Fuggi nell'oscurità.", "flee"); STATE.rpg.combat=null; rpgGo("dungeon"); toast("Sei fuggito."); return; }
       pushLog("Tenti di fuggire ("+roll+") ma "+enemy.name+" ti blocca la strada.", "miss");
     }
+    tickStatusEffects();
     let outcome = checkEnd();
     if(!outcome){
-      const er = rpgEnemyAttackRoll(enemy, STATE.rpg.hero, 0);
+      // Il debuff -Attacco accumulato sul nemico (vedi sopra) va applicato qui: modifichiamo
+      // temporaneamente enemy.atk solo per questo tiro, poi lo ripristiniamo subito dopo.
+      const savedEnemyAtk = enemy.atk;
+      if(enemy.atkDebuff) enemy.atk = savedEnemyAtk + enemy.atkDebuff.amount;
+      // defenderBonusAc: "bulwark" (talento, +3 CA sotto meta' dei PF) e il -CA temporaneo di
+      // "selfDebuff" (es. reckless_attack) - mai permanenti, calcolati qui al momento del tiro.
+      const defenderBonusAc = (bonus.bulwark && STATE.rpg.hero.hp<=hero.maxHp/2 ? bonus.bulwark : 0)
+        + (combat.heroSelfDebuff ? combat.heroSelfDebuff.ac : 0);
+      const er = rpgEnemyAttackRoll(enemy, STATE.rpg.hero, defenderBonusAc);
+      enemy.atk = savedEnemyAtk;
       pushLog(enemy.name+" tira "+er.d20+(er.crit?" — critico!":"")+": "+(er.hit?("ti infligge "+er.dmg+" danni"):"manca il colpo"), er.hit?"enemyhit":"miss");
       if(er.hit){ STATE.rpg.hero.hp = Math.max(0, STATE.rpg.hero.hp-er.dmg); rpgSfxPlay("rpg-hit"); }
+      // "regen" (talento, FIX v1.98.0: prima non veniva mai applicato da nessuna parte) - recupera
+      // 2 PF a fine di ogni round di combattimento, se l'eroe e' ancora vivo.
+      if(bonus.regen && STATE.rpg.hero.hp>0){
+        STATE.rpg.hero.hp = Math.min(hero.maxHp, STATE.rpg.hero.hp+bonus.regen);
+      }
       outcome = checkEnd();
     }
+    decayRoundCounters();
     combat.turnBusy=false;
     if(outcome){ closeCombat(outcome); return; }
     render();
@@ -8086,9 +8312,16 @@ function rpgViewCombat(){
       el("div",{class:"hud-bar hud-hp"}, el("span",{style:"width:"+heroPct+"%"}))),
     el("div",{class:"rpg-combat-actions"},
       el("button",{class:"pixel-btn glow-gold", onclick:()=>playerAction("attack")}, "⚔ Attacca"),
+      // FIX v1.98.0 (segnalazione Carmine: "mancano le descrizioni delle abilità e cosa fanno"):
+      // prima il bottone mostrava solo nome e usi rimasti ("Palla di Fuoco (1)"), senza alcuna
+      // indicazione di cosa l'abilità facesse davvero - bisognava già sapere a memoria ogni
+      // effetto. Aggiunta una seconda riga col testo "desc" già presente in RPG_ABILITIES (mai
+      // mostrato da nessuna parte finora).
       ...abilities.map(a=>{
         const uses=(STATE.rpg.hero.abilityUses||{})[a.id]||0, maxUses=a.uses+rpgFeatBonuses(STATE.rpg.hero).extraUses;
-        return el("button",{class:"pixel-btn", disabled:uses>=maxUses, onclick:()=>playerAction("ability",a)}, a.name+" ("+(maxUses-uses)+")");
+        return el("button",{class:"pixel-btn rpg-ability-btn", disabled:uses>=maxUses, onclick:()=>playerAction("ability",a)},
+          el("div",{class:"rpg-ability-btn-name"}, a.name+" ("+(maxUses-uses)+")"),
+          el("div",{class:"rpg-ability-btn-desc"}, a.desc));
       }),
       el("button",{class:"pixel-btn", disabled:(STATE.rpg.hero.potions||0)<=0, onclick:()=>playerAction("potion")}, "🧪 Pozione ("+(STATE.rpg.hero.potions||0)+")"),
       el("button",{class:"pixel-btn ghost", onclick:()=>playerAction("flee")}, "🏃 Fuggi")),
@@ -8133,15 +8366,41 @@ function rpgViewDead(){
 function rpgViewLevelUp(){
   const hero = STATE.rpg.hero;
   const available = RPG_FEATS.filter(f=>!(hero.feats||[]).includes(f.id));
-  function choose(featId){
-    hero.feats = hero.feats||[]; hero.feats.push(featId);
+  function resolvePending(){
     hero.pendingChoices = Math.max(0, (hero.pendingChoices||1)-1);
-    hero.maxHp = rpgMaxHp(hero);
     // FIX (segnalazione Carmine, "ad ogni level up esce fuori dal dungeon"): il level up puo'
     // avvenire anche durante un'esplorazione in corso (dopo rpgViewSpoils), quindi non deve mai
     // forzare il ritorno in citta' - torna al dungeon se c'e' una mappa attiva, altrimenti in citta'.
     rpgGo(hero.pendingChoices>0 ? "levelup" : (STATE.rpg.dungeonMap ? "dungeon" : "town"));
+  }
+  function choose(featId){
+    hero.feats = hero.feats||[]; hero.feats.push(featId);
+    hero.maxHp = rpgMaxHp(hero);
+    resolvePending();
     toast("Nuovo talento: "+rpgFeatData(featId).name);
+  }
+  // FIX v1.98.0 — rete di sicurezza: se un giorno un eroe avesse già tutti i talenti esistenti
+  // (available.length===0) mentre gli resta ancora una scelta di livello in sospeso, la schermata
+  // non deve mai restare vuota senza nulla da cliccare - a quel punto, con rpgGo(...pendingChoices>0
+  // ? "levelup"...) che la richiamerebbe all'infinito ad ogni vittoria, sarebbe un vero e proprio
+  // blocco permanente (mai riprodotto con i 13 talenti attuali e la progressione reale fino al
+  // livello 20, ma un bug di questo tipo non deve mai poter bloccare la partita). In quel caso la
+  // scelta di livello si risolve con un bottone di consolazione (oro) invece di restare bloccata in
+  // attesa di un talento che non può più arrivare - stesso principio di ogni altra transizione di
+  // schermata del gioco (sempre un click esplicito, mai una navigazione automatica durante il
+  // render stesso, che qui ricreerebbe l'intera app mentre è già a metà di una ricreazione).
+  if(available.length===0){
+    function claimConsolation(){
+      const consolationGold = 20*hero.level;
+      hero.gold = (hero.gold||0) + consolationGold;
+      resolvePending();
+      toast("+"+consolationGold+" 🪙 al posto del talento.");
+    }
+    return rpgScreen(null, el("div",{class:"pixel-panel frame-ornate rpg-levelup"},
+      el("div",{class:"rpg-dead-banner good glow-gold"},"LIVELLO "+hero.level),
+      el("div",{class:"rune-divider"}),
+      el("p",{class:"muted"},"Hai già appreso ogni talento esistente."),
+      el("button",{class:"pixel-btn glow-gold rpg-cta", onclick:claimConsolation}, "Riscuoti "+(20*hero.level)+" 🪙 e continua")), {bottomnav:false});
   }
   const content = el("div",{class:"pixel-panel frame-ornate rpg-levelup"},
     el("div",{class:"rpg-dead-banner good glow-gold"},"LIVELLO "+hero.level),
@@ -45085,7 +45344,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.97.6"; // v1.97.6 (22/10, FIX DEFINITIVO ALLA NAVIGAZIONE DEL "DUNGEON DELLA DISCESA" SU MOBILE, su nuova segnalazione di Carmine con screenshot dopo la v1.97.4: "nella schermata personaggio non c'è il ritorno alla città né l'inventario né nulla". Causa reale individuata leggendo il codice della shell principale (non ancora esaminato nelle versioni precedenti): tutte le correzioni di v1.97.4 su rpgBottomNav/rpgViewDungeonSelect erano logicamente corrette ma INVISIBILI su mobile, perché la barra di navigazione INTERNA del modulo RPG (.pixel-nav, Eroe/Zaino/Città/Gilda/Dungeon, definita in rpgBottomNav dentro rpg_ui.js) e la barra di navigazione PRINCIPALE dell'app (#tabs, Bestiario/Forgia/Dungeon della Discesa/Esplora..., definita nella shell di rollone.html) sono entrambe position:fixed;bottom:0 nello STESSO punto esatto dello schermo su mobile; #tabs ha z-index 400/401 contro il 40 di .pixel-nav, quindi la copre sempre e la rende intoccabile, pur essendo presente e perfettamente funzionante nel DOM - esattamente ciò che mostrava lo screenshot di Carmine (solo Bestiario/Forgia/Dungeon della Discesa/Esplora visibili in basso, nessuna Città/Zaino). Le voci "Città"/"Zaino" esistono SOLO nella barra interna, senza equivalente in #tabs, quindi restavano irraggiungibili su mobile indipendentemente da qualunque correzione fatta solo dentro rpg_ui.js. Fix in due parti: (1) nella shell principale di rollone.html, render() aggiunge ora la classe "rpg-active" a <body> quando STATE.view==="rpg", e una nuova regola CSS nel media query mobile (body.rpg-active #tabs{display:none}) nasconde #tabs in quel caso, lasciando emergere la barra interna del modulo RPG; (2) in rpg_ui.js/rpgTopBar(), aggiunto un pulsante "🏠" sempre visibile (ogni schermata del modulo, dungeon incluso) con onclick che richiama go("home") per uscire comunque al menu principale anche senza #tabs visibile, con e.stopPropagation() per non far scattare anche il click dell'intera barra HUD che apre normalmente la scheda personaggio; nuova classe .rpg-exit-btn in rpg_styles.css. Nessuna modifica a rpg_data.js/rpg_engine.js né alla logica introdotta in v1.97.4/v1.97.5 (rpgBottomNav, rpgViewDungeonSelect, rpgUsePotionOutOfCombat, rpgDungeonPatch, trappole/altari/casse/forzieri sospetti, ricompense missioni restano identici: erano già corretti, mancava solo la visibilità su mobile). Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione (stessa suite della v1.97.5, nessuna regressione); test dedicati su rpgTopBar: il nuovo pulsante "🏠" è presente nella HUD in ogni schermata, il click richiama go("home") cambiando STATE.view, e non si propaga al click dell'intera barra HUD (lo screen RPG interno resta quello che era, non si apre per errore rpgViewCharacter); verifica statica che la classe "rpg-active" venga impostata in render() e che la regola CSS corrispondente esista nel media query mobile, entrambe presenti una sola volta e nell'ordine corretto nel file pubblicato. sha256: 27470ca6597857463f1885bb954ba4a19b195361bf9bd33c4ce9e2c93abec279.
+var ROLLONE_CONTENT_VERSION = "1.98.0"; // v1.98.0 (22/10, SETTE CORREZIONI AL "DUNGEON DELLA DISCESA", su segnalazione dettagliata di Carmine in due messaggi consecutivi: il primo elenca sei problemi distinti dopo uso prolungato ("Dungeon troppo piccoli, poco popolati, poche cose da fare. a livello 14 si blocca perché non ci sono talenti né nulla. servono più tipi di dungeon. le skill non funzionano correttamente. i mostri non danno tempo di evitarli visto lo spazio ristretto. la gilda deve avere più missioni da attivare contemporaneamente. le skill passive non funzionano correttamente."), il secondo arrivato a metà implementazione ne aggiunge altri due ("Inoltre ho notato che non si adatta né si centra né sul PC né su dispositivo mobile anche ruotandolo. Mancano le descrizioni delle abilità e cosa fanno."), entrambi affrontati nella stessa release. (1) DUNGEON PIÙ GRANDI E POPOLATI: griglia 9x7 -> 11x9 (99 celle), stanze generate 11-16 -> 24-35, mostri per piano quasi raddoppiati (formula ora 6+floor(profondita/4)+22% dei candidati disponibili, prima 4+floor(profondita/5)), forzieri 1-2 -> 2-3, trappole 1-2 (probabilità crescente con la profondità) rese leggermente più frequenti, altari e casse di scorte possono ora comparire fino a 2 volte a piano invece di una sola (rpgGenerateDungeonMap in rpg_engine.js). (2) PROGRESSIONE AL LIVELLO 14: "si blocca perché non ci sono talenti né nulla" non era un bug nella formula di assegnazione dei talenti (verificata algebricamente identica alla formula pulita per-milestone, nessun overshoot/exhaustion reale a quel livello), ma mancanza di contenuto nuovo attorno a quel livello; aggiunto un decimo tipo di dungeon sbloccato esattamente a livello 14 ("Rovine del Patto Infranto", RPG_DUNGEONS in rpg_data.js) e una nuova abilità di classe a livello 14 per tutte le sei classi (Fighter: Colpo di Parata con contro-debuff; Wizard: Cono di Gelo 6d8; Rogue: Dissolversi, +8 CA; Cleric: Cura di Massa 3d8+4; Ranger: Raffica con dadi bonus; Barbarian: Incontenibile, +4 attacco per 3 turni). Aggiunta anche, a prescindere, una rete di sicurezza in rpgViewLevelUp per l'ipotetico caso limite di talenti totalmente esauriti (mai raggiungibile nei test ma ora comunque gestito con un bottone esplicito di consolazione in oro invece di una schermata vuota o un render-in-render rischioso, scartato in fase di autoreview prima di qualunque test). (3) PIÙ TIPI DI DUNGEON: il roster passa da 5 a 10 voci (RPG_DUNGEONS), ciascuna con nome/descrizione/livello minimo/moltiplicatori XP-bottino/bias risorse/palette propri: Cripta(1), Boschi Corrotti(2), Miniere(3), Fogne di Hollowmark(5), Gelo(6), Fortezza Infestata(8), Vuoto(10), Rovine del Patto Infranto(14), Ceneri(15), Covo del Basilisco(17). (4) ABILITÀ ATTIVE CORRETTE: diversi effetti secondari delle abilità erano definiti nei dati ma mai realmente applicati in combattimento (rpgViewCombat/playerAction in rpg_ui.js, riscritto con due nuovi aiutanti tickStatusEffects/decayRoundCounters): i debuff al nemico (enemyAtk, es. Presenza Intimidatoria) ora riducono davvero il suo attacco per i turni indicati; il danno nel tempo (dot, es. Lama Avvelenata/Colpo Intrappolante/Spiriti Guardiani) infligge ora danno a ogni round finché non scade da solo; gli auto-debuff dell'eroe (selfDebuff, es. Attacco Avventato) riducono davvero la propria CA per la durata indicata; le abilità di tipo "debuff" puro (nessun attacco abbinato, es. Presenza Intimidatoria) non infliggono più per errore un attacco debole non voluto, applicano solo il loro effetto. (5) MOSTRI E SPAZIO PER REAGIRE: raggio di rilevamento dei mostri ridotto da 3 a 2 celle (RPG_MONSTER_DETECT_RADIUS in rpg_engine.js), così il giocatore nello spazio ristretto della griglia ha più margine per notarli e scegliere se evitarli prima che si attivino. (6) MISSIONI MULTIPLE IN GILDA: da uno-slot-alla-volta a un elenco di missioni attive, tetto massimo 3 contemporanee (RPG_MAX_ACTIVE_QUESTS, rpgHeroQuests in rpg_data.js: aiutante di auto-migrazione pigra che convalida/migra in automatico il vecchio salvataggio a missione singola in un array la prima volta che viene letto, senza bisogno di un passaggio di migrazione esplicito, cosi' nessun salvataggio precedente viene perso); rpgViewGuild riscritta per mostrare ogni missione attiva come scheda propria con riscossione indipendente, e un bottone "Accetta nuova missione" visibile solo sotto il tetto massimo. (7) TALENTI PASSIVI CORRETTI: tre erano completamente privi di effetto e uno solo parzialmente funzionante, mai collegati al calcolo reale nonostante fossero visibili e selezionabili (rpgFeatBonuses in rpg_data.js, già collegato a rpgDerivedHero/rpgHeroAttackRoll ma non ovunque serviva): "ironhide" ora alza davvero la CA permanente (+1, rpgDerivedHero); "regen" cura davvero +2 PF a fine di ogni turno di combattimento; "bulwark" alza davvero la CA (+3) quando l'eroe è sotto la metà dei PF massimi, condizione verificata turno per turno; "arcane" (già presente) ora si applica anche al danno delle abilità attive, non solo a quello delle magie dirette. Aggiunto anche un nuovo talento completamente nuovo e funzionante, "Lama Vampirica": recupera il 15% del danno infierito in mischia come PF. SEGNALAZIONE AGGIUNTIVA RICEVUTA A METÀ LAVORO - (8) ADATTAMENTO SCHERMO PC/MOBILE/ROTAZIONE: la griglia del dungeon (ora 11x9, vedi punto 1) usava solo un max-width fisso, che su mobile in orizzontale (dove l'altezza, non la larghezza, è la dimensione scarsa) poteva non adattarsi/centrarsi correttamente; nuova formula responsive in .rpg-dungeon-grid (rpg_styles.css) che combina un tetto fisso in pixel, un tetto percentuale rispetto al contenitore E un tetto derivato dall'altezza reale della finestra (100dvh meno un budget stimato per l'interfaccia circostante, convertito nel rapporto d'aspetto 11/9 della griglia) scegliendo sempre il più piccolo dei tre, così la griglia si restringe correttamente quando lo spazio verticale è quello scarso, anche ruotando il telefono; corretto anche un disallineamento testo-contenuto nella vista dungeon (titolo/stato erano allineati a sinistra mentre griglia/controlli sotto erano centrati, ora tutto centrato con text-align:center su .rpg-dungeonroom). (9) DESCRIZIONI DELLE ABILITÀ IN COMBATTIMENTO: i bottoni delle abilità mostravano solo nome e usi rimanenti, senza alcuna indicazione di cosa facessero davvero; ora ogni bottone abilità è reso su due righe (nuove classi .rpg-ability-btn/.rpg-ability-btn-name/.rpg-ability-btn-desc) con la descrizione testuale dell'abilità (già presente nei dati come campo "desc", ora finalmente mostrata) sotto il nome. Verificato: node --check pulito su tutti i blocchi script del file finale; bilanciamento graffe pulito su tutti i blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione (nessuna regressione sulle suite preesistenti: smoke test a 18 schermate, test navigazione, test oggetti dungeon, test del pulsante di uscita); suite dedicata ampliata a 32 asserzioni per ogni cambiamento di questa versione (missioni multiple con rimozione alla riscossione, migrazione automatica dal vecchio salvataggio singolo, tetto massimo missioni rispettato in UI, dieci tipi di dungeon con sblocco esatto a livello 14, griglia 11x9 più popolata, bonus dei talenti ironhide/vampiric/arcane/regen/bulwark esposti correttamente, nuova abilità di livello 14 presente per tutte le sei classi); più una seconda suite dedicata di 13 asserzioni sugli effetti di combattimento in azione (non solo esposti nei dati, ma realmente applicati turno per turno): abilità di tipo debuff puro senza danno indesiderato, debuff dell'attacco nemico applicato, danno nel tempo che continua e scade da solo, auto-debuff dell'eroe impostato, bonus-danno "arcane" incluso nel danno dell'abilità, cura "regen" applicata a fine turno, CA condizionale "bulwark" esposta, rete di sicurezza del level-up funzionante e che assegna l'oro di consolazione. sha256: 479141ff86a93dbce26de68e92d7b3fba9bf167a27186b6c681e1489865217c9.
+// var ROLLONE_CONTENT_VERSION = "1.97.6"; // v1.97.6 (22/10, FIX DEFINITIVO ALLA NAVIGAZIONE DEL "DUNGEON DELLA DISCESA" SU MOBILE, su nuova segnalazione di Carmine con screenshot dopo la v1.97.4: "nella schermata personaggio non c'è il ritorno alla città né l'inventario né nulla". Causa reale individuata leggendo il codice della shell principale (non ancora esaminato nelle versioni precedenti): tutte le correzioni di v1.97.4 su rpgBottomNav/rpgViewDungeonSelect erano logicamente corrette ma INVISIBILI su mobile, perché la barra di navigazione INTERNA del modulo RPG (.pixel-nav, Eroe/Zaino/Città/Gilda/Dungeon, definita in rpgBottomNav dentro rpg_ui.js) e la barra di navigazione PRINCIPALE dell'app (#tabs, Bestiario/Forgia/Dungeon della Discesa/Esplora..., definita nella shell di rollone.html) sono entrambe position:fixed;bottom:0 nello STESSO punto esatto dello schermo su mobile; #tabs ha z-index 400/401 contro il 40 di .pixel-nav, quindi la copre sempre e la rende intoccabile, pur essendo presente e perfettamente funzionante nel DOM - esattamente ciò che mostrava lo screenshot di Carmine (solo Bestiario/Forgia/Dungeon della Discesa/Esplora visibili in basso, nessuna Città/Zaino). Le voci "Città"/"Zaino" esistono SOLO nella barra interna, senza equivalente in #tabs, quindi restavano irraggiungibili su mobile indipendentemente da qualunque correzione fatta solo dentro rpg_ui.js. Fix in due parti: (1) nella shell principale di rollone.html, render() aggiunge ora la classe "rpg-active" a <body> quando STATE.view==="rpg", e una nuova regola CSS nel media query mobile (body.rpg-active #tabs{display:none}) nasconde #tabs in quel caso, lasciando emergere la barra interna del modulo RPG; (2) in rpg_ui.js/rpgTopBar(), aggiunto un pulsante "🏠" sempre visibile (ogni schermata del modulo, dungeon incluso) con onclick che richiama go("home") per uscire comunque al menu principale anche senza #tabs visibile, con e.stopPropagation() per non far scattare anche il click dell'intera barra HUD che apre normalmente la scheda personaggio; nuova classe .rpg-exit-btn in rpg_styles.css. Nessuna modifica a rpg_data.js/rpg_engine.js né alla logica introdotta in v1.97.4/v1.97.5 (rpgBottomNav, rpgViewDungeonSelect, rpgUsePotionOutOfCombat, rpgDungeonPatch, trappole/altari/casse/forzieri sospetti, ricompense missioni restano identici: erano già corretti, mancava solo la visibilità su mobile). Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione (stessa suite della v1.97.5, nessuna regressione); test dedicati su rpgTopBar: il nuovo pulsante "🏠" è presente nella HUD in ogni schermata, il click richiama go("home") cambiando STATE.view, e non si propaga al click dell'intera barra HUD (lo screen RPG interno resta quello che era, non si apre per errore rpgViewCharacter); verifica statica che la classe "rpg-active" venga impostata in render() e che la regola CSS corrispondente esista nel media query mobile, entrambe presenti una sola volta e nell'ordine corretto nel file pubblicato. sha256: 27470ca6597857463f1885bb954ba4a19b195361bf9bd33c4ce9e2c93abec279.
 // var ROLLONE_CONTENT_VERSION = "1.97.5"; // v1.97.5 (22/10, OGGETTI E MISSIONI STILE DARKEST DUNGEON, su richiesta esplicita di Carmine: "devi inserire trappole, altari, casse, scelte rischio/ricompensa, più missioni con ricompense varie anche in oggetti pozioni equipaggiamento ecc...", come estensione/completamento del punto 5 lasciato in sospeso in v1.97.4 ("oggetti stile Darkest Dungeon"). Aggiunto in rpg_engine.js/rpg_data.js/rpg_ui.js/rpg_styles.css. DUNGEON: tre nuovi tipi di cella, mutuamente esclusivi tra loro e con mostri/forzieri/scale, generati da rpgGenerateDungeonMap - TRAPPOLE (rpgTriggerTrap): invisibili finché non ci si cammina sopra (a differenza di altari/casse, che sono sempre visibili sulla griglia con icona dedicata), danno 1d6+profondità/3 con tiro salvezza su Destrezza che ne dimezza l'effetto, mai letali fuori combattimento (PF mai sotto 1). ALTARI (rpgRollAltarFaith/rpgAltarOffering/rpgApplyAltarOutcome): al massimo uno a piano (~55% di probabilità), propongono sempre una schermata di scelta esplicita (nuova vista rpgViewDungeonEvent) prima di qualunque effetto - "Prega con fede" (rischioso: bonus CA/attacco nel prossimo combattimento, cura, oro, ma anche possibile maledizione o danno) contro "Lascia un'offerta silenziosa" (sempre sicura, piccola cura garantita) contro "Ignora e prosegui" (l'altare resta lì per un'altra volta). CASSE DI SCORTE (crates): sempre sicure, si raccolgono da sole come i forzieri normali, danno sempre almeno una pozione (a differenza dei forzieri, che danno oro/erbe/minerale). FORZIERI SOSPETTI: ~35% dei forzieri esistenti ora nasconde un rischio, scoperto solo alla scelta di come apriarlo nella stessa nuova schermata di evento - "Forza la serratura" (bottino pieno, ~40% di probabilità di far scattare una trappola) contro "Apri con cautela" (metà oro, sempre sicuro). MISSIONI DELLA GILDA (rpgNewQuest): oltre a oro/PE fissi, ogni missione ha ora il 50% di probabilità di offrire anche pozioni (1-2) e il 35% di offrire un pezzo di equipaggiamento o un'arma (rpgRollQuestItem, riusa la stessa generazione di bottino di combattimenti/forzieri, a un tier coerente col livello dell'eroe); la ricompensa è decisa una sola volta alla generazione della missione e mostrata per intero nella schermata della Gilda PRIMA di completarla, non a sorpresa al momento della riscossione; riscuotere una missione mentre un'esplorazione è in corso non esce più dal dungeon (stesso principio del fix sul level up di v1.97.4). Nessuna meccanica preesistente toccata (combattimento/XP/oro dei forzieri normali identici). Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito sui 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; 18 asserzioni dedicate che riproducono ogni scenario (trappola che fa danno e scompare; altare che porta alla scelta senza applicare subito l'effetto, e che resta sulla mappa se ignorato; cassa di scorte raccolta automaticamente; forziere sospetto che blocca la raccolta automatica finché non si scelga "apri con cautela"/"forza la serratura"; icone "altar"/"crate" visibili sulla griglia, trappola correttamente invisibile; missioni che offrono pozioni/oggetti su un campione di 60 tiri; schermata Gilda che mostra la ricompensa in oggetti/pozioni prima di riscuotere e la applica correttamente all'inventario/scorte). sha256: f2b57a05a236d628e9a2abc31dfbf4c767505a65f7997c1bd508afef2713d222.
 // var ROLLONE_CONTENT_VERSION = "1.97.4"; // v1.97.4 (22/10, CINQUE CORREZIONI AL "DUNGEON DELLA DISCESA", su segnalazione multipla e dettagliata di Carmine dopo aver provato a lungo l'esplorazione reale: cinque problemi distinti, tutti corretti in rpg_ui.js (nessuna modifica a rpg_data.js/rpg_engine.js/rpg_styles.css). (1) "Non posso tornare indietro dalla scheda personaggio": la voce "Dungeon" della barra inferiore passava SEMPRE da rpgViewDungeonSelect, la cui unica azione rigenerava STATE.rpg.dungeonMap da zero anche quando si trattava dello stesso dungeon già in corso - tornare alla scheda personaggio e poi provare a "tornare indietro" cancellava quindi mostri uccisi, forzieri aperti e posizione sulla mappa. Ora quella voce, se un'esplorazione è già attiva, porta DIRETTAMENTE a rpgGo("dungeon") senza rigenerare nulla; rpgViewDungeonSelect stesso, per il dungeon già in corso, propone ora "Riprendi l'esplorazione" (nessuna rigenerazione) con "Ricomincia da capo" come scelta esplicita e confermata separatamente per chi vuole davvero ripartire da zero. (2) "Zaino e inventario non sono visibili, al di fuori del fight non posso usare le pozioni": la vista dungeon nasconde la barra di navigazione (bottomnav:false, per lasciare spazio a joystick/D-pad), rendendo lo zaino irraggiungibile durante l'esplorazione; le pozioni, inoltre, erano utilizzabili SOLO dentro rpgViewCombat, senza alcun equivalente fuori combattimento. Aggiunto un accesso rapido "🎒 Zaino" e un bottone pozione diretto nei controlli della vista dungeon, più una nuova rpgUsePotionOutOfCombat() (stessa cura 2d8+2 della pozione in combattimento) richiamabile anche dalla schermata zaino stessa; il bottone resta disabilitato se non si hanno pozioni o si è già in piena salute, e rifiuta l'uso se si è in combattimento (lì resta il bottone dedicato della schermata di battaglia). (3) "Ad ogni level up esce fuori dal dungeon": rpgViewLevelUp/choose() forzava SEMPRE rpgGo("town") una volta assegnati tutti i talenti in sospeso, anche se il level up avveniva a metà di un'esplorazione (dopo rpgViewSpoils, vedi v1.9x); ora torna al dungeon se STATE.rpg.dungeonMap esiste, altrimenti in città come prima (nessun cambiamento quando non si sta esplorando). (4) "Il refresh continuo mentre si muovono i mostri o il giocatore... la schermata deve essere stabile come nell'app di base44": il fix v1.97.1 (ridisegna solo se qualcosa cambia davvero) non bastava perché anche un SOLO cambiamento continuava a richiamare il render() globale, che ricostruisce da zero l'INTERA app (sidebar, header, dpad/joystick compresi) - percepito come sfarfallio/instabilità. Nuova rpgDungeonPatch(): mentre si resta sulla vista dungeon, aggiorna in-place SOLO le celle della griglia e il testo di stato realmente cambiati (confronto per firma testuale per cella), senza mai ricreare i nodi DOM di griglia/joystick/D-pad; usata ora dal battito dei mostri, da rpgMoveDungeon e dal tocco sul joystick. Se il riferimento alla mappa salvato non corrisponde più (nuova profondità, cambio schermata) ricade automaticamente su un render() completo, quindi resta sicura in ogni caso. (5) Oggetti/scrigni aggiuntivi in stile Darkest Dungeon: non ancora implementati in questa versione, restano da progettare con Carmine (tipologie, effetti, arte) prima di procedere. Verificato: node --check pulito su tutti i blocchi script del file finale; bilanciamento graffe pulito sui blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che riproducono ciascuno dei quattro scenari segnalati (ripresa non distruttiva dal bottom-nav e da dungeonSelect, zaino e pozione raggiungibili dal dungeon e utilizzabili fuori combattimento con rifiuto esplicito in combattimento, level up che torna al dungeon se c'è una mappa attiva, identità dei nodi DOM di griglia/joystick/D-pad invariata dopo un movimento/battito e corretto fallback su render() completo quando il riferimento mappa non è più valido). Nota tecnica sulla pubblicazione: lo script di splice usato per v1.97.3 aveva marcatori di fine-sezione per CSS e dati ormai superati (risalenti a prima dell'aggiunta delle sezioni "RESTYLING FEDELE A BASE44" e "ARTE DEDICATA", v1.96.0): usarli senza controllo avrebbe orfanizzato/duplicato ~496KB di contenuto legittimo già presente identico sia nel file pubblicato che in quello locale. Individuato PRIMA di scrivere qualunque file, grazie a un controllo di sanità automatico (rapporto dimensione-vecchio-blocco/dimensione-file-locale, atteso vicino a 1.0 per i file non toccati) aggiunto da ora in poi allo script di splice; corretto usando la coda letterale, verificata unica, dei file locali attuali come nuovi marcatori di fine-sezione. sha256: 1dbad164e01447f68b90f08431983db0a24fec28640eabfdfb158ba5a1dbd397.
 // var ROLLONE_CONTENT_VERSION = "1.97.3"; // v1.97.3 (22/10, SCELTA DELLE CARATTERISTICHE IN CREAZIONE, su richiesta esplicita di Carmine: "nella creazione non posso scegliere che statistiche mettere, come faccio per la scheda che si crea quando si gioca a dnd... voglio lo stesso principio". Prima rpgNewHero tirava le 6 caratteristiche (str/dex/con/int/wis/cha, metodo 4d6-scarta-il-minimo) e le assegnava direttamente, senza alcuna scelta per il giocatore. Ora la creazione del personaggio (rpgViewCreate in rpg_ui.js) usa lo STESSO PRINCIPIO del passo "Caratteristiche" del wizard di creazione scheda D&D gia' presente in questo stesso progetto (viewWizard/rollSixValues): tira un "mazzo" di 6 valori (nuova rpgRollSixScores in rpg_data.js, stesso 4d6-scarta-il-minimo di sempre) e li mostra come pool; il giocatore assegna ciascun valore a una caratteristica tramite un menu a tendina per abilita', con anteprima del modificatore in tempo reale; ogni valore e' disponibile una sola volta (stesso algoritmo di disponibilita' del wizard D&D: un valore doppio nel pool resta assegnabile due volte, un valore gia' usato sparisce dalle altre tendine ma resta visibile nella propria); un bottone "Ritira tutto" rigenera il pool scartando le assegnazioni fatte finora. rpgNewHero accetta ora un quarto parametro "scores" con l'assegnazione scelta dal giocatore (resta un ripiego di sicurezza che tira comunque caratteristiche valide se il parametro arrivasse incompleto, cosi' nessun personaggio puo' mai nascere con caratteristiche indefinite). Il bottone "Inizia l'avventura" blocca la creazione con un messaggio chiaro se non tutte e sei le caratteristiche sono state assegnate (stesso principio del fix v1.97.2 sul nome: controllo dentro al click, mai un "disabled" HTML silenzioso). Nessun'altra logica di gioco toccata. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che verificano: il pool di 6 valori viene generato al primo ingresso; il bottone blocca la creazione con messaggio se le caratteristiche non sono tutte assegnate; l'eroe creato riceve ESATTAMENTE le caratteristiche scelte dal giocatore (non valori casuali) e i PF derivati sono coerenti con il CON scelto; un valore duplicato nel pool resta assegnabile due volte, un valore unico sparisce dalle altre tendine una volta usato ma resta nella propria; rpgNewHero senza "scores" (ripiego) produce comunque un personaggio con tutte e sei le caratteristiche definite. sha256: dcc0397c80aac2da01283923bf08f3a1edb7bdcf3239bfcb7ef1e5cd1b24177c.
