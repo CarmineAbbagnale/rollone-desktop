@@ -1742,6 +1742,15 @@ html.platform-desktop[data-theme="dark"]{--muted:#c2ac82}
 .rpg-cell-monster.boss{width:76%;height:76%}
 .rpg-cell-chest{width:54%;height:54%;filter:drop-shadow(0 0 3px rgba(212,175,88,.5))}
 .rpg-cell.chest{background-color:color-mix(in srgb, #d4af58 10%, var(--rpg-dungeon-floor, var(--panelA)))}
+/* Altari e casse di scorte (richiesta esplicita di Carmine: "trappole, altari, casse, scelte
+   rischio/ricompensa") - stesso principio del forziere sopra: sfondo leggermente tinto per farle
+   notare a colpo d'occhio sulla griglia, icona con un lieve bagliore coerente. Le TRAPPOLE non
+   hanno invece nessuno stile dedicato qui: restano visivamente identiche a un pavimento normale
+   finché non ci si cammina sopra, di proposito (vedi rpg_engine.js). */
+.rpg-cell-altar{width:52%;height:52%;filter:drop-shadow(0 0 4px rgba(212,175,88,.55))}
+.rpg-cell.altar{background-color:color-mix(in srgb, #8a6fd4 14%, var(--rpg-dungeon-floor, var(--panelA)))}
+.rpg-cell-crate{width:52%;height:52%;filter:drop-shadow(0 0 3px rgba(150,100,50,.4))}
+.rpg-cell.crate{background-color:color-mix(in srgb, #8a6030 10%, var(--rpg-dungeon-floor, var(--panelA)))}
 /* Mostro "sveglio" che insegue (rpgTickMonsters, mon.alert): lieve alone rosso pulsante, per rendere
    visibile a colpo d'occhio che il dungeon "vive" e quel nemico si sta muovendo verso l'eroe. */
 .rpg-cell.monster.alert{animation:rpgAlertPulse 1s ease-in-out infinite alternate}
@@ -6069,6 +6078,20 @@ const RPG_RARITY = {
 function rpgRarityForTier(tier){ return tier>=2?"epic":tier===1?"uncommon":"common"; }
 function rpgRarityForValue(v){ return v>=150?"epic":v>=60?"rare":v>=20?"uncommon":"common"; }
 
+/* ---- Altari del dungeon: scelte rischio/ricompensa stile Darkest Dungeon (richiesta esplicita di
+   Carmine: "trappole, altari, casse, scelte rischio/ricompensa"). "Prega con fede" (rischioso) pesca
+   da questa tabella pesata, che mescola esiti favorevoli e sfavorevoli; "Lascia un'offerta silenziosa"
+   (sicura) non la usa affatto - vedi rpgRollAltarFaith/rpgAltarOffering in rpg_engine.js. Pesi:
+   10 "buoni" contro 5 "cattivi" (2:1), un rischio reale ma non scoraggiante. */
+const RPG_ALTAR_OUTCOMES = [
+  {weight:3, kind:"buffAc",  amount:3, text:"Il favore degli Antichi ti avvolge: +3 CA nel prossimo combattimento."},
+  {weight:3, kind:"buffAtk", amount:3, text:"Una forza antica ti guida la mano: +3 ai tiri per colpire nel prossimo combattimento."},
+  {weight:2, kind:"heal",    dice:"3d8+6"},
+  {weight:2, kind:"gold",    perDepth:10, flat:20},
+  {weight:3, kind:"curseAc", amount:3, text:"Un sussurro gelido ti si attacca addosso: -3 CA nel prossimo combattimento."},
+  {weight:2, kind:"dmg",     dice:"2d8"}
+];
+
 /* ---- Talenti (scelti alla salita di livello: uno ogni 2 livelli, 1 pendingChoice da spendere) ---- */
 const RPG_FEATS = [
   {id:"tough",       name:"Robusto",         desc:"+2 PF massimi per livello"},
@@ -6191,7 +6214,15 @@ function rpgNewQuest(level){
   const pool = RPG_MONSTERS.filter(m=>m.minLevel<=level).slice(-4).map(m=>m.name);
   const target = pool[Math.floor(Math.random()*pool.length)] || "Goblin";
   const needed = 3+Math.floor(level/2);
-  return { target, needed, count:0, rewardGold: needed*25+level*10, rewardXp: needed*20+level*8 };
+  // Ricompense variabili (richiesta esplicita di Carmine: "missioni con ricompense varie anche in
+  // oggetti pozioni equipaggiamento"): oltre a oro/PE fissi, ogni missione ha ora una probabilità di
+  // offrire anche pozioni e/o un pezzo di equipaggiamento (rpgRollQuestItem, in rpg_engine.js, riusa
+  // la stessa generazione di bottino dei combattimenti/forzieri). Decisa UNA SOLA VOLTA qui, alla
+  // generazione della missione, cosi' il giocatore vede cosa otterrà PRIMA di completarla, non a
+  // sorpresa al momento della riscossione.
+  const rewardPotions = Math.random()<0.5 ? 1+Math.floor(Math.random()*2) : 0;
+  const rewardItem = Math.random()<0.35 ? rpgRollQuestItem(level) : null;
+  return { target, needed, count:0, rewardGold: needed*25+level*10, rewardXp: needed*20+level*8, rewardPotions, rewardItem };
 }
 
 /* Tira una singola caratteristica come nella creazione di una scheda D&D reale: 4d6, scarta il
@@ -6393,6 +6424,71 @@ function rpgRollRelicDrop(depth){
   const rel = pool[Math.floor(Math.random()*pool.length)];
   return rel ? rpgMakeRelic(rel) : null;
 }
+/* Oggetto di ricompensa per le missioni della Gilda (vedi rpgNewQuest in rpg_data.js): riusa la
+   stessa generazione di bottino dei combattimenti/forzieri, a un tier coerente col LIVELLO
+   dell'eroe che accetta la missione (la Gilda non conosce la profondità attuale del dungeon). */
+function rpgRollQuestItem(level){
+  const depthLike = Math.max(1, Math.round((level-1)*1.4));
+  const tier = depthLike>=14 ? 2 : (depthLike>=5 ? 1 : 0);
+  const r = Math.random();
+  if(r<0.4) return rpgMakeWeapon(tier);
+  if(r<0.7) return rpgMakeArmor(tier);
+  return rpgRollEquipDrop(depthLike) || rpgMakeWeapon(tier);
+}
+
+/* ---- Altari ed eventi rischio/ricompensa del dungeon (richiesta esplicita di Carmine: "trappole,
+   altari, casse, scelte rischio/ricompensa"), stile Darkest Dungeon: davanti a un altare o a un
+   forziere "sospetto" il giocatore scopre un effetto solo dopo aver scelto come interagire, non
+   prima - vedi rpgViewDungeonEvent in rpg_ui.js per le schermate di scelta. */
+function rpgRollWeighted(table){
+  const total = table.reduce((s,o)=>s+o.weight,0);
+  let r = Math.random()*total;
+  for(const o of table){ r -= o.weight; if(r<0) return o; }
+  return table[table.length-1];
+}
+function rpgRollAltarFaith(hero){
+  const o = rpgRollWeighted(RPG_ALTAR_OUTCOMES);
+  const out = {kind:o.kind};
+  if(o.kind==="heal" || o.kind==="dmg"){
+    out.amount = rpgRollDice(o.dice).total;
+    out.text = o.kind==="heal" ? ("Una luce calda ti scorre nelle vene: recuperi "+out.amount+" PF.")
+                                : ("L'altare reclama il suo pegno di sangue: perdi "+out.amount+" PF.");
+  } else if(o.kind==="gold"){
+    out.amount = o.flat + Math.floor((hero.depth||1)*o.perDepth);
+    out.text = "Monete antiche cadono dalla nicchia: +"+out.amount+" oro.";
+  } else {
+    out.amount = o.amount; out.text = o.text;
+  }
+  return out;
+}
+function rpgAltarOffering(hero){
+  // Opzione sicura, senza alcun rischio: un piccolo beneficio sempre garantito, mai negativo.
+  const heal = rpgRollDice("1d8+2").total;
+  return {kind:"heal", amount:heal, text:"Lasci un'offerta silenziosa: una piccola pace ti ristora "+heal+" PF."};
+}
+function rpgApplyAltarOutcome(hero, outcome){
+  if(outcome.kind==="buffAc") hero.acBonus = (hero.acBonus||0) + outcome.amount;
+  else if(outcome.kind==="buffAtk") hero.atkBonus = (hero.atkBonus||0) + outcome.amount;
+  else if(outcome.kind==="curseAc") hero.acBonus = (hero.acBonus||0) - outcome.amount;
+  else if(outcome.kind==="heal") hero.hp = Math.min(rpgMaxHp(hero), hero.hp + outcome.amount);
+  else if(outcome.kind==="gold") hero.gold += outcome.amount;
+  // Il pegno di sangue dell'altare e' un rischio accettabile, non un modo per morire fuori
+  // combattimento (dove non esiste alcuna schermata di sconfitta): mai sotto 1 PF.
+  else if(outcome.kind==="dmg") hero.hp = Math.max(1, hero.hp - outcome.amount);
+}
+/* Trappola: danno diretto con possibilità di salvezza su Destrezza (stesso principio di un tiro
+   salvezza D&D), mai letale fuori combattimento per lo stesso motivo di rpgApplyAltarOutcome sopra. */
+function rpgRollTrapDamage(depth){
+  return rpgRollDice("1d6+"+Math.max(1,Math.floor(depth/3))).total;
+}
+function rpgTriggerTrap(hero, depth){
+  const dmg = rpgRollTrapDamage(depth);
+  const dc = 10 + Math.floor(depth/4);
+  const saved = (rollDie(20) + mod(hero.dex)) >= dc;
+  const finalDmg = saved ? Math.ceil(dmg/2) : dmg;
+  hero.hp = Math.max(1, hero.hp - finalDmg);
+  return { dmg: finalDmg, saved };
+}
 
 /* ---- Combattimento a turni (risoluzione di UN turno: eroe attacca, poi il nemico se è ancora vivo) ----
    Ogni chiamata restituisce un log di eventi testuali + lo stato aggiornato di eroe/nemico, così la UI
@@ -6528,16 +6624,48 @@ function rpgGenerateDungeonMap(depth, dungeon){
   const chestCount = Math.min(chestCells.length, 1+(Math.random()<.5?1:0));
   for(let i=0;i<chestCount;i++){
     const [cx,cy] = chestCells[i];
+    // Forziere "sospetto" (richiesta esplicita di Carmine: "casse, scelte rischio/ricompensa", stile
+    // Darkest Dungeon): ~35% dei forzieri nasconde un rischio, scoperto solo alla scelta di come
+    // apriarlo (vedi rpgViewDungeonEvent in rpg_ui.js) - "Forza la serratura" (bottino pieno, rischio
+    // di scattare una trappola) contro "Apri con cautela" (bottino ridotto ma sempre sicuro).
     chests[cx+","+cy] = {
       // Importi aumentati (richiesta esplicita di Carmine): piu' oro per forziere e piu' probabilita'
       // di trovarci dentro anche erbe/minerale insieme, non solo l'uno o l'altro.
       gold: 15+Math.floor(depth*4)+Math.floor(Math.random()*18),
       herbs: Math.random()<.65 ? 1+Math.floor(Math.random()*3) : 0,
-      ore: Math.random()<.55 ? 1+Math.floor(Math.random()*3) : 0
+      ore: Math.random()<.55 ? 1+Math.floor(Math.random()*3) : 0,
+      suspicious: Math.random()<.35
     };
   }
+  // Celle ancora libere (nessun mostro/forziere/partenza/scale) per trappole, altari e casse di
+  // scorte - mutuamente esclusive tra loro e con tutto il resto, cosi' ogni cella speciale ha un
+  // solo significato ed e' sempre chiaro cosa e' appena successo quando ci si cammina sopra.
+  const freeCells = candidates.filter(([cx,cy])=> !monsters[cx+","+cy] && !chests[cx+","+cy]);
+  let freeIdx = 0;
+  const takeFree = n => { const out = freeCells.slice(freeIdx, freeIdx+n); freeIdx += n; return out; };
+
+  // Trappole (richiesta esplicita di Carmine: "trappole"): invisibili finche' non si ci cammina
+  // sopra (vedi rpgTriggerTrap), 1-2 a piano, un filo piu' frequenti in profondita'.
+  const traps = {};
+  const trapCount = Math.min(freeCells.length-freeIdx, 1+(Math.random()<Math.min(.7,.3+depth*.02)?1:0));
+  for(const [cx,cy] of takeFree(Math.max(0,trapCount))) traps[cx+","+cy] = true;
+
+  // Altari (richiesta esplicita di Carmine: "altari, scelte rischio/ricompensa"): non su ogni piano
+  // (altrimenti perderebbero la sensazione di scoperta), ~55% di probabilita', al massimo uno.
+  const altars = {};
+  if(Math.random()<.55){ const c = takeFree(1); if(c.length) altars[c[0][0]+","+c[0][1]] = true; }
+
+  // Casse di scorte (richiesta esplicita di Carmine: "casse"): a differenza dei forzieri (oro/
+  // erbe/minerale), danno sempre almeno una pozione - raccolte camminandoci sopra come i forzieri
+  // normali, nessuna scelta rischiosa qui (quella e' riservata ai forzieri "sospetti" sopra).
+  const crates = {};
+  if(Math.random()<.5){
+    const c = takeFree(1);
+    if(c.length) crates[c[0][0]+","+c[0][1]] = { potions: 1+Math.floor(Math.random()*2), herbs: Math.random()<.3 ? 1+Math.floor(Math.random()*2) : 0 };
+  }
+
   return { w:W, h:H, grid, playerX:start[0], playerY:start[1], stairsX:stairs[0], stairsY:stairs[1],
-    monsters, monsterCount:Object.keys(monsters).length, bossFloor:isBossFloor, chests };
+    monsters, monsterCount:Object.keys(monsters).length, bossFloor:isBossFloor, chests, traps, altars, crates };
 }
 
 /* ---- IA mostri in tempo reale (richiesta esplicita di Carmine dopo lo studio di base44: lì il
@@ -6751,6 +6879,7 @@ function viewRpg(){
     case "bestiary": return rpgViewBestiary();
     case "log": return rpgViewLog();
     case "levelup": return rpgViewLevelUp();
+    case "dungeonEvent": return rpgViewDungeonEvent();
     case "dead": return rpgViewDead();
     default: return rpgViewHome();
   }
@@ -7101,6 +7230,30 @@ function rpgChestIcon(){
     '</svg>';
   return wrap;
 }
+/* Icona altare (richiesta esplicita di Carmine: "altari"): piedistallo di pietra con una runa che
+   brilla - stesso stile pixel-crisp delle altre icone della griglia. */
+function rpgAltarIcon(){
+  const wrap = el("div",{class:"rpg-cell-altar"});
+  wrap.innerHTML = '<svg viewBox="0 0 20 20" width="100%" height="100%" shape-rendering="crispEdges">'+
+    '<rect x="5" y="13" width="10" height="4" fill="#3a3650"/>'+
+    '<rect x="7" y="7" width="6" height="6" fill="#4a4568"/>'+
+    '<rect x="8" y="4" width="4" height="4" fill="#d4af58"/>'+
+    '<rect x="5" y="13" width="10" height="4" fill="none" stroke="#1e1a30" stroke-width="1"/>'+
+    '</svg>';
+  return wrap;
+}
+/* Icona cassa di scorte (richiesta esplicita di Carmine: "casse"): cassa di legno semplice, diversa
+   dal forziere ornato (nessun rischio associato, solo pozioni/erbe). */
+function rpgCrateIcon(){
+  const wrap = el("div",{class:"rpg-cell-crate"});
+  wrap.innerHTML = '<svg viewBox="0 0 20 20" width="100%" height="100%" shape-rendering="crispEdges">'+
+    '<rect x="4" y="6" width="12" height="10" fill="#6a4a28"/>'+
+    '<rect x="4" y="6" width="12" height="10" fill="none" stroke="#2a1a0e" stroke-width="1"/>'+
+    '<rect x="4" y="10" width="12" height="2" fill="#4a2e14"/>'+
+    '<rect x="9" y="6" width="2" height="10" fill="#4a2e14"/>'+
+    '</svg>';
+  return wrap;
+}
 /* Icona giocatore: un piccolo dado (coerente col tema "roll for initiative"/"dice vault") invece di
    un cerchio luminoso astratto, come nel prototipo base44 dove il segnalino del giocatore sulla
    mappa è un dado con le facce a puntini. */
@@ -7349,12 +7502,22 @@ function rpgViewGuild(){
     q ? el("div",{class:"rpg-quest-box"},
         el("div",{class:"target"},"Caccia: "+q.target),
         el("div",{class:"hud-bar hud-xp", style:"height:12px"}, el("span",{style:"width:"+Math.round(100*q.count/q.needed)+"%"})),
-        el("div",{class:"rpg-quest-reward"}, q.count+"/"+q.needed+" · Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"),
+        // Ricompense variabili (richiesta esplicita di Carmine: "missioni con ricompense varie
+        // anche in oggetti pozioni equipaggiamento"): mostrate PRIMA di completare la missione,
+        // cosi' il giocatore sa sempre cosa otterrà, non solo oro/PE come prima.
+        el("div",{class:"rpg-quest-reward"}, q.count+"/"+q.needed+" · Ricompensa: 🪙 "+q.rewardGold+" · "+q.rewardXp+" PE"
+          +(q.rewardPotions?" · 🧪×"+q.rewardPotions:"")
+          +(q.rewardItem?" · "+q.rewardItem.name:"")),
         q.count>=q.needed ? el("button",{class:"pixel-btn", onclick:()=>{
           STATE.rpg.hero.gold+=q.rewardGold; STATE.rpg.hero.xp+=q.rewardXp;
+          STATE.rpg.hero.potions = (STATE.rpg.hero.potions||0) + (q.rewardPotions||0);
+          if(q.rewardItem) STATE.rpg.inventory.push(q.rewardItem);
           const lv=rpgApplyLevelUps(STATE.rpg.hero);
           STATE.rpg.hero.activeQuest=rpgNewQuest(STATE.rpg.hero.level);
-          rpgGo(lv>0?"levelup":"guild"); toast("Missione completata!");
+          // Stesso principio del fix sul level up da dungeon: se un'esplorazione è in corso (si può
+          // raggiungere la Gilda anche da lì tramite la barra inferiore), non interromperla.
+          rpgGo(lv>0?"levelup":(STATE.rpg.dungeonMap?"dungeon":"guild"));
+          toast("Missione completata!"+(q.rewardItem?" Hai ottenuto: "+q.rewardItem.name+".":""));
         }}, "Riscuoti ricompensa") : null)
       : el("p",{class:"muted", style:"text-align:center"},"Nessuna missione attiva."),
     el("button",{class:"pixel-btn ghost", style:"margin-top:14px", onclick:()=>rpgGo("town")}, "← Torna a Hollowmark"));
@@ -7471,7 +7634,28 @@ function rpgMoveDungeon(dx,dy){
     return;
   }
   map.playerX=nx; map.playerY=ny;
+  // Trappola (richiesta esplicita di Carmine: "trappole"): invisibile finche' non ci si cammina
+  // sopra - resta cosi' anche dopo, non serve alcun segno permanente, basta il messaggio. Mai
+  // letale fuori combattimento (vedi rpgTriggerTrap in rpg_engine.js).
+  if(map.traps && map.traps[key]){
+    delete map.traps[key];
+    const hero = STATE.rpg.hero;
+    const r = rpgTriggerTrap(hero, hero.depth);
+    rpgLog(r.saved ? ("Scatta una trappola, ma schivi il peggio: -"+r.dmg+" PF.") : ("Scatta una trappola: -"+r.dmg+" PF!"));
+    toast(r.saved ? ("Trappola! Schivi parte del colpo: -"+r.dmg+" PF.") : ("Trappola! -"+r.dmg+" PF."));
+    rpgSfxPlay("rpg-hit");
+  }
+  // Forziere "sospetto" (richiesta esplicita di Carmine: "casse, scelte rischio/ricompensa"): non si
+  // apre da solo camminandoci sopra come un forziere normale - propone prima una scelta (vedi
+  // rpgViewDungeonEvent), cosi' il rischio e' sempre una decisione del giocatore, mai una sorpresa
+  // subita passivamente come la trappola qui sopra.
   const chestHere = map.chests && map.chests[key];
+  if(chestHere && chestHere.suspicious){
+    persist();
+    STATE.rpg._dungeonEvent = {type:"chest", key};
+    rpgGo("dungeonEvent");
+    return;
+  }
   if(chestHere){
     STATE.rpg.hero.gold += chestHere.gold;
     STATE.rpg.hero.herbs += chestHere.herbs||0;
@@ -7482,6 +7666,27 @@ function rpgMoveDungeon(dx,dy){
     if(chestHere.ore) bits.push("+"+chestHere.ore+" minerale");
     rpgLog("Trovi un forziere: "+bits.join(", ")+".");
     rpgSfxPlay("rpg-coin");
+  }
+  // Cassa di scorte (richiesta esplicita di Carmine: "casse"): sempre sicura, si raccoglie da sola
+  // come un forziere normale (nessuna scelta rischiosa, quella resta riservata al forziere sospetto).
+  const crateHere = map.crates && map.crates[key];
+  if(crateHere){
+    STATE.rpg.hero.potions = (STATE.rpg.hero.potions||0) + (crateHere.potions||0);
+    STATE.rpg.hero.herbs += crateHere.herbs||0;
+    delete map.crates[key];
+    const bits = ["+"+crateHere.potions+" pozioni"];
+    if(crateHere.herbs) bits.push("+"+crateHere.herbs+" erbe");
+    rpgLog("Trovi una cassa di scorte: "+bits.join(", ")+".");
+    rpgSfxPlay("rpg-coin");
+  }
+  // Altare (richiesta esplicita di Carmine: "altari, scelte rischio/ricompensa"): come il forziere
+  // sospetto, propone sempre una scelta esplicita prima di applicare qualunque effetto.
+  const altarHere = map.altars && map.altars[key];
+  if(altarHere){
+    persist();
+    STATE.rpg._dungeonEvent = {type:"altar", key};
+    rpgGo("dungeonEvent");
+    return;
   }
   if(nx===map.stairsX && ny===map.stairsY){
     if(Object.keys(map.monsters).length>0){
@@ -7604,15 +7809,23 @@ function rpgDungeonCellSig(hero, map, xx, yy){
   const isStairs = xx===map.stairsX && yy===map.stairsY;
   const monster = map.monsters[xx+","+yy];
   const chest = map.chests && map.chests[xx+","+yy];
+  // Altari e casse di scorte (richiesta esplicita di Carmine: "trappole, altari, casse, scelte
+  // rischio/ricompensa"): le TRAPPOLE invece NON compaiono qui di proposito - restano invisibili
+  // finche' non ci si cammina sopra (vedi rpgTriggerTrap in rpg_engine.js), altrimenti perderebbero
+  // ogni elemento di sorpresa/rischio.
+  const altar = map.altars && map.altars[xx+","+yy];
+  const crate = map.crates && map.crates[xx+","+yy];
   let cls = "rpg-cell "+(t===0?"wall":"floor");
   if(isStairs && t===1) cls += " stairs";
   if(monster) cls += monster.boss ? " monster boss" : " monster";
   if(monster && monster.alert) cls += " alert";
   if(chest) cls += " chest";
+  if(altar) cls += " altar";
+  if(crate) cls += " crate";
   if(isPlayer) cls += " player";
   const iconKey = isPlayer ? ("p:"+hero.race+":"+hero.klass)
     : monster ? ("m:"+monster.sprite+":"+(!!monster.boss)+":"+monster.name)
-    : chest ? "c" : (isStairs ? "s" : "");
+    : chest ? "c" : altar ? "al" : crate ? "cr" : (isStairs ? "s" : "");
   return {cls, iconKey};
 }
 function rpgDungeonCellIcon(hero, map, xx, yy){
@@ -7622,6 +7835,10 @@ function rpgDungeonCellIcon(hero, map, xx, yy){
   if(monster) return rpgMonsterMapIcon(monster.sprite, monster.boss, monster.name);
   const chest = map.chests && map.chests[xx+","+yy];
   if(chest) return rpgChestIcon();
+  const altar = map.altars && map.altars[xx+","+yy];
+  if(altar) return rpgAltarIcon();
+  const crate = map.crates && map.crates[xx+","+yy];
+  if(crate) return rpgCrateIcon();
   const isStairs = xx===map.stairsX && yy===map.stairsY;
   return isStairs ? "▼" : "";
 }
@@ -7674,7 +7891,7 @@ function rpgViewDungeon(){
   const content = el("div",{class:"rpg-dungeonroom", style:"--rpg-dungeon-floor:"+dungeon.palette.floor+";--rpg-dungeon-wall:"+dungeon.palette.wall+";--rpg-dungeon-accent:"+dungeon.palette.accent},
     el("h3",{class:"rpg-title"}, dungeon.name+" · Profondità "+hero.depth),
     statusEl,
-    el("div",{class:"rpg-dungeon-legend"},"Rotellina, frecce o D-pad per muoverti · il dungeon vive: i mostri vagano e ti inseguono se ti avvicini · cammina su un forziere per raccoglierlo · le scale scendono"),
+    el("div",{class:"rpg-dungeon-legend"},"Rotellina, frecce o D-pad per muoverti · il dungeon vive: i mostri vagano e ti inseguono se ti avvicini · cammina su forzieri/casse per raccoglierli, su altari per una scelta rischio/ricompensa · attenzione alle trappole nascoste · le scale scendono"),
     gridEl,
     el("div",{class:"rpg-dungeon-controls"},
       rpgJoystickEl(),
@@ -7902,6 +8119,88 @@ function rpgViewLevelUp(){
     el("div",{class:"rpg-grid"}, ...available.slice(0,8).map(f=>
       el("button",{class:"pixel-stat-box rpg-feat-tile", onclick:()=>choose(f.id)}, el("div",{class:"rpg-tile-title"},f.name), el("div",{class:"rpg-tile-sub"},f.desc)))));
   return rpgScreen(null, content, {bottomnav:false});
+}
+
+/* ================= EVENTI DEL DUNGEON: ALTARI E FORZIERI SOSPETTI =================
+   Richiesta esplicita di Carmine: "trappole, altari, casse, scelte rischio/ricompensa". A
+   differenza della trappola (automatica, subita) e della cassa di scorte (sempre sicura,
+   raccolta da sola), questi due eventi mettono sempre una scelta esplicita nelle mani del
+   giocatore - l'effetto si scopre solo DOPO aver scelto come interagire, mai prima, come in
+   Darkest Dungeon. Si torna sempre al dungeon (mai in città, stesso principio del fix sul level
+   up qui sopra), così l'esplorazione in corso non viene mai interrotta da un evento. */
+function rpgViewDungeonEvent(){
+  const ev = STATE.rpg._dungeonEvent;
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  // Guardia di sicurezza: se per qualunque motivo l'evento non c'e' piu' (es. ripresa di una
+  // sessione salvata a metà), torna semplicemente al dungeon invece di mostrare una schermata vuota.
+  // NB: qui si e' già dentro una chiamata a render() (questa funzione è invocata da viewRpg(), che
+  // render() chiama sincronamente) - richiamare rpgGo()/render() da qui innescherebbe un secondo
+  // render() annidato che duplicherebbe il contenuto di #app; si cambia quindi la schermata in modo
+  // diretto e si ritorna subito la vista giusta, senza nessuna chiamata a render() in più.
+  if(!ev || !STATE.rpg.dungeonMap){ STATE.rpg.screen = "dungeon"; return rpgViewDungeon(); }
+  function resolve(outcomeText){
+    STATE.rpg._dungeonEvent = null;
+    persist();
+    rpgGo("dungeon");
+    toast(outcomeText);
+  }
+  if(ev.type==="altar"){
+    const content = el("div",{class:"pixel-panel frame-ornate rpg-levelup"},
+      el("div",{class:"rpg-dead-banner good glow-gold"},"🕯 UN ALTARE ANTICO"),
+      el("div",{class:"rune-divider"}),
+      el("p",{class:"muted"},"Pietra incisa da mani che non sono più umane. Qualcosa, dentro, aspetta ancora un'offerta."),
+      el("button",{class:"pixel-btn", style:"width:100%;margin-bottom:8px", onclick:()=>{
+        const o = rpgRollAltarFaith(STATE.rpg.hero);
+        rpgApplyAltarOutcome(STATE.rpg.hero, o);
+        rpgLog(o.text);
+        delete STATE.rpg.dungeonMap.altars[ev.key];
+        resolve(o.text);
+      }}, "🙏 Prega con fede (rischioso)"),
+      el("button",{class:"pixel-btn ghost", style:"width:100%;margin-bottom:8px", onclick:()=>{
+        const o = rpgAltarOffering(STATE.rpg.hero);
+        rpgApplyAltarOutcome(STATE.rpg.hero, o);
+        rpgLog(o.text);
+        delete STATE.rpg.dungeonMap.altars[ev.key];
+        resolve(o.text);
+      }}, "🕯 Lascia un'offerta silenziosa (sicuro)"),
+      el("button",{class:"pixel-btn ghost", style:"width:100%", onclick:()=>resolve("Ti allontani dall'altare senza toccarlo.")}, "↩ Ignora e prosegui"));
+    return rpgScreen(hero, content, {bottomnav:false});
+  }
+  if(ev.type==="chest"){
+    const chest = STATE.rpg.dungeonMap.chests && STATE.rpg.dungeonMap.chests[ev.key];
+    if(!chest){ STATE.rpg.screen = "dungeon"; return rpgViewDungeon(); }
+    const content = el("div",{class:"pixel-panel frame-ornate rpg-levelup"},
+      el("div",{class:"rpg-dead-banner good glow-gold"},"🔒 UN FORZIERE SOSPETTO"),
+      el("div",{class:"rune-divider"}),
+      el("p",{class:"muted"},"La serratura è incrostata e il legno scricchiola in modo strano. Forzarla potrebbe far scattare qualcosa."),
+      el("button",{class:"pixel-btn", style:"width:100%;margin-bottom:8px", onclick:()=>{
+        STATE.rpg.hero.gold += chest.gold;
+        STATE.rpg.hero.herbs += chest.herbs||0;
+        STATE.rpg.hero.ore += chest.ore||0;
+        delete STATE.rpg.dungeonMap.chests[ev.key];
+        let text;
+        if(Math.random()<0.4){
+          const r = rpgTriggerTrap(STATE.rpg.hero, STATE.rpg.hero.depth);
+          text = "Forzi la serratura: bottino completo, ma scatta una trappola (-"+r.dmg+" PF)!";
+        } else {
+          text = "Forzi la serratura senza intoppi: bottino completo.";
+        }
+        rpgLog(text);
+        resolve(text);
+      }}, "🔓 Forza la serratura (bottino pieno, rischio trappola)"),
+      el("button",{class:"pixel-btn ghost", style:"width:100%;margin-bottom:8px", onclick:()=>{
+        const gold = Math.round(chest.gold/2);
+        STATE.rpg.hero.gold += gold;
+        delete STATE.rpg.dungeonMap.chests[ev.key];
+        const text = "Apri con cautela: solo l'oro in bella vista (+"+gold+"), ma nessun rischio.";
+        rpgLog(text);
+        resolve(text);
+      }}, "🧐 Apri con cautela (metà oro, nessun rischio)"),
+      el("button",{class:"pixel-btn ghost", style:"width:100%", onclick:()=>resolve("Ti allontani dal forziere senza toccarlo.")}, "↩ Lascialo lì e prosegui"));
+    return rpgScreen(hero, content, {bottomnav:false});
+  }
+  STATE.rpg.screen = "dungeon";
+  return rpgViewDungeon();
 }
 
 /* ================= SCHEDA PERSONAGGIO ================= */
@@ -44743,7 +45042,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.97.4"; // v1.97.4 (22/10, CINQUE CORREZIONI AL "DUNGEON DELLA DISCESA", su segnalazione multipla e dettagliata di Carmine dopo aver provato a lungo l'esplorazione reale: cinque problemi distinti, tutti corretti in rpg_ui.js (nessuna modifica a rpg_data.js/rpg_engine.js/rpg_styles.css). (1) "Non posso tornare indietro dalla scheda personaggio": la voce "Dungeon" della barra inferiore passava SEMPRE da rpgViewDungeonSelect, la cui unica azione rigenerava STATE.rpg.dungeonMap da zero anche quando si trattava dello stesso dungeon già in corso - tornare alla scheda personaggio e poi provare a "tornare indietro" cancellava quindi mostri uccisi, forzieri aperti e posizione sulla mappa. Ora quella voce, se un'esplorazione è già attiva, porta DIRETTAMENTE a rpgGo("dungeon") senza rigenerare nulla; rpgViewDungeonSelect stesso, per il dungeon già in corso, propone ora "Riprendi l'esplorazione" (nessuna rigenerazione) con "Ricomincia da capo" come scelta esplicita e confermata separatamente per chi vuole davvero ripartire da zero. (2) "Zaino e inventario non sono visibili, al di fuori del fight non posso usare le pozioni": la vista dungeon nasconde la barra di navigazione (bottomnav:false, per lasciare spazio a joystick/D-pad), rendendo lo zaino irraggiungibile durante l'esplorazione; le pozioni, inoltre, erano utilizzabili SOLO dentro rpgViewCombat, senza alcun equivalente fuori combattimento. Aggiunto un accesso rapido "🎒 Zaino" e un bottone pozione diretto nei controlli della vista dungeon, più una nuova rpgUsePotionOutOfCombat() (stessa cura 2d8+2 della pozione in combattimento) richiamabile anche dalla schermata zaino stessa; il bottone resta disabilitato se non si hanno pozioni o si è già in piena salute, e rifiuta l'uso se si è in combattimento (lì resta il bottone dedicato della schermata di battaglia). (3) "Ad ogni level up esce fuori dal dungeon": rpgViewLevelUp/choose() forzava SEMPRE rpgGo("town") una volta assegnati tutti i talenti in sospeso, anche se il level up avveniva a metà di un'esplorazione (dopo rpgViewSpoils, vedi v1.9x); ora torna al dungeon se STATE.rpg.dungeonMap esiste, altrimenti in città come prima (nessun cambiamento quando non si sta esplorando). (4) "Il refresh continuo mentre si muovono i mostri o il giocatore... la schermata deve essere stabile come nell'app di base44": il fix v1.97.1 (ridisegna solo se qualcosa cambia davvero) non bastava perché anche un SOLO cambiamento continuava a richiamare il render() globale, che ricostruisce da zero l'INTERA app (sidebar, header, dpad/joystick compresi) - percepito come sfarfallio/instabilità. Nuova rpgDungeonPatch(): mentre si resta sulla vista dungeon, aggiorna in-place SOLO le celle della griglia e il testo di stato realmente cambiati (confronto per firma testuale per cella), senza mai ricreare i nodi DOM di griglia/joystick/D-pad; usata ora dal battito dei mostri, da rpgMoveDungeon e dal tocco sul joystick. Se il riferimento alla mappa salvato non corrisponde più (nuova profondità, cambio schermata) ricade automaticamente su un render() completo, quindi resta sicura in ogni caso. (5) Oggetti/scrigni aggiuntivi in stile Darkest Dungeon: non ancora implementati in questa versione, restano da progettare con Carmine (tipologie, effetti, arte) prima di procedere. Verificato: node --check pulito su tutti i blocchi script del file finale; bilanciamento graffe pulito sui blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che riproducono ciascuno dei quattro scenari segnalati (ripresa non distruttiva dal bottom-nav e da dungeonSelect, zaino e pozione raggiungibili dal dungeon e utilizzabili fuori combattimento con rifiuto esplicito in combattimento, level up che torna al dungeon se c'è una mappa attiva, identità dei nodi DOM di griglia/joystick/D-pad invariata dopo un movimento/battito e corretto fallback su render() completo quando il riferimento mappa non è più valido). Nota tecnica sulla pubblicazione: lo script di splice usato per v1.97.3 aveva marcatori di fine-sezione per CSS e dati ormai superati (risalenti a prima dell'aggiunta delle sezioni "RESTYLING FEDELE A BASE44" e "ARTE DEDICATA", v1.96.0): usarli senza controllo avrebbe orfanizzato/duplicato ~496KB di contenuto legittimo già presente identico sia nel file pubblicato che in quello locale. Individuato PRIMA di scrivere qualunque file, grazie a un controllo di sanità automatico (rapporto dimensione-vecchio-blocco/dimensione-file-locale, atteso vicino a 1.0 per i file non toccati) aggiunto da ora in poi allo script di splice; corretto usando la coda letterale, verificata unica, dei file locali attuali come nuovi marcatori di fine-sezione. sha256: 1dbad164e01447f68b90f08431983db0a24fec28640eabfdfb158ba5a1dbd397.
+var ROLLONE_CONTENT_VERSION = "1.97.5"; // v1.97.5 (22/10, OGGETTI E MISSIONI STILE DARKEST DUNGEON, su richiesta esplicita di Carmine: "devi inserire trappole, altari, casse, scelte rischio/ricompensa, più missioni con ricompense varie anche in oggetti pozioni equipaggiamento ecc...", come estensione/completamento del punto 5 lasciato in sospeso in v1.97.4 ("oggetti stile Darkest Dungeon"). Aggiunto in rpg_engine.js/rpg_data.js/rpg_ui.js/rpg_styles.css. DUNGEON: tre nuovi tipi di cella, mutuamente esclusivi tra loro e con mostri/forzieri/scale, generati da rpgGenerateDungeonMap - TRAPPOLE (rpgTriggerTrap): invisibili finché non ci si cammina sopra (a differenza di altari/casse, che sono sempre visibili sulla griglia con icona dedicata), danno 1d6+profondità/3 con tiro salvezza su Destrezza che ne dimezza l'effetto, mai letali fuori combattimento (PF mai sotto 1). ALTARI (rpgRollAltarFaith/rpgAltarOffering/rpgApplyAltarOutcome): al massimo uno a piano (~55% di probabilità), propongono sempre una schermata di scelta esplicita (nuova vista rpgViewDungeonEvent) prima di qualunque effetto - "Prega con fede" (rischioso: bonus CA/attacco nel prossimo combattimento, cura, oro, ma anche possibile maledizione o danno) contro "Lascia un'offerta silenziosa" (sempre sicura, piccola cura garantita) contro "Ignora e prosegui" (l'altare resta lì per un'altra volta). CASSE DI SCORTE (crates): sempre sicure, si raccolgono da sole come i forzieri normali, danno sempre almeno una pozione (a differenza dei forzieri, che danno oro/erbe/minerale). FORZIERI SOSPETTI: ~35% dei forzieri esistenti ora nasconde un rischio, scoperto solo alla scelta di come apriarlo nella stessa nuova schermata di evento - "Forza la serratura" (bottino pieno, ~40% di probabilità di far scattare una trappola) contro "Apri con cautela" (metà oro, sempre sicuro). MISSIONI DELLA GILDA (rpgNewQuest): oltre a oro/PE fissi, ogni missione ha ora il 50% di probabilità di offrire anche pozioni (1-2) e il 35% di offrire un pezzo di equipaggiamento o un'arma (rpgRollQuestItem, riusa la stessa generazione di bottino di combattimenti/forzieri, a un tier coerente col livello dell'eroe); la ricompensa è decisa una sola volta alla generazione della missione e mostrata per intero nella schermata della Gilda PRIMA di completarla, non a sorpresa al momento della riscossione; riscuotere una missione mentre un'esplorazione è in corso non esce più dal dungeon (stesso principio del fix sul level up di v1.97.4). Nessuna meccanica preesistente toccata (combattimento/XP/oro dei forzieri normali identici). Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito sui 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; 18 asserzioni dedicate che riproducono ogni scenario (trappola che fa danno e scompare; altare che porta alla scelta senza applicare subito l'effetto, e che resta sulla mappa se ignorato; cassa di scorte raccolta automaticamente; forziere sospetto che blocca la raccolta automatica finché non si scelga "apri con cautela"/"forza la serratura"; icone "altar"/"crate" visibili sulla griglia, trappola correttamente invisibile; missioni che offrono pozioni/oggetti su un campione di 60 tiri; schermata Gilda che mostra la ricompensa in oggetti/pozioni prima di riscuotere e la applica correttamente all'inventario/scorte). sha256: f2b57a05a236d628e9a2abc31dfbf4c767505a65f7997c1bd508afef2713d222.
+// var ROLLONE_CONTENT_VERSION = "1.97.4"; // v1.97.4 (22/10, CINQUE CORREZIONI AL "DUNGEON DELLA DISCESA", su segnalazione multipla e dettagliata di Carmine dopo aver provato a lungo l'esplorazione reale: cinque problemi distinti, tutti corretti in rpg_ui.js (nessuna modifica a rpg_data.js/rpg_engine.js/rpg_styles.css). (1) "Non posso tornare indietro dalla scheda personaggio": la voce "Dungeon" della barra inferiore passava SEMPRE da rpgViewDungeonSelect, la cui unica azione rigenerava STATE.rpg.dungeonMap da zero anche quando si trattava dello stesso dungeon già in corso - tornare alla scheda personaggio e poi provare a "tornare indietro" cancellava quindi mostri uccisi, forzieri aperti e posizione sulla mappa. Ora quella voce, se un'esplorazione è già attiva, porta DIRETTAMENTE a rpgGo("dungeon") senza rigenerare nulla; rpgViewDungeonSelect stesso, per il dungeon già in corso, propone ora "Riprendi l'esplorazione" (nessuna rigenerazione) con "Ricomincia da capo" come scelta esplicita e confermata separatamente per chi vuole davvero ripartire da zero. (2) "Zaino e inventario non sono visibili, al di fuori del fight non posso usare le pozioni": la vista dungeon nasconde la barra di navigazione (bottomnav:false, per lasciare spazio a joystick/D-pad), rendendo lo zaino irraggiungibile durante l'esplorazione; le pozioni, inoltre, erano utilizzabili SOLO dentro rpgViewCombat, senza alcun equivalente fuori combattimento. Aggiunto un accesso rapido "🎒 Zaino" e un bottone pozione diretto nei controlli della vista dungeon, più una nuova rpgUsePotionOutOfCombat() (stessa cura 2d8+2 della pozione in combattimento) richiamabile anche dalla schermata zaino stessa; il bottone resta disabilitato se non si hanno pozioni o si è già in piena salute, e rifiuta l'uso se si è in combattimento (lì resta il bottone dedicato della schermata di battaglia). (3) "Ad ogni level up esce fuori dal dungeon": rpgViewLevelUp/choose() forzava SEMPRE rpgGo("town") una volta assegnati tutti i talenti in sospeso, anche se il level up avveniva a metà di un'esplorazione (dopo rpgViewSpoils, vedi v1.9x); ora torna al dungeon se STATE.rpg.dungeonMap esiste, altrimenti in città come prima (nessun cambiamento quando non si sta esplorando). (4) "Il refresh continuo mentre si muovono i mostri o il giocatore... la schermata deve essere stabile come nell'app di base44": il fix v1.97.1 (ridisegna solo se qualcosa cambia davvero) non bastava perché anche un SOLO cambiamento continuava a richiamare il render() globale, che ricostruisce da zero l'INTERA app (sidebar, header, dpad/joystick compresi) - percepito come sfarfallio/instabilità. Nuova rpgDungeonPatch(): mentre si resta sulla vista dungeon, aggiorna in-place SOLO le celle della griglia e il testo di stato realmente cambiati (confronto per firma testuale per cella), senza mai ricreare i nodi DOM di griglia/joystick/D-pad; usata ora dal battito dei mostri, da rpgMoveDungeon e dal tocco sul joystick. Se il riferimento alla mappa salvato non corrisponde più (nuova profondità, cambio schermata) ricade automaticamente su un render() completo, quindi resta sicura in ogni caso. (5) Oggetti/scrigni aggiuntivi in stile Darkest Dungeon: non ancora implementati in questa versione, restano da progettare con Carmine (tipologie, effetti, arte) prima di procedere. Verificato: node --check pulito su tutti i blocchi script del file finale; bilanciamento graffe pulito sui blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che riproducono ciascuno dei quattro scenari segnalati (ripresa non distruttiva dal bottom-nav e da dungeonSelect, zaino e pozione raggiungibili dal dungeon e utilizzabili fuori combattimento con rifiuto esplicito in combattimento, level up che torna al dungeon se c'è una mappa attiva, identità dei nodi DOM di griglia/joystick/D-pad invariata dopo un movimento/battito e corretto fallback su render() completo quando il riferimento mappa non è più valido). Nota tecnica sulla pubblicazione: lo script di splice usato per v1.97.3 aveva marcatori di fine-sezione per CSS e dati ormai superati (risalenti a prima dell'aggiunta delle sezioni "RESTYLING FEDELE A BASE44" e "ARTE DEDICATA", v1.96.0): usarli senza controllo avrebbe orfanizzato/duplicato ~496KB di contenuto legittimo già presente identico sia nel file pubblicato che in quello locale. Individuato PRIMA di scrivere qualunque file, grazie a un controllo di sanità automatico (rapporto dimensione-vecchio-blocco/dimensione-file-locale, atteso vicino a 1.0 per i file non toccati) aggiunto da ora in poi allo script di splice; corretto usando la coda letterale, verificata unica, dei file locali attuali come nuovi marcatori di fine-sezione. sha256: 1dbad164e01447f68b90f08431983db0a24fec28640eabfdfb158ba5a1dbd397.
 // var ROLLONE_CONTENT_VERSION = "1.97.3"; // v1.97.3 (22/10, SCELTA DELLE CARATTERISTICHE IN CREAZIONE, su richiesta esplicita di Carmine: "nella creazione non posso scegliere che statistiche mettere, come faccio per la scheda che si crea quando si gioca a dnd... voglio lo stesso principio". Prima rpgNewHero tirava le 6 caratteristiche (str/dex/con/int/wis/cha, metodo 4d6-scarta-il-minimo) e le assegnava direttamente, senza alcuna scelta per il giocatore. Ora la creazione del personaggio (rpgViewCreate in rpg_ui.js) usa lo STESSO PRINCIPIO del passo "Caratteristiche" del wizard di creazione scheda D&D gia' presente in questo stesso progetto (viewWizard/rollSixValues): tira un "mazzo" di 6 valori (nuova rpgRollSixScores in rpg_data.js, stesso 4d6-scarta-il-minimo di sempre) e li mostra come pool; il giocatore assegna ciascun valore a una caratteristica tramite un menu a tendina per abilita', con anteprima del modificatore in tempo reale; ogni valore e' disponibile una sola volta (stesso algoritmo di disponibilita' del wizard D&D: un valore doppio nel pool resta assegnabile due volte, un valore gia' usato sparisce dalle altre tendine ma resta visibile nella propria); un bottone "Ritira tutto" rigenera il pool scartando le assegnazioni fatte finora. rpgNewHero accetta ora un quarto parametro "scores" con l'assegnazione scelta dal giocatore (resta un ripiego di sicurezza che tira comunque caratteristiche valide se il parametro arrivasse incompleto, cosi' nessun personaggio puo' mai nascere con caratteristiche indefinite). Il bottone "Inizia l'avventura" blocca la creazione con un messaggio chiaro se non tutte e sei le caratteristiche sono state assegnate (stesso principio del fix v1.97.2 sul nome: controllo dentro al click, mai un "disabled" HTML silenzioso). Nessun'altra logica di gioco toccata. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicati che verificano: il pool di 6 valori viene generato al primo ingresso; il bottone blocca la creazione con messaggio se le caratteristiche non sono tutte assegnate; l'eroe creato riceve ESATTAMENTE le caratteristiche scelte dal giocatore (non valori casuali) e i PF derivati sono coerenti con il CON scelto; un valore duplicato nel pool resta assegnabile due volte, un valore unico sparisce dalle altre tendine una volta usato ma resta nella propria; rpgNewHero senza "scores" (ripiego) produce comunque un personaggio con tutte e sei le caratteristiche definite. sha256: dcc0397c80aac2da01283923bf08f3a1edb7bdcf3239bfcb7ef1e5cd1b24177c.
 // var ROLLONE_CONTENT_VERSION = "1.97.2"; // v1.97.2 (22/10, CORREZIONE BUG CREAZIONE PERSONAGGIO, su segnalazione esplicita di Carmine: "ho fatto un pg nuovo, ma non fa andare avanti nella creazione, clicco su inizia avventura ma nulla, non va avanti". Causa: il bottone "Inizia l'avventura" usava l'attributo HTML disabled, calcolato SOLO al momento del render; ma scrivere il nome nel campo sopra (oninput) non richiama render() di proposito in tutto il file, per non far perdere il focus all'input ad ogni tasto premuto (lo stesso motivo per cui altrove il render() ricostruisce interi pannelli solo quando serve davvero, vedi v1.97.1). Risultato: il bottone restava con l'attributo disabled della primissima volta (nome vuoto) finche' l'utente non toccava anche una pillola razza/classe (che ri-renderizza), cosa facile da non fare visto che razza/classe hanno gia' un default preselezionato - scrivere solo il nome e premere subito "Inizia l'avventura" lasciava il bottone bloccato e il click non scattava affatto, esattamente il sintomo segnalato. Ora il bottone non e' mai bloccato dall'HTML: il controllo sul nome avviene dentro al click stesso (rpgViewCreate in rpg_ui.js), con un messaggio chiaro ("Scrivi un nome per il tuo eroe...") se il nome e' ancora vuoto, invece di restare silenziosamente inerte. Nessun'altra logica toccata. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicato che riproduce esattamente lo scenario segnalato (nome scritto via oninput SENZA toccare le pillole razza/classe, poi click sullo stesso bottone catturato prima della digitazione, senza alcun render nel mezzo) e conferma che l'eroe viene creato e si arriva alla schermata home; verificato anche il caso nome vuoto (nessun eroe creato, messaggio mostrato). sha256: 8f80956a8864603fdb46da95fb9e5fdf5a62b83ec5e1d856e78ce6419f457cf8.
 // var ROLLONE_CONTENT_VERSION = "1.97.1"; // v1.97.1 (22/10, CORREZIONE BUG DI FUNZIONAMENTO nel "Dungeon della Discesa", su segnalazione esplicita di Carmine dopo aver provato l'app reale pubblicata ("tutto quello che hai testato nel tuo artefatto nell'app non funziona"): tre problemi distinti, ora corretti nel motore/interfaccia reali (rpg_engine.js/rpg_ui.js), non nell'artefatto di prova isolato usato finora per i test visivi, che non include la shell completa dell'app (barra laterale, tab) e quindi non mostrava questi sintomi. (1) "Refresh continuo nel dungeon": il battito in tempo reale dei mostri (ogni 550ms) chiamava render() - che ricostruisce da zero l'INTERA app, non solo la vista dungeon - INCONDIZIONATAMENTE ad ogni battito, anche quando sulla mappa non cambiava nulla; ora rpgTickMonsters() segnala se qualcosa e' davvero cambiato (un mostro si e' mosso o si e' "svegliato") e si ridisegna solo in quel caso. (2) "Se clicco sul personaggio non apre l'intera gestione": la barra in alto col ritratto dell'eroe (presente anche nel dungeon, dove la barra di navigazione inferiore con la voce "Eroe" e' nascosta) non aveva MAI avuto un gestore di click - il ritratto era solo decorativo; ora toccarla apre sempre la scheda del personaggio (rpgViewCharacter: inventario, missioni, gestione/cancellazione/creazione eroi). (3) "Le icone non rispecchiano il pg giocante ne' i mostri": le icone sulla griglia del dungeon (giocatore e mostri) erano sempre forme generiche (un dado per il giocatore, una sagoma colorata solo per famiglia per i mostri, es. Orco e Troll indistinguibili) - mai l'arte dedicata introdotta in v1.96.0/v1.97.0; ora mostrano quella stessa arte in miniatura quando esiste (stesso fallback a piu' livelli), ricadendo sulla forma generica solo se manca anche quella. Nessuna meccanica di gioco toccata (XP/oro/combattimento identici): solo tre correzioni di interfaccia/prestazioni. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicato che confronta prima/dopo su rpgTickMonsters (nessun mostro sulla mappa -> changed=false, nessun render sprecato), sul click della barra superiore (porta davvero a "character"), e sulle icone mappa (mostrano <img> con l'arte quando esiste, ricadono su SVG solo quando manca). sha256: 38b1e569a24439c7972de5c278c5ed3fcd39fd31695a69dba2d83302ac094fad.
