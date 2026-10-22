@@ -6532,14 +6532,24 @@ function rpgGenerateDungeonMap(depth, dungeon){
    null. */
 const RPG_MONSTER_DETECT_RADIUS = 3;
 const RPG_MONSTER_WANDER_CHANCE = 0.35;
+/* Ritorna {hit, changed}: "hit" e' l'eventuale incontro scatenato dal mostro che raggiunge il
+   giocatore; "changed" indica se qualcosa sulla mappa e' davvero cambiato in questo battito
+   (un mostro si e' mosso o si e' appena "svegliato"). Il chiamante (il battito in setInterval in
+   rpg_ui.js) usa "changed" per evitare un render()/persist() dell'INTERA app ad ogni singolo
+   battito (550ms) quando in realta' sulla mappa non e' cambiato nulla di visibile — prima questo
+   tick chiamava render() incondizionatamente, che su schermi reali (non l'artefatto di prova
+   isolato, che non include la shell completa dell'app con barra laterale/tab) risultava in uno
+   smontaggio/ricostruzione continuo e visibile dell'intera pagina, segnalato da Carmine come
+   "refresh continuo nel dungeon". */
 function rpgTickMonsters(map){
   const px = map.playerX, py = map.playerY, playerKey = px+","+py;
   const occupied = new Set(Object.keys(map.monsters));
+  let changed = false;
   for(const [key, mon] of Object.entries(map.monsters)){
     if(map.monsters[key] !== mon) continue; // già spostato in questo stesso tick da un'iterazione precedente
     const [cx,cy] = key.split(",").map(Number);
     const dist = Math.abs(cx-px)+Math.abs(cy-py);
-    if(!mon.alert && dist<=RPG_MONSTER_DETECT_RADIUS) mon.alert = true;
+    if(!mon.alert && dist<=RPG_MONSTER_DETECT_RADIUS){ mon.alert = true; changed = true; }
     const tryMove = (ddx,ddy)=>{
       if(ddx===0 && ddy===0) return false;
       const nx=cx+ddx, ny=cy+ddy;
@@ -6549,6 +6559,7 @@ function rpgTickMonsters(map){
       if(nkey!==playerKey && occupied.has(nkey)) return false;
       occupied.delete(key); delete map.monsters[key];
       map.monsters[nkey] = mon; occupied.add(nkey);
+      changed = true;
       if(nkey===playerKey) return "hit";
       return true;
     };
@@ -6557,7 +6568,7 @@ function rpgTickMonsters(map){
       const options = Math.abs(px-cx) >= Math.abs(py-cy) ? [[dx,0],[0,dy]] : [[0,dy],[dx,0]];
       for(const [ddx,ddy] of options){
         const r = tryMove(ddx,ddy);
-        if(r==="hit") return {key:playerKey, mon};
+        if(r==="hit") return {hit:{key:playerKey, mon}, changed:true};
         if(r) break;
       }
     } else if(Math.random() < RPG_MONSTER_WANDER_CHANCE){
@@ -6566,7 +6577,7 @@ function rpgTickMonsters(map){
       for(const [ddx,ddy] of dirs){ if(tryMove(ddx,ddy)) break; }
     }
   }
-  return null;
+  return {hit:null, changed};
 }
 /* =========================================================================
    MYTHRENDER RPG — interfaccia (sezione "Avventura" > "Dungeon della Discesa")
@@ -6727,7 +6738,15 @@ function rpgTopBar(hero){
   const hpPct = Math.max(2, Math.round(100*hero.hp/Math.max(1,hero.maxHp)));
   const xpNow = hero.xp - rpgXpFloor(hero.level), xpNeed = rpgXpForLevel(hero.level+1)-rpgXpFloor(hero.level);
   const xpPct = hero.level>=20 ? 100 : Math.max(2, Math.min(100, Math.round(100*xpNow/Math.max(1,xpNeed))));
-  return el("div",{class:"pixel-panel frame-ornate rpg-hud"},
+  // FIX (segnalazione Carmine: "se clicco sul personaggio non apre l'intera gestione"): questa
+  // barra in alto non aveva MAI avuto un gestore di click (il ritratto era puramente decorativo).
+  // Dentro al dungeon la barra di navigazione inferiore con la voce "Eroe" e' nascosta
+  // (rpgScreen(...,{bottomnav:false}) in rpgViewDungeon), quindi li' non esisteva ALCUN modo di
+  // aprire la scheda/gestione del personaggio (inventario, missioni, cancellazione/creazione) -
+  // bisognava prima tornare in citta'. Ora toccare questa barra (presente in quasi ogni schermata,
+  // dungeon incluso) apre sempre rpgViewCharacter, come la voce "Eroe" della barra inferiore.
+  return el("div",{class:"pixel-panel frame-ornate rpg-hud", style:"cursor:pointer", title:"Apri la scheda del personaggio",
+      onclick:()=>rpgGo("character")},
     rpgPortraitSvg(hero.race, hero.klass, 40),
     el("div",{class:"rpg-hud-mid"},
       el("div",{class:"rpg-hud-name"}, hero.name),
@@ -6957,10 +6976,23 @@ function rpgMonsterArtSvg(sprite, opts){
 /* Icona piccola per la mappa del dungeon: stessa sagoma di famiglia, dimensione ridotta (l'arte
    illustrata resta nel combattimento/bestiario, come nel prototipo base44: "mostri come illustrazioni
    restano nell'esplorazione disegnati in forma semplificata per prestazioni"). */
-function rpgMonsterMapIcon(sprite, boss){
+function rpgMonsterMapIcon(sprite, boss, name){
   const fam = rpgMonsterFamily(sprite);
   const p = RPG_MONSTER_PALETTE[fam]||RPG_MONSTER_PALETTE.brute;
   const wrap = el("div",{class:"rpg-cell-monster rpg-fam-"+fam+(boss?" boss":"")});
+  // FIX (segnalazione Carmine: "le icone non rispecchiano... i mostri"): questa icona era SEMPRE
+  // una sagoma generica colorata solo per famiglia (es. tutti i "bruti" identici fra loro sulla
+  // mappa, Orco e Troll indistinguibili), mai l'arte dedicata del mostro specifico - anche dopo
+  // "Stile A, applicalo in tutta l'app". Ora, se esiste l'illustrazione dedicata per quel nome
+  // (RPG_BOSS_ART/RPG_MONSTER_ART, stesse usate in combattimento/bestiario), la mostra qui in
+  // miniatura; altrimenti ricade sulla sagoma generica di prima (nessuna cella resta mai vuota).
+  const baseName = name ? name.replace(/^Elite /,"") : null;
+  const art = baseName && ((boss && typeof RPG_BOSS_ART!=="undefined" && RPG_BOSS_ART[baseName]) ||
+    (!boss && typeof RPG_MONSTER_ART!=="undefined" && RPG_MONSTER_ART[baseName]));
+  if (art){
+    wrap.innerHTML = '<img src="'+art+'" alt="'+baseName+'" style="width:100%;height:100%;object-fit:cover;border-radius:3px;display:block"/>';
+    return wrap;
+  }
   // Sagoma pixel-style piccola e leggibile a colpo d'occhio (icona, non illustrazione): un corpo
   // squadrato + testa + due occhi, colorato per famiglia, come le piccole icone mostro viste nella
   // mappa del prototipo base44 (lì renderizzate come sprite minuscoli, non come cerchi astratti).
@@ -6988,8 +7020,18 @@ function rpgChestIcon(){
 /* Icona giocatore: un piccolo dado (coerente col tema "roll for initiative"/"dice vault") invece di
    un cerchio luminoso astratto, come nel prototipo base44 dove il segnalino del giocatore sulla
    mappa è un dado con le facce a puntini. */
-function rpgPlayerMapIcon(){
+function rpgPlayerMapIcon(race, klass){
   const wrap = el("div",{class:"rpg-cell-player"});
+  // FIX (segnalazione Carmine: "le icone non rispecchiano il pg giocante"): prima era SEMPRE lo
+  // stesso dado generico per qualunque razza/classe, mai legato al personaggio vero. Ora, se esiste
+  // un ritratto dedicato (stessa arte/stesso fallback a 3 livelli di rpgPortraitSvg: combo
+  // razza+classe, poi razza base), lo mostra qui in miniatura; altrimenti resta il dado di prima.
+  const art = race && ((typeof RPG_PORTRAIT_ART !== "undefined" && RPG_PORTRAIT_ART[race+"|"+klass]) ||
+    (typeof RPG_RACE_ART !== "undefined" && RPG_RACE_ART[race]));
+  if (art){
+    wrap.innerHTML = '<img src="'+art+'" alt="'+race+' '+klass+'" style="width:100%;height:100%;object-fit:cover;border-radius:3px;display:block;border:1.2px solid #c9722d"/>';
+    return wrap;
+  }
   wrap.innerHTML = '<svg viewBox="0 0 20 20" width="100%" height="100%" shape-rendering="crispEdges">'+
     '<rect x="3" y="3" width="14" height="14" rx="3" fill="#f1e7d4"/>'+
     '<rect x="3" y="3" width="14" height="14" rx="3" fill="none" stroke="#c9722d" stroke-width="1.2"/>'+
@@ -7373,11 +7415,18 @@ if(typeof window!=="undefined" && !window.__rpgMonsterLoopBound){
   setInterval(()=>{
     if(!STATE || !STATE.rpg || STATE.view!=="rpg" || STATE.rpg.screen!=="dungeon" || STATE.rpg.combat) return;
     const map = STATE.rpg.dungeonMap; if(!map) return;
-    const hit = rpgTickMonsters(map);
-    if(hit){ rpgEngageMonster(hit.key, hit.mon, true); return; }
-    rpgTickN++;
-    if(rpgTickN % 3 === 0) persist(); // salva ogni 3 battiti (~1.6s), non ad ogni singolo tick
-    render();
+    const result = rpgTickMonsters(map);
+    if(result.hit){ rpgEngageMonster(result.hit.key, result.hit.mon, true); return; }
+    // FIX (segnalazione Carmine, "refresh continuo nel dungeon"): prima si chiamava render()
+    // - che ricostruisce da zero l'INTERA app (barra laterale, tab, non solo la vista dungeon,
+    // vedi app.innerHTML="" in render()) - ad OGNI battito, anche quando sulla mappa non era
+    // cambiato assolutamente nulla (es. nessun mostro in stato "wander" ha deciso di muoversi
+    // quel battito). Ora si ridisegna solo quando rpgTickMonsters segnala un cambiamento reale.
+    if(result.changed){
+      rpgTickN++;
+      if(rpgTickN % 3 === 0) persist(); // salva ogni 3 battiti "con cambiamento", non ad ogni singolo tick
+      render();
+    }
   }, 550);
   window.addEventListener("pointerup", ()=>{ if(STATE && STATE.rpg) STATE.rpg._joyDir=null; });
   window.addEventListener("pointercancel", ()=>{ if(STATE && STATE.rpg) STATE.rpg._joyDir=null; });
@@ -7445,7 +7494,7 @@ function rpgViewDungeon(){
     if(monster && monster.alert) cls += " alert";
     if(chest) cls += " chest";
     if(isPlayer) cls += " player";
-    cells.push(el("div",{class:cls}, isPlayer?rpgPlayerMapIcon():(monster?rpgMonsterMapIcon(monster.sprite,monster.boss):(chest?rpgChestIcon():(isStairs?"▼":"")))));
+    cells.push(el("div",{class:cls}, isPlayer?rpgPlayerMapIcon(hero.race,hero.klass):(monster?rpgMonsterMapIcon(monster.sprite,monster.boss,monster.name):(chest?rpgChestIcon():(isStairs?"▼":"")))));
   }
   const remaining = Object.keys(map.monsters).length;
   const alerted = Object.values(map.monsters).some(m=>m.alert);
@@ -7789,8 +7838,6 @@ function rpgViewLog(){
     ...(rows.length?rows:[el("p",{class:"muted"},"Nessuna battaglia registrata ancora.")]));
   return rpgScreen(hero, content, {active:"character"});
 }
-
-
 /* =========================================================================
    MYTHRENDER RPG — audio (effetti + ambientazione)
    -------------------------------------------------------------------------
@@ -44488,7 +44535,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.97.0"; // v1.97.0 (22/10, RITRATTI DEDICATI RAZZA x CLASSE (prima parte), su richiesta esplicita di Carmine dopo aver visto l'arte dedicata di v1.96.0 ("Falle", riferito alle 36 combinazioni razza x classe invece del solo ritratto base-razza). Generazione interrotta a meta' lavoro dalla quota crediti Canva esaurita (non piu' un intoppo transitorio come in precedenza: 3 tentativi consecutivi falliti con lo stesso errore): completate le 9 combinazioni gia' pronte quando la quota si e' esaurita (Umano tutte e 6 le classi: Guerriero/Mago/Furfante/Chierico/Ramingo/Barbaro; Elfo Guerriero/Mago/Furfante), su decisione concordata con Carmine di pubblicare subito quanto fatto e completare le restanti 27 (Elfo Chierico/Ramingo/Barbaro, poi Nano/ Halfling/Draconide/Tiefling su tutte e 6 le classi) in una prossima sessione quando la quota si ricarica. Nuovo blocco RPG_PORTRAIT_ART in fondo a rpg_data.js (chiave "Razza|Classe"), stessa compressione delle altre arti (180x180 JPEG qualita' 82: +90KB circa sul peso del file). rpgPortraitSvg in rpg_ui.js ora ha tre livelli di fallback in ordine: ritratto dedicato razza+classe, poi ritratto base-razza (v1.96.0), poi SVG procedurale (sempre presente) - nessuna combinazione resta mai senza immagine, nemmeno durante il completamento progressivo. Nessuna logica di gioco toccata: solo arte. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; verifica programmatica della catena di fallback su tutte le 36 combinazioni razza x classe (9 dedicate, 27 su ritratto base-razza, 0 su SVG nuda). sha256: 0000000000000000000000000000000000000000000000000000000000000.
+var ROLLONE_CONTENT_VERSION = "1.97.1"; // v1.97.1 (22/10, CORREZIONE BUG DI FUNZIONAMENTO nel "Dungeon della Discesa", su segnalazione esplicita di Carmine dopo aver provato l'app reale pubblicata ("tutto quello che hai testato nel tuo artefatto nell'app non funziona"): tre problemi distinti, ora corretti nel motore/interfaccia reali (rpg_engine.js/rpg_ui.js), non nell'artefatto di prova isolato usato finora per i test visivi, che non include la shell completa dell'app (barra laterale, tab) e quindi non mostrava questi sintomi. (1) "Refresh continuo nel dungeon": il battito in tempo reale dei mostri (ogni 550ms) chiamava render() - che ricostruisce da zero l'INTERA app, non solo la vista dungeon - INCONDIZIONATAMENTE ad ogni battito, anche quando sulla mappa non cambiava nulla; ora rpgTickMonsters() segnala se qualcosa e' davvero cambiato (un mostro si e' mosso o si e' "svegliato") e si ridisegna solo in quel caso. (2) "Se clicco sul personaggio non apre l'intera gestione": la barra in alto col ritratto dell'eroe (presente anche nel dungeon, dove la barra di navigazione inferiore con la voce "Eroe" e' nascosta) non aveva MAI avuto un gestore di click - il ritratto era solo decorativo; ora toccarla apre sempre la scheda del personaggio (rpgViewCharacter: inventario, missioni, gestione/cancellazione/creazione eroi). (3) "Le icone non rispecchiano il pg giocante ne' i mostri": le icone sulla griglia del dungeon (giocatore e mostri) erano sempre forme generiche (un dado per il giocatore, una sagoma colorata solo per famiglia per i mostri, es. Orco e Troll indistinguibili) - mai l'arte dedicata introdotta in v1.96.0/v1.97.0; ora mostrano quella stessa arte in miniatura quando esiste (stesso fallback a piu' livelli), ricadendo sulla forma generica solo se manca anche quella. Nessuna meccanica di gioco toccata (XP/oro/combattimento identici): solo tre correzioni di interfaccia/prestazioni. Verificato: node --check pulito su tutti i 14 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; test dedicato che confronta prima/dopo su rpgTickMonsters (nessun mostro sulla mappa -> changed=false, nessun render sprecato), sul click della barra superiore (porta davvero a "character"), e sulle icone mappa (mostrano <img> con l'arte quando esiste, ricadono su SVG solo quando manca). sha256: 38b1e569a24439c7972de5c278c5ed3fcd39fd31695a69dba2d83302ac094fad.
+// var ROLLONE_CONTENT_VERSION = "1.97.0"; // v1.97.0 (22/10, RITRATTI DEDICATI RAZZA x CLASSE (prima parte), su richiesta esplicita di Carmine dopo aver visto l'arte dedicata di v1.96.0 ("Falle", riferito alle 36 combinazioni razza x classe invece del solo ritratto base-razza). Generazione interrotta a meta' lavoro dalla quota crediti Canva esaurita (non piu' un intoppo transitorio come in precedenza: 3 tentativi consecutivi falliti con lo stesso errore): completate le 9 combinazioni gia' pronte quando la quota si e' esaurita (Umano tutte e 6 le classi: Guerriero/Mago/Furfante/Chierico/Ramingo/Barbaro; Elfo Guerriero/Mago/Furfante), su decisione concordata con Carmine di pubblicare subito quanto fatto e completare le restanti 27 (Elfo Chierico/Ramingo/Barbaro, poi Nano/ Halfling/Draconide/Tiefling su tutte e 6 le classi) in una prossima sessione quando la quota si ricarica. Nuovo blocco RPG_PORTRAIT_ART in fondo a rpg_data.js (chiave "Razza|Classe"), stessa compressione delle altre arti (180x180 JPEG qualita' 82: +90KB circa sul peso del file). rpgPortraitSvg in rpg_ui.js ora ha tre livelli di fallback in ordine: ritratto dedicato razza+classe, poi ritratto base-razza (v1.96.0), poi SVG procedurale (sempre presente) - nessuna combinazione resta mai senza immagine, nemmeno durante il completamento progressivo. Nessuna logica di gioco toccata: solo arte. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; verifica programmatica della catena di fallback su tutte le 36 combinazioni razza x classe (9 dedicate, 27 su ritratto base-razza, 0 su SVG nuda). sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.96.0"; // v1.96.0 (22/10, ARTE DEDICATA PER OGNI MOSTRO, BOSS E RAZZA (sostituisce la sola SVG procedurale), su richiesta esplicita di Carmine dopo aver approvato lo stile "pixel art dark fantasy" su 3 varianti di prova generate per il Goblin (le altre due varianti, dipinta e ink/oro, scartate). Generate 26 illustrazioni via IA (Canva generate-image): i 14 mostri, i 6 boss (versione piu' "epica", alcuni con cartiglio del nome) e le 6 razze giocabili (ritratto avventuriero base; le classi restano distinte via arma/armatura equipaggiata come gia' avveniva). Incorporate come data-URI direttamente nel file (scelta esplicita di Carmine, contro il consiglio di tenerle come asset esterni separati): ridimensionate a 180x180 e salvate JPEG qualita' 82 invece che PNG a piena risoluzione (nessuna perdita percepibile alle dimensioni reali di visualizzazione, max 150x150 per i boss) per restare dentro al limite della pipeline di pubblicazione: +360KB circa sul peso del file invece dei quasi 2.5MB della prima versione non compressa. rpgMonsterArtSvg e rpgPortraitSvg in rpg_ui.js ora cercano prima l'arte dedicata (RPG_MONSTER_ART / RPG_BOSS_ART / RPG_RACE_ART, nuovo blocco in fondo a rpg_data.js) e ricadono automaticamente sulla SVG procedurale se una voce manca, cosi' nessun elemento resta mai senza immagine. Nessuna logica di gioco toccata: solo arte. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le 18 viste della sezione, nessuna eccezione; verifica programmatica che tutti i 14 mostri, i 6 boss e le 6 razze risolvano correttamente un'immagine dedicata (26/26) e che il fallback alla SVG procedurale funzioni ancora per un nome non censito. sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.95.0"; // v1.95.0 (21/10, RIATTIVAZIONE DELLA SEZIONE "DUNGEON DELLA DISCESA" (Mythrender RPG), su richiesta esplicita di Carmine dopo aver rivisto gli screenshot del restyling: "completa, fai un test finale, un debug completo, riattivalo e pubblica". RPG_FEATURE_ENABLED portato a true in rpg_data.js, rimosso lo style="display:none" dal pulsante "Dungeon della Discesa" nel menu principale (era stato nascosto in v1.88.0 in attesa che la sezione fosse ben sviluppata). Il redirect di sicurezza nel router (STATE.view="rpg" senza il flag attivo -> torna a "home") resta nel codice invariato, semplicemente non si attiva piu' con il flag a true: nessun altro codice di gioco toccato in questa versione, solo l'interruttore. DEBUG FINALE eseguito prima della riattivazione: simulazione autonoma di 900 discese (tutte le 36 combinazioni razza/classe, 25 discese ciascuna, con pathfinding reale sulla mappa generata, combattimenti risolti turno per turno scegliendo a caso tra attacco/abilita'/pozione come farebbe un giocatore, su tutti e cinque i dungeon disponibili incluso un 8% di incontri con boss) contro il motore e i dati REALI (stesso rpg_engine.js/rpg_data.js pubblicati, non una copia semplificata): 0 eccezioni, 0 invarianti rotte (PF/oro/PE mai negativi o NaN, nessun combattimento rimasto irrisolto). node --check pulito su tutti i 16 blocchi script del file finale. Rendering diretto in Node.js con jsdom di tutte le 18 viste della sezione (gia' verificato in v1.94.0, rieseguito qui senza modifiche): nessuna eccezione. Verificato anche a schermo reale in un browser vero in questa sessione (non solo in jsdom): tutte le 18 schermate navigate e ispezionate via screenshot nella copia di anteprima con dati finti, incluso il bestiario con le 14 arte mostro ora distinte e le schermate di combattimento/vittoria/sconfitta/salita di livello con la nuova cornice. RESTA APERTO, come esplicitamente ribadito da Carmine e non dimenticato: le immagini/artwork vere e proprie per ogni elemento di gioco, oltre alla sola arte SVG generata via codice gia' presente (nessun problema di copyright - e' tutta opera sua - ma e' un lavoro separato, non incluso in questa riattivazione). sha256: 0000000000000000000000000000000000000000000000000000000000000.
 // var ROLLONE_CONTENT_VERSION = "1.94.0"; // v1.94.0 (21/10, ARTE DEDICATA PER MOSTRO/RAZZA + RESTYLING PASSO 3 (Combattimento/Vittoria/Sconfitta/Level Up) + ottimizzazione mobile/desktop, su richiesta esplicita di Carmine dopo aver visto gli screenshot del passo 2. BESTIARIO: i 14 mostri condividevano solo 7 sagome di famiglia (es. Goblin/Gnoll/Orc/Troll identici a parte il colore); ora ciascuno ha tratti distintivi propri sopra la sagoma di famiglia (zanne per Gnoll/Orc, pugnale e ghigno per il Goblin, verruche e bagliore rigenerante per il Troll, gabbia toracica per lo Scheletro, scia lacera e aura per il Wraith, corona d'osso e bastone per il Lich, cresta/zanna per il Lupo Mannaro, frangia e terzo occhio per il Basilisco) e il Ragno Gigante ha una sagoma propria con otto zampe invece di riusare quella generica delle bestie. Verificato via script che le 14 illustrazioni sono tutte diverse tra loro (0 duplicati). RITRATTO EROE: aggiunto il disegno di orecchie a punta per gli Elfi e cresta/squame per i Draconidi, dati di palette gia' presenti ma mai disegnati finora. COMBATTIMENTO/VITTORIA/SCONFITTA/LEVEL UP: ricevono ora la stessa cornice pixel-panel con angoli dorati e gli stessi pulsanti pixel-btn del resto dell'app (passi 1-2), conservando pero' cerchio runico e stendardo di vittoria che li rendevano gia' riconoscibili - non snaturati, solo uniformati. OTTIMIZZAZIONE MOBILE/DESKTOP: rifiniti i breakpoint sotto i 400px (etichette nav inferiore, tastierino direzionale, griglie statistiche) e sopra i 900px (contenuto leggermente piu' largo invece di restare incollonato stretto su schermi desktop). Nessuna logica di gioco toccata: solo arte e presentazione. Verificato: rendering diretto in Node.js con jsdom di tutte le 18 viste (14 schermate + Combattimento/Vittoria/Sconfitta/Level Up), nessuna eccezione. Non verificato con screenshot in un browser reale in questa sessione (tool di automazione browser temporaneamente non responsivo, non legato a queste modifiche - verificato isolando con un file di controllo della versione precedente, che si bloccava identicamente). Restano ancora: artwork/immagini dedicate oltre alla SVG gia' presente, e il debug finale con screenshot di approvazione prima di riattivare la sezione nel menu, come gia' annunciato. sha256: 0000000000000000000000000000000000000000000000000000000000000.
