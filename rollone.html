@@ -6728,6 +6728,39 @@ function rpgRollAbilityScores(){
 function rpgRollSixScores(){
   return Array.from({length:6}, rpgRollAbilityScore).sort((a,b)=>b-a);
 }
+
+/* ---- Storia del personaggio (richiesta esplicita di Carmine, ispirata alla scheda di RollCamp che
+   mostra "Aspetto/Storia/Personalita'" per ogni eroe): due-tre frasi generate automaticamente da
+   stirpe+classe al momento della creazione, mai lasciate vuote - stesso tono "dark fantasy" del
+   resto del gioco. rpgHeroBackstory() offre lo stesso ripiego gia' usato altrove (rpgHeroGameDay,
+   rpgHeroQuests...) per i salvataggi precedenti a questa versione, che non hanno ancora il campo. */
+const RPG_BACKSTORY_RACE = {
+  Human: "Cresciuto tra le mura di un villaggio di confine, dove ogni raccolto va difeso quanto conquistato.",
+  Elf: "Nato tra i boschi millenari del Vecchio Sentiero, dove il tempo scorre diverso e le promesse durano secoli.",
+  Dwarf: "Nato nelle sale scavate di un clan di minatori, educato a non arretrare mai di un passo.",
+  Halfling: "Cresciuto per le strade di un villaggio di collina, dove si impara presto a cavarsela con poco.",
+  Dragonborn: "Nato sotto il segno di un'antica stirpe draconica, che pretende onore prima ancora che forza.",
+  Tiefling: "Segnato fin dalla nascita da un sangue che non ha scelto, diffidato da chi non lo conosce."
+};
+const RPG_BACKSTORY_CLASS = {
+  Fighter: "Ha imparato a combattere prima che a leggere, e non se ne vergogna.",
+  Wizard: "Ha scambiato notti di sonno con pagine di un sapere che pochi osano cercare.",
+  Rogue: "Ha imparato a sparire in una stanza piena di gente prima ancora di saper camminare bene.",
+  Cleric: "Ha sentito la voce del proprio dio una sola volta, e non l'ha piu' dimenticata.",
+  Ranger: "Conosce ogni dungeon come conosce il proprio respiro: in silenzio, senza fretta.",
+  Barbarian: "Quando la rabbia sale, smette di contare i nemici."
+};
+function rpgGenerateBackstory(name, race, klass){
+  const r = RPG_BACKSTORY_RACE[race] || RPG_BACKSTORY_RACE.Human;
+  const c = RPG_BACKSTORY_CLASS[klass] || RPG_BACKSTORY_CLASS.Fighter;
+  return r+" "+c+" Ora scende a Hollowmark, dove si misurano in profondita' il coraggio e la fortuna.";
+}
+function rpgHeroBackstory(hero){
+  if(!hero) return "";
+  if(!hero.backstory) hero.backstory = rpgGenerateBackstory(hero.name, hero.race, hero.klass);
+  return hero.backstory;
+}
+
 /* ---- Scheda personaggio: eroe nuovo di zecca ----
    "scores" e' l'oggetto {str,dex,con,int,wis,cha} GIA' assegnato dal giocatore in rpgViewCreate
    (vedi rpgRollSixScores sopra). Resta un ripiego di sicurezza - caratteristiche tirate ora, qui -
@@ -6740,7 +6773,7 @@ function rpgNewHero(name, race, klass, scores){
   ["str","dex","con","int","wis","cha"].forEach(k=>{ stats[k] = (scores && Number.isFinite(scores[k])) ? scores[k] : rolled[k]; });
   const hp = cls.hpBase + mod(stats.con);
   return {
-    name, race, klass, title:"Viandante di Hollowmark", level:1, xp:0,
+    name, race, klass, title:"Viandante di Hollowmark", backstory: rpgGenerateBackstory(name, race, klass), level:1, xp:0,
     gold:20, potions:1, herbs:0, ore:0,
     str:stats.str, dex:stats.dex, con:stats.con, int:stats.int, wis:stats.wis, cha:stats.cha,
     maxHp:hp, hp, ac:10+mod(stats.dex),
@@ -7706,6 +7739,8 @@ function viewRpg(){
     case "roster": return rpgViewRoster();
     case "createChar": return rpgViewCreate();
     case "bestiary": return rpgViewBestiary();
+    case "compendio": return rpgViewCompendio();
+    case "bacheca": return rpgViewBacheca();
     case "log": return rpgViewLog();
     case "levelup": return rpgViewLevelUp();
     case "dungeonEvent": return rpgViewDungeonEvent();
@@ -7819,21 +7854,50 @@ function rpgCreateAbilRow(st, k){
 function rpgViewCreate(){
   const st = STATE.rpg._create || (STATE.rpg._create={name:"",race:"Human",klass:"Fighter"});
   if(!st.rollPool){ st.rollPool = rpgRollSixScores(); st.rollPick = {}; }
+  // AGGIORNAMENTO (richiesta esplicita di Carmine, ispirata al wizard "Passo 1 di 6" della
+  // creazione campagna di RollCamp): la creazione del personaggio, prima un unico form lungo,
+  // ora e' spezzata in 4 passi brevi (Nome / Stirpe / Classe / Caratteristiche) con una barra di
+  // avanzamento in cima, per ridurre l'abbandono a meta' di chi vede tutto insieme. La logica di
+  // validazione e creazione dell'eroe al passo finale e' RIMASTA IDENTICA a prima, solo spostata
+  // dentro il passo 4 invece che in fondo a un form unico.
+  if(st.step==null) st.step = 1;
   const allAssigned = RPG_ABIL_KEYS.every(k=>st.rollPick[k]!=null);
-  const box = el("div",{class:"rpg-root rpg-create"},
-    el("div",{class:"rpg-hero-banner"},
-      el("div",{class:"rpg-logo-pixel"},"MYTHRENDER"),
-      el("div",{class:"rpg-tagline"},"Scendi. Combatti. Sali di nuovo.")),
-    el("div",{class:"card rpg-card"},
+  const STEPS = ["Nome","Stirpe","Classe","Caratteristiche"];
+  function goStep(n){ st.step = n; render(); }
+  const progress = el("div",{class:"rpg-create-progress"},
+    el("div",{class:"muted small", style:"text-align:center;margin-bottom:4px"}, "Passo "+st.step+" di "+STEPS.length+" — "+STEPS[st.step-1]),
+    el("div",{class:"hud-bar", style:"height:6px"}, el("span",{style:"width:"+Math.round(100*st.step/STEPS.length)+"%;background:var(--gold2)"})));
+  let stepBody;
+  if(st.step===1){
+    stepBody = el("div",{class:"card rpg-card"},
       el("h3",{},"Forgia il tuo eroe"),
       el("label",{class:"rpg-label"},"Nome"),
       el("input",{class:"rpg-input", value:st.name, placeholder:"Come ti chiami?", oninput:e=>{st.name=e.target.value;}}),
+      el("button",{class:"btn primary rpg-cta", style:"margin-top:12px", onclick:()=>{
+        if(!st.name.trim()){ toast("Scrivi un nome per il tuo eroe prima di continuare."); render(); return; }
+        goStep(2);
+      }}, "Avanti →"));
+  } else if(st.step===2){
+    stepBody = el("div",{class:"card rpg-card"},
+      el("h3",{},st.name||"Il tuo eroe"),
       el("label",{class:"rpg-label"},"Stirpe"),
       el("div",{class:"rpg-pill-row"}, ...RPG_RACES.map(r=>el("button",{class:"rpg-pill"+(st.race===r?" active":""), onclick:()=>{st.race=r; render();}}, RPG_RACE_LABEL[r]))),
+      el("div",{class:"rpg-portrait-preview"}, rpgPortraitSvg(st.race, st.klass, 96)),
+      el("div",{style:"display:flex;gap:8px;margin-top:12px"},
+        el("button",{class:"pixel-btn ghost", onclick:()=>goStep(1)}, "← Indietro"),
+        el("button",{class:"btn primary rpg-cta", style:"flex:1", onclick:()=>goStep(3)}, "Avanti →")));
+  } else if(st.step===3){
+    stepBody = el("div",{class:"card rpg-card"},
+      el("h3",{},st.name||"Il tuo eroe"),
       el("label",{class:"rpg-label"},"Classe"),
       el("div",{class:"rpg-pill-row"}, ...RPG_CLASS_NAMES.map(c=>el("button",{class:"rpg-pill"+(st.klass===c?" active":""), onclick:()=>{st.klass=c; render();}}, RPG_CLASS_LABEL[c]))),
       el("div",{class:"rpg-portrait-preview"}, rpgPortraitSvg(st.race, st.klass, 96)),
-      el("label",{class:"rpg-label"},"Caratteristiche"),
+      el("div",{style:"display:flex;gap:8px;margin-top:12px"},
+        el("button",{class:"pixel-btn ghost", onclick:()=>goStep(2)}, "← Indietro"),
+        el("button",{class:"btn primary rpg-cta", style:"flex:1", onclick:()=>goStep(4)}, "Avanti →")));
+  } else {
+    stepBody = el("div",{class:"card rpg-card"},
+      el("h3",{},"Caratteristiche"),
       el("p",{class:"muted small", style:"margin:0 0 8px"},"Per ogni punteggio: 4d6 scartando il dado piu' basso. Assegna i sei valori tirati alle caratteristiche come preferisci: ogni valore puo' essere usato una sola volta."),
       el("div",{class:"rpg-abil-pool"}, ...st.rollPool.map(v=>el("span",{class:"rpg-abil-pool-val"},String(v)))),
       el("div",{class:"rpg-stat-grid"}, ...RPG_ABIL_KEYS.map(k=>rpgCreateAbilRow(st,k))),
@@ -7847,33 +7911,41 @@ function rpgViewCreate(){
       // scattava proprio, finche' l'utente non toccava anche una pillola razza/classe (che RI-renderizza
       // e quindi aggiorna il bottone) - capitava facilmente di non farlo, visto che razza/classe hanno
       // gia' un valore di default preselezionato. Ora il bottone non e' mai bloccato dall'HTML: il
-      // controllo sul nome (e, da questa versione, sull'assegnazione delle 6 caratteristiche) avviene
-      // dentro al click stesso, con un messaggio chiaro invece di un nulla di fatto silenzioso.
-      el("button",{class:"btn primary rpg-cta", onclick:()=>{
-        if(!st.name.trim()){ toast("Scrivi un nome per il tuo eroe prima di iniziare l'avventura."); render(); return; }
-        if(!allAssigned){ toast("Assegna tutte e sei le caratteristiche prima di iniziare l'avventura."); render(); return; }
-        STATE.rpg.hero = rpgNewHero(st.name.trim(), st.race, st.klass, st.rollPick);
-        STATE.rpg.inventory = [rpgMakeWeapon(0), rpgMakeArmor(0)];
-        STATE.rpg.codex={}; STATE.rpg.battleLog=[]; STATE.rpg.log=[]; STATE.rpg.shopStock=null; STATE.rpg.dungeonMap=null;
-        const h=STATE.rpg.hero;
-        h.equipment.weapon = STATE.rpg.inventory[0].id; h.equipment.armor = STATE.rpg.inventory[1].id;
-        STATE.rpg._create=null;
-        // Un secondo (o terzo...) eroe creato dalla lista "I tuoi eroi" si aggiunge al roster invece
-        // di sovrascrivere quello gia' attivo (gia' sincronizzato nel roster da rpgViewRoster prima
-        // di arrivare qui); il primo personaggio in assoluto, invece, non ha ancora un roster.
-        if(STATE.rpg._creatingNew){
-          if(!STATE.rpg.roster) STATE.rpg.roster=[];
-          STATE.rpg.roster.push(rpgRosterSnapshot());
-          STATE.rpg.activeIndex = STATE.rpg.roster.length-1;
-        } else {
-          STATE.rpg.roster = [rpgRosterSnapshot()];
-          STATE.rpg.activeIndex = 0;
-        }
-        STATE.rpg._creatingNew=false;
-        rpgGo("home");
-        rpgSfxPlay("rpg-levelup");
-        toast("«"+h.name+"» è pronto a scendere.");
-      }}, "Inizia l'avventura")));
+      // controllo sul nome (e sull'assegnazione delle 6 caratteristiche) avviene dentro al click
+      // stesso, con un messaggio chiaro invece di un nulla di fatto silenzioso.
+      el("div",{style:"display:flex;gap:8px;margin-top:12px"},
+        el("button",{class:"pixel-btn ghost", onclick:()=>goStep(3)}, "← Indietro"),
+        el("button",{class:"btn primary rpg-cta", style:"flex:1", onclick:()=>{
+          if(!st.name.trim()){ toast("Scrivi un nome per il tuo eroe prima di iniziare l'avventura."); render(); return; }
+          if(!allAssigned){ toast("Assegna tutte e sei le caratteristiche prima di iniziare l'avventura."); render(); return; }
+          STATE.rpg.hero = rpgNewHero(st.name.trim(), st.race, st.klass, st.rollPick);
+          STATE.rpg.inventory = [rpgMakeWeapon(0), rpgMakeArmor(0)];
+          STATE.rpg.codex={}; STATE.rpg.battleLog=[]; STATE.rpg.log=[]; STATE.rpg.shopStock=null; STATE.rpg.dungeonMap=null;
+          const h=STATE.rpg.hero;
+          h.equipment.weapon = STATE.rpg.inventory[0].id; h.equipment.armor = STATE.rpg.inventory[1].id;
+          STATE.rpg._create=null;
+          // Un secondo (o terzo...) eroe creato dalla lista "I tuoi eroi" si aggiunge al roster invece
+          // di sovrascrivere quello gia' attivo (gia' sincronizzato nel roster da rpgViewRoster prima
+          // di arrivare qui); il primo personaggio in assoluto, invece, non ha ancora un roster.
+          if(STATE.rpg._creatingNew){
+            if(!STATE.rpg.roster) STATE.rpg.roster=[];
+            STATE.rpg.roster.push(rpgRosterSnapshot());
+            STATE.rpg.activeIndex = STATE.rpg.roster.length-1;
+          } else {
+            STATE.rpg.roster = [rpgRosterSnapshot()];
+            STATE.rpg.activeIndex = 0;
+          }
+          STATE.rpg._creatingNew=false;
+          rpgGo("home");
+          rpgSfxPlay("rpg-levelup");
+          toast("«"+h.name+"» è pronto a scendere.");
+        }}, "Inizia l'avventura")));
+  }
+  const box = el("div",{class:"rpg-root rpg-create"},
+    el("div",{class:"rpg-hero-banner"},
+      el("div",{class:"rpg-logo-pixel"},"MYTHRENDER"),
+      el("div",{class:"rpg-tagline"},"Scendi. Combatti. Sali di nuovo.")),
+    progress, stepBody);
   return box;
 }
 /* Ritratto: usa l'artwork dedicata per razza+classe (generata via IA, stile pixel art
@@ -8265,7 +8337,11 @@ function rpgViewShop(){
     // sopra) - l'oggetto è già completamente generato (slot, statistiche, grado) al momento del
     // tiro, qui si limita ad aggiungerlo allo Zaino; l'equipaggiamento resta manuale dalla
     // schermata Zaino, come per qualunque altro equip comprato dal Mercante.
-    else if(ware.key==="legendary"){ STATE.rpg.inventory.push(ware.legendaryItem); }
+    else if(ware.key==="legendary"){
+      STATE.rpg.inventory.push(ware.legendaryItem);
+      if(!STATE.rpg.legendaryCodex) STATE.rpg.legendaryCodex=[];
+      STATE.rpg.legendaryCodex.push({name:ware.legendaryItem.name, grade:ware.legendaryItem.legendaryGrade, slot:ware.legendaryItem.slot, ts:Date.now()});
+    }
     STATE.rpg.shopStock.wares.splice(idx,1); // merce esaurita finche' non si rinnova lo stock
     rpgGo("shop");
     toast(ware.key==="legendary" ? ("✨ LEGGENDARIO! Hai ottenuto "+ware.legendaryItem.name+"!") : ("Hai acquistato "+ware.name+"."));
@@ -9668,10 +9744,13 @@ function rpgViewCharacter(){
           el("div",{class:"rpg-hud-sub", style:"color:#d4af58"}, hero.title))),
       el("div",{class:"rpg-hero-header-actions"},
         el("button",{class:"pixel-btn ghost", onclick:()=>{ rpgRosterSync(); rpgGo("roster"); }},"👥 Eroi"),
-        el("button",{class:"pixel-btn ghost", onclick:()=>rpgGo("bestiary")},"📖 Codex"))),
+        el("button",{class:"pixel-btn ghost", onclick:()=>rpgGo("compendio")},"📖 Codex"),
+        el("button",{class:"pixel-btn ghost", onclick:()=>rpgGo("bacheca")},"📰 Bacheca"))),
     el("div",{class:"rpg-hud-bars", style:"margin-bottom:14px"},
       el("div",{class:"hud-bar hud-hp"}, el("span",{style:"width:"+hpPct+"%"})),
       el("div",{class:"hud-bar hud-xp"}, el("span",{style:"width:"+xpPct+"%"}))),
+    el("div",{class:"panel-heading"},"📜 Storia"), el("div",{class:"rune-divider"}),
+    el("p",{class:"muted small", style:"margin:0 0 12px"}, rpgHeroBackstory(hero)),
     el("div",{class:"rpg-charstat-grid"},
       el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-charstat-label"},"PF"), el("div",{class:"rpg-charstat-val hp"},hero.hp+"/"+hero.maxHp)),
       el("div",{class:"pixel-stat-box", style:"padding:8px;text-align:center"}, el("div",{class:"rpg-charstat-label"},"CA"), el("div",{class:"rpg-charstat-val"},hero.ac)),
@@ -9844,6 +9923,74 @@ function rpgViewLog(){
     ...(rows.length?rows:[el("p",{class:"muted"},"Nessuna battaglia registrata ancora.")]));
   return rpgScreen(hero, content, {active:"character"});
 }
+
+/* ================= COMPENDIO (richiesta esplicita di Carmine, ispirato al Compendium di RollCamp:
+   catalogo consultabile di quanto gia' incontrato in partita). Nessun contenuto nuovo: solo un
+   indice di dati gia' presenti nel gioco (RPG_MONSTERS/codex per il bestiario gia' esistente,
+   STATE.rpg.legendaryCodex per i leggendari trovati dal mercante, RPG_JOBS per i mestieri),
+   riuniti in un'unica schermata a schede invece di restare sparsi. */
+function rpgViewCompendio(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const tab = STATE.rpg._compendioTab || "bestiario";
+  const tabs = [["bestiario","📖 Bestiario"],["leggendari","✨ Leggendari"],["mestieri","💼 Mestieri"]];
+  const tabRow = el("div",{class:"rpg-pill-row", style:"margin-bottom:10px"}, ...tabs.map(([k,label])=>
+    el("button",{class:"rpg-pill"+(tab===k?" active":""), onclick:()=>{ STATE.rpg._compendioTab=k; rpgGo("compendio"); }}, label)));
+  let body;
+  if(tab==="leggendari"){
+    const found = STATE.rpg.legendaryCodex||[];
+    body = found.length ? found.slice().reverse().map(f=>
+      el("div",{class:"rpg-b44-row legendary-ware"},
+        el("div",{class:"rpg-b44-row-main"},
+          el("div",{class:"rpg-b44-row-name"}, f.name),
+          el("div",{class:"rpg-b44-row-sub"}, "Grado "+f.grade+"/10 · "+(RPG_LEGENDARY_SLOT_LABEL[f.slot]||f.slot)))))
+      : [el("p",{class:"muted"},"Nessun oggetto leggendario trovato ancora. Il mercante ne vende uno a volte, molto di rado: più sali di livello più probabile diventa.")];
+  } else if(tab==="mestieri"){
+    body = RPG_JOBS.map(j=>el("div",{class:"rpg-b44-row"},
+      el("div",{class:"rpg-b44-row-main"},
+        el("div",{class:"rpg-b44-row-name"}, j.icon+" "+j.name),
+        el("div",{class:"rpg-b44-row-sub"}, j.desc+" ("+(j.resource==="relic"?("circa 1 reliquia ogni "+Math.round(1/j.perHour)+"h"):(j.perHour+"/h di "+j.resource))+")"))));
+  } else {
+    const codex = STATE.rpg.codex||{};
+    body = RPG_MONSTERS.map(m=>{
+      const c = codex[m.name];
+      return el("div",{class:"rpg-item-row rpg-bestiary-row"+(!c?" unknown":"")},
+        el("div",{class:"rpg-bestiary-ico"}, c?rpgMonsterArtSvg(m.sprite,{name:m.name}):null),
+        el("div",{class:"rpg-item-main"}, el("div",{class:"rpg-item-name"}, c?m.name:"??? ("+m.family+")"), c?el("div",{class:"muted small"},m.lore):null),
+        c?el("div",{class:"muted small"}, "Uccisi: "+c.kills):null);
+    });
+  }
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"📚 Compendio")), tabRow, ...body);
+  return rpgScreen(hero, content, {active:"character"});
+}
+
+/* ================= BACHECA (richiesta esplicita di Carmine, ispirata alla Bacheca di RollCamp):
+   senza un server dietro Mythrender non puo' esistere una vera community in-app (nessun account
+   condiviso, nessun post scritto da altri giocatori) - questa e' la versione onesta di quell'idea:
+   le novita' ufficiali di ogni versione scritte come piccoli annunci, piu' una nota di trasparenza
+   sul gioco stesso. Il testo delle novita' vive in RPG_NEWS qui sotto, aggiornato ad ogni rilascio
+   importante (non ad ogni singola versione). */
+const RPG_NEWS = [
+  {v:"1.101.0", t:"Timer locanda, sonno automatico, mestieri", body:"Il riposo in locanda ora blocca davvero 8 ore reali, e chi sparisce per 16 ore si addormenta da solo invece di restare fermo nel dungeon. Il mercante vende anche oggetti leggendari, rarissimi. E ora ogni eroe può scegliere un mestiere che lavora da solo mentre non giochi."},
+  {v:"1.100.0", t:"Livello massimo 1000", body:"Chi vuole continuare a salire oltre il livello 20 ora può: il tetto è stato spostato a 1000, con mostri e dungeon che restano scalati sulla profondità, non sul livello."},
+  {v:"1.97.0", t:"Caratteristiche scelte, non tirate a caso", body:"La creazione del personaggio ora funziona come alla creazione di una vera scheda D&D: tiri sei valori e decidi tu quale caratteristica assegnare a ciascuno."}
+];
+function rpgViewBacheca(){
+  const hero = rpgDerivedHero(rpgHero(), rpgInv());
+  const posts = RPG_NEWS.map(n=>el("div",{class:"rpg-b44-row"},
+    el("div",{class:"rpg-b44-row-main"},
+      el("div",{class:"rpg-b44-row-name"}, "v"+n.v+" — "+n.t),
+      el("div",{class:"rpg-b44-row-sub"}, n.body))));
+  const content = el("div",{class:"pixel-panel frame-ornate rpg-panel"},
+    el("div",{class:"rpg-panel-title"}, el("h3",{class:"rpg-title"},"📰 Bacheca")),
+    el("p",{class:"muted small", style:"margin:0 0 10px"},"Le novità di Mythrender, versione per versione."),
+    ...posts,
+    el("div",{class:"panel-heading", style:"margin-top:14px"},"La verità su Mythrender"),
+    el("div",{class:"rune-divider"}),
+    el("p",{class:"muted small"},"Gratis, senza acquisti in-app e senza pubblicità: tutto quello che il gioco sa fare è già qui, sempre. Non è un prodotto ufficiale D&D: è un compagno dungeon-crawler amatoriale fatto da un giocatore per i giocatori."));
+  return rpgScreen(hero, content, {active:"character"});
+}
+
 /* =========================================================================
    MYTHRENDER RPG — audio (effetti + ambientazione)
    -------------------------------------------------------------------------
@@ -46579,7 +46726,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.101.0"; // v1.101.0 (28/10, SECONDO BATCH DI RICHIESTE DI CARMINE SUBITO DOPO LA v1.100.0, elenco puntuale: "Incrementa la varietà di oggetti e equipe nel mercante...aumenta il grado degli oggetti fino al livello divino...introduci oggetti leggendari (da grado 1 al 10 che stravolge il game e che ha una possibilità di 1 su 1.000.000 di uscire di grado massimo) dal mercante; Limitare l'uso della locanda: quando si riposa in locanda deve partire un timer di 8 ore reali che blocca tutte le funzioni di esplorazioni ecc...con un messaggio: Sto riposando, non disturbare; le missioni in gilda devono poter essere annullabili ma come penalità bisogna aspettare 1 ora reale per averne un'altra; serve un contatore per i giorni passati nel mini gioco (riferimento le 8 ore di sonno); se non si gioca per 16 ore consecutive il PG va a dormire in automatico in locanda facendo scattare il contatore giorni; migliora i suoni ambientali effetti ecc...quando si cambia schermata devono cessare (se dal minigioco passo alla modalità scheda i suoni continuano e non deve accadere); inserisci la scelta del mestiere: mentre non si gioca il PG lavora e accumula risorse (vedi tu come gestire la cosa)." Più una segnalazione arrivata a metà lavorazione: "fuxa il fatto che se clicco sull'equip non vedo cosa fa e i bonus che mi dà...inoltre quasi tutto ha lo stesso nome...metti nomi anche strani, alla Shakes and Fidget in pratica." Tutti gli otto punti affrontati in questa stessa release. (1) FIX SUONI AMBIENTALI (rpg_ui.js): causa reale trovata subito - go(view,extra), lo switcher di vista PRINCIPALE dell'intera app (non il solo modulo RPG), non chiamava mai rpgAmbientSet/rpgAmbientReflectScreen uscendo da STATE.view==="rpg" verso qualunque altra sezione (es. la scheda personaggio del compendio D&D): un loop ambientale (rpg-town.mp3/dungeon.ogg) restava attivo per sempre anche fuori dal minigioco. Un secondo punto di fuga indipendente trovato nel gestore "popstate" di initNavHistory() (Indietro/Avanti del browser), che cambia STATE.view scavalcando go() del tutto. Corretto in ENTRAMBI i punti: appena si lascia "rpg" per un'altra vista, rpgAmbientSet(null) viene chiamato prima di cambiare schermata. Verificato con esecuzione reale in jsdom: ambient attivo mentre si e' in RPG, poi azzerato sia da go("character") sia dal simulato popstate verso "home", senza mai azzerarsi quando si resta dentro al modulo RPG passando da una schermata interna a un'altra. (2) MERCANTE - VARIETÀ ED OGGETTI LEGGENDARI: la vetrina casuale (rpgRollShopWares) ora propone 3-5 pezzi di equip ad ogni rinnovo (prima 2-3). Nuovo RPG_RARITY.legendary, che esisteva nei dati fin dalla prima versione ma non era MAI stato assegnato a nessun oggetto reale (rpgRarityForTier si fermava a "epic") - introdotti dieci Oggetti Leggendari (RPG_LEGENDARY_GRADES, grado 1-10), ciascuno può comparire in uno qualunque dei sei slot equipaggiabili (arma/armatura/elmo/guanti/stivali/ciondolo, scelto a caso alla generazione - rpgDerivedHero legge già i bonus genericamente per tutti gli slot, nessuna modifica al motore di combattimento necessaria) e tirato ad ogni rinnovo della bancarella con probabilità crescenti quasi geometricamente da 1/500 (grado 1) a ESATTAMENTE 1/1.000.000 per il grado 10 massimo, come richiesto testualmente. Riga evidenziata in oro con bagliore pulsante (CSS) nella vetrina quando compare. Verificato forzando Math.random a valori estremi: un tiro fortunatissimo produce sempre grado 10, uno sfortunato nessun leggendario; equipaggiare un Oggetto Leggendario di grado 10 applica davvero CA/PF/Danno più alti del normale su rpgDerivedHero. (3) LOCANDA - BLOCCO REALE DI 8 ORE: "Riposa" ora avvia hero.sleepUntil = adesso + 8 ore reali (RPG_INN_LOCK_MS); rpgGo (lo switcher di schermata INTERNO al modulo RPG) rifiuta di entrare in qualunque schermata di esplorazione (scelta dungeon/dungeon/combattimento/spoglie/evento dungeon) mentre il blocco e' attivo, rimandando sempre in Locanda con il messaggio testuale richiesto "😴 Sto riposando, non disturbare." e il tempo restante; la schermata della Locanda stessa mostra un conto alla rovescia invece del pulsante "Riposa" mentre si dorme. Verificato: tentare dungeonSelect durante il blocco viene rimandato a "inn"; una schermata non di esplorazione come "shop" resta invece raggiungibile; passato il tempo del blocco, dungeonSelect torna accessibile normalmente. (4) CONTATORE GIORNI DI GIOCO: nuovo hero.gameDay (parte da 1), incrementato di 1 ad ogni ciclo di riposo (manuale in Locanda O automatico, vedi punto 5) tramite la funzione condivisa rpgStartSleep - mostrato nella schermata Città e nella Locanda stessa ("Giorno N dell'avventura"). (5) SONNO AUTOMATICO DOPO 16 ORE DI INATTIVITÀ: nuovo hero.lastActiveAt, aggiornato ad ogni ingresso nella schermata RPG (viewRpg); se al rientro sono passate 16+ ore reali consecutive, rpgCheckAutoSleep fa addormentare il personaggio da solo in Locanda (cura completa, usi abilità ripristinati, giorno avanzato) SENZA però imporre anche il blocco manuale di 8 ore - chi torna dopo 16+ ore e' già stato via più del blocco stesso, riproporglielo sarebbe solo punitivo. Se si era rimasti dentro al dungeon/un combattimento, si viene riportati in Locanda. Verificato: 17 ore di inattività fanno scattare il sonno automatico (giorno +1, PF pieni, nessun lock aggiuntivo); 2 ore no; una chiamata reale a viewRpg() con lo schermo fermo su "dungeon" da 20 ore reindirizza correttamente a "inn". (6) GILDA - MISSIONI ANNULLABILI CON PENALITÀ: nuovo bottone "✕ Annulla missione" su ogni missione attiva, libera subito lo slot ma imposta hero.questCooldownUntil = adesso + 1 ora reale (RPG_QUEST_CANCEL_COOLDOWN_MS); mentre il cooldown è attivo "Accetta una nuova missione" è sostituito da un avviso col tempo restante, anche se c'erano slot liberi. Verificato: annullare una missione attiva il cooldown; il cooldown scade correttamente passata l'ora. (7) MESTIERE/LAVORO OFFLINE: nuova scelta di mestiere sulla scheda del personaggio (Minatore/Erborista/Mercante Ambulante/Cercatore di Reliquie, RPG_JOBS), ciascuno produce una risorsa diversa al ritmo di "perHour" per ogni ora reale trascorsa dall'ultima raccolta (hero.jobLastCollectedAt) - calcolato una sola volta per finestra di assenza da rpgJobProcessOffline, richiamato da viewRpg() esattamente come il sonno automatico, con un tetto di 7 giorni reali di accumulo per non generare numeri assurdi a chi lascia il personaggio fermo per mesi (nessuna richiesta esplicita in merito, scelta di buon senso). Il Cercatore di Reliquie accumula un progresso frazionario e consegna reliquie intere vere e proprie nell'inventario quando il progresso supera 1. Verificato: 10 ore di assenza con mestiere Minatore aggiungono esattamente l'oro/minerale previsto; chiamate ripetute senza tempo trascorso non raddoppiano mai la ricompensa; il tetto di 7 giorni viene davvero applicato con 1000 ore simulate; il Cercatore di Reliquie consegna reliquie vere in inventario. (8) BONUS EQUIP VISIBILI + NOMI PIÙ VARI (segnalazione arrivata a metà lavorazione): prima NESSUNA schermata (Zaino/Mercante/Spoglie/Scheda) mostrava mai i bonus reali (CA/Attacco/PF/Danno/dado arma/affilatura) di un oggetto, solo nome e lore puramente estetica - nuova rpgItemStatLine, usata ora ovunque compaia un oggetto, sempre visibile senza bisogno di alcun click. Per la varietà dei nomi (richiesta "alla Shakes and Fidget"): nuovo RPG_ITEM_EPITHETS, un pool di epiteti buffi/assurdi in italiano (stile "del Lombrico Testardo", "della Capra Filosofica", ecc.) accodati con il 40% di probabilità al nome base di armi/armature/equip/reliquie generate - MAI agli Oggetti Leggendari del punto (2), che restano con un nome serio per contrasto deliberato. Verificato: la riga statistiche compare con i numeri corretti su armi/equip; 200 reliquie generate dallo stesso identico template producono almeno 5 nomi distinti grazie agli epiteti; un Oggetto Leggendario non riceve mai un epiteto. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; l'intera app caricata ed eseguita per davvero in jsdom con asserzioni dirette sulle funzioni live per ciascuno degli otto punti sopra, incluso un test finale che combina sonno automatico + mestiere offline + reindirizzamento fuori dal dungeon in una singola chiamata a viewRpg(), e il rendering reale (non solo i dati) delle schermate Mercante/Zaino/Scheda/Gilda con un Oggetto Leggendario equipaggiato, senza eccezioni. Non verificato con un dispositivo Android/browser reale end-to-end in questa sessione. Deploy (sito/Netlify, build Android, Discord) non eseguito in questa sessione: sha256 del manifest verrà calcolato al momento del deploy effettivo, come da prassi.
+var ROLLONE_CONTENT_VERSION = "1.102.0"; // v1.102.0 (28/10, ISPIRATO A ROLLCAMP.COM su richiesta esplicita di Carmine: "naviga su rollcamp.com, prendi spunto di ogni cosa e migliora l'app in tutto" - esplorato il sito (scheda personaggio, bacheca comunitaria, compendium ricercabile, pagina prezzi onesta, wizard di creazione campagna a passi), poi "tutti" per implementare tutti e cinque gli spunti proposti. (1) STORIA DEL PERSONAGGIO: ogni eroe nasce ora con due-tre frasi di backstory generate da stirpe+classe (RPG_BACKSTORY_RACE/RPG_BACKSTORY_CLASS, rpgGenerateBackstory), mostrate in una nuova sezione "Storia" sulla scheda; i salvataggi precedenti a questa versione ne ricevono una al volo tramite rpgHeroBackstory (stesso principio di rpgHeroGameDay/rpgHeroQuests). (2) COMPENDIO: nuova schermata a tre schede (Bestiario/Leggendari/Mestieri, rpgViewCompendio) che riunisce in un unico posto consultabile il bestiario gia' esistente, gli Oggetti Leggendari mai trovati finora (nuovo STATE.rpg.legendaryCodex, aggiornato ad ogni acquisto dal mercante) e la lista dei mestieri disponibili con le rispettive rese - nessun dato nuovo, solo un indice di quanto gia' presente nel gioco. Il bottone "Codex" sulla scheda ora porta qui al posto del solo bestiario. (3) BACHECA: nuova schermata con le novita' ufficiali per versione (RPG_NEWS) e una nota di trasparenza sul gioco (gratis, senza acquisti in-app, non ufficiale D&D) - versione onesta dell'idea di community di RollCamp: senza un server dietro Mythrender non puo' esistere una vera bacheca multi-utente, quindi si e' scelto di non promettere cio' che l'app non puo' davvero fare. (4) CREAZIONE PERSONAGGIO A PASSI: rpgViewCreate, prima un unico form lungo con nome/stirpe/classe/caratteristiche tutti insieme, e' ora un wizard a 4 passi (Nome/Stirpe/Classe/Caratteristiche) con barra di avanzamento "Passo X di 4" e bottoni Avanti/Indietro, per ridurre l'abbandono a meta' - stessa identica logica di validazione e creazione del personaggio del passo finale, solo spostata dentro l'ultimo passo invece che in fondo a un form unico. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le nuove schermate (Compendio su tutte e tre le schede, Bacheca, scheda personaggio con la sezione Storia) senza eccezioni; test dedicato sull'intero flusso del wizard di creazione passo per passo fino alla conferma finale, con verifica che nessun eroe esista prima della conferma e che riceva comunque una backstory; test sulla generazione della backstory (mai vuota, varia per stirpe) e sul ripiego per i salvataggi precedenti; test sul tracciamento dei leggendari trovati nel Compendio; nessuna regressione sulle suite preesistenti (sonno automatico, mestiere offline, sospensione missioni gilda, nomi oggetti/statistiche visibili, audio ambientale, oggetti leggendari). Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
+// var ROLLONE_CONTENT_VERSION = "1.101.0"; // v1.101.0 (28/10, SECONDO BATCH DI RICHIESTE DI CARMINE SUBITO DOPO LA v1.100.0, elenco puntuale: "Incrementa la varietà di oggetti e equipe nel mercante...aumenta il grado degli oggetti fino al livello divino...introduci oggetti leggendari (da grado 1 al 10 che stravolge il game e che ha una possibilità di 1 su 1.000.000 di uscire di grado massimo) dal mercante; Limitare l'uso della locanda: quando si riposa in locanda deve partire un timer di 8 ore reali che blocca tutte le funzioni di esplorazioni ecc...con un messaggio: Sto riposando, non disturbare; le missioni in gilda devono poter essere annullabili ma come penalità bisogna aspettare 1 ora reale per averne un'altra; serve un contatore per i giorni passati nel mini gioco (riferimento le 8 ore di sonno); se non si gioca per 16 ore consecutive il PG va a dormire in automatico in locanda facendo scattare il contatore giorni; migliora i suoni ambientali effetti ecc...quando si cambia schermata devono cessare (se dal minigioco passo alla modalità scheda i suoni continuano e non deve accadere); inserisci la scelta del mestiere: mentre non si gioca il PG lavora e accumula risorse (vedi tu come gestire la cosa)." Più una segnalazione arrivata a metà lavorazione: "fuxa il fatto che se clicco sull'equip non vedo cosa fa e i bonus che mi dà...inoltre quasi tutto ha lo stesso nome...metti nomi anche strani, alla Shakes and Fidget in pratica." Tutti gli otto punti affrontati in questa stessa release. (1) FIX SUONI AMBIENTALI (rpg_ui.js): causa reale trovata subito - go(view,extra), lo switcher di vista PRINCIPALE dell'intera app (non il solo modulo RPG), non chiamava mai rpgAmbientSet/rpgAmbientReflectScreen uscendo da STATE.view==="rpg" verso qualunque altra sezione (es. la scheda personaggio del compendio D&D): un loop ambientale (rpg-town.mp3/dungeon.ogg) restava attivo per sempre anche fuori dal minigioco. Un secondo punto di fuga indipendente trovato nel gestore "popstate" di initNavHistory() (Indietro/Avanti del browser), che cambia STATE.view scavalcando go() del tutto. Corretto in ENTRAMBI i punti: appena si lascia "rpg" per un'altra vista, rpgAmbientSet(null) viene chiamato prima di cambiare schermata. Verificato con esecuzione reale in jsdom: ambient attivo mentre si e' in RPG, poi azzerato sia da go("character") sia dal simulato popstate verso "home", senza mai azzerarsi quando si resta dentro al modulo RPG passando da una schermata interna a un'altra. (2) MERCANTE - VARIETÀ ED OGGETTI LEGGENDARI: la vetrina casuale (rpgRollShopWares) ora propone 3-5 pezzi di equip ad ogni rinnovo (prima 2-3). Nuovo RPG_RARITY.legendary, che esisteva nei dati fin dalla prima versione ma non era MAI stato assegnato a nessun oggetto reale (rpgRarityForTier si fermava a "epic") - introdotti dieci Oggetti Leggendari (RPG_LEGENDARY_GRADES, grado 1-10), ciascuno può comparire in uno qualunque dei sei slot equipaggiabili (arma/armatura/elmo/guanti/stivali/ciondolo, scelto a caso alla generazione - rpgDerivedHero legge già i bonus genericamente per tutti gli slot, nessuna modifica al motore di combattimento necessaria) e tirato ad ogni rinnovo della bancarella con probabilità crescenti quasi geometricamente da 1/500 (grado 1) a ESATTAMENTE 1/1.000.000 per il grado 10 massimo, come richiesto testualmente. Riga evidenziata in oro con bagliore pulsante (CSS) nella vetrina quando compare. Verificato forzando Math.random a valori estremi: un tiro fortunatissimo produce sempre grado 10, uno sfortunato nessun leggendario; equipaggiare un Oggetto Leggendario di grado 10 applica davvero CA/PF/Danno più alti del normale su rpgDerivedHero. (3) LOCANDA - BLOCCO REALE DI 8 ORE: "Riposa" ora avvia hero.sleepUntil = adesso + 8 ore reali (RPG_INN_LOCK_MS); rpgGo (lo switcher di schermata INTERNO al modulo RPG) rifiuta di entrare in qualunque schermata di esplorazione (scelta dungeon/dungeon/combattimento/spoglie/evento dungeon) mentre il blocco e' attivo, rimandando sempre in Locanda con il messaggio testuale richiesto "😴 Sto riposando, non disturbare." e il tempo restante; la schermata della Locanda stessa mostra un conto alla rovescia invece del pulsante "Riposa" mentre si dorme. Verificato: tentare dungeonSelect durante il blocco viene rimandato a "inn"; una schermata non di esplorazione come "shop" resta invece raggiungibile; passato il tempo del blocco, dungeonSelect torna accessibile normalmente. (4) CONTATORE GIORNI DI GIOCO: nuovo hero.gameDay (parte da 1), incrementato di 1 ad ogni ciclo di riposo (manuale in Locanda O automatico, vedi punto 5) tramite la funzione condivisa rpgStartSleep - mostrato nella schermata Città e nella Locanda stessa ("Giorno N dell'avventura"). (5) SONNO AUTOMATICO DOPO 16 ORE DI INATTIVITÀ: nuovo hero.lastActiveAt, aggiornato ad ogni ingresso nella schermata RPG (viewRpg); se al rientro sono passate 16+ ore reali consecutive, rpgCheckAutoSleep fa addormentare il personaggio da solo in Locanda (cura completa, usi abilità ripristinati, giorno avanzato) SENZA però imporre anche il blocco manuale di 8 ore - chi torna dopo 16+ ore e' già stato via più del blocco stesso, riproporglielo sarebbe solo punitivo. Se si era rimasti dentro al dungeon/un combattimento, si viene riportati in Locanda. Verificato: 17 ore di inattività fanno scattare il sonno automatico (giorno +1, PF pieni, nessun lock aggiuntivo); 2 ore no; una chiamata reale a viewRpg() con lo schermo fermo su "dungeon" da 20 ore reindirizza correttamente a "inn". (6) GILDA - MISSIONI ANNULLABILI CON PENALITÀ: nuovo bottone "✕ Annulla missione" su ogni missione attiva, libera subito lo slot ma imposta hero.questCooldownUntil = adesso + 1 ora reale (RPG_QUEST_CANCEL_COOLDOWN_MS); mentre il cooldown è attivo "Accetta una nuova missione" è sostituito da un avviso col tempo restante, anche se c'erano slot liberi. Verificato: annullare una missione attiva il cooldown; il cooldown scade correttamente passata l'ora. (7) MESTIERE/LAVORO OFFLINE: nuova scelta di mestiere sulla scheda del personaggio (Minatore/Erborista/Mercante Ambulante/Cercatore di Reliquie, RPG_JOBS), ciascuno produce una risorsa diversa al ritmo di "perHour" per ogni ora reale trascorsa dall'ultima raccolta (hero.jobLastCollectedAt) - calcolato una sola volta per finestra di assenza da rpgJobProcessOffline, richiamato da viewRpg() esattamente come il sonno automatico, con un tetto di 7 giorni reali di accumulo per non generare numeri assurdi a chi lascia il personaggio fermo per mesi (nessuna richiesta esplicita in merito, scelta di buon senso). Il Cercatore di Reliquie accumula un progresso frazionario e consegna reliquie intere vere e proprie nell'inventario quando il progresso supera 1. Verificato: 10 ore di assenza con mestiere Minatore aggiungono esattamente l'oro/minerale previsto; chiamate ripetute senza tempo trascorso non raddoppiano mai la ricompensa; il tetto di 7 giorni viene davvero applicato con 1000 ore simulate; il Cercatore di Reliquie consegna reliquie vere in inventario. (8) BONUS EQUIP VISIBILI + NOMI PIÙ VARI (segnalazione arrivata a metà lavorazione): prima NESSUNA schermata (Zaino/Mercante/Spoglie/Scheda) mostrava mai i bonus reali (CA/Attacco/PF/Danno/dado arma/affilatura) di un oggetto, solo nome e lore puramente estetica - nuova rpgItemStatLine, usata ora ovunque compaia un oggetto, sempre visibile senza bisogno di alcun click. Per la varietà dei nomi (richiesta "alla Shakes and Fidget"): nuovo RPG_ITEM_EPITHETS, un pool di epiteti buffi/assurdi in italiano (stile "del Lombrico Testardo", "della Capra Filosofica", ecc.) accodati con il 40% di probabilità al nome base di armi/armature/equip/reliquie generate - MAI agli Oggetti Leggendari del punto (2), che restano con un nome serio per contrasto deliberato. Verificato: la riga statistiche compare con i numeri corretti su armi/equip; 200 reliquie generate dallo stesso identico template producono almeno 5 nomi distinti grazie agli epiteti; un Oggetto Leggendario non riceve mai un epiteto. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; l'intera app caricata ed eseguita per davvero in jsdom con asserzioni dirette sulle funzioni live per ciascuno degli otto punti sopra, incluso un test finale che combina sonno automatico + mestiere offline + reindirizzamento fuori dal dungeon in una singola chiamata a viewRpg(), e il rendering reale (non solo i dati) delle schermate Mercante/Zaino/Scheda/Gilda con un Oggetto Leggendario equipaggiato, senza eccezioni. Non verificato con un dispositivo Android/browser reale end-to-end in questa sessione. Deploy (sito/Netlify, build Android, Discord) non eseguito in questa sessione: sha256 del manifest verrà calcolato al momento del deploy effettivo, come da prassi.
 // var ROLLONE_CONTENT_VERSION = "1.98.0"; // v1.98.0 (22/10, SETTE CORREZIONI AL "DUNGEON DELLA DISCESA", su segnalazione dettagliata di Carmine in due messaggi consecutivi: il primo elenca sei problemi distinti dopo uso prolungato ("Dungeon troppo piccoli, poco popolati, poche cose da fare. a livello 14 si blocca perché non ci sono talenti né nulla. servono più tipi di dungeon. le skill non funzionano correttamente. i mostri non danno tempo di evitarli visto lo spazio ristretto. la gilda deve avere più missioni da attivare contemporaneamente. le skill passive non funzionano correttamente."), il secondo arrivato a metà implementazione ne aggiunge altri due ("Inoltre ho notato che non si adatta né si centra né sul PC né su dispositivo mobile anche ruotandolo. Mancano le descrizioni delle abilità e cosa fanno."), entrambi affrontati nella stessa release. (1) DUNGEON PIÙ GRANDI E POPOLATI: griglia 9x7 -> 11x9 (99 celle), stanze generate 11-16 -> 24-35, mostri per piano quasi raddoppiati (formula ora 6+floor(profondita/4)+22% dei candidati disponibili, prima 4+floor(profondita/5)), forzieri 1-2 -> 2-3, trappole 1-2 (probabilità crescente con la profondità) rese leggermente più frequenti, altari e casse di scorte possono ora comparire fino a 2 volte a piano invece di una sola (rpgGenerateDungeonMap in rpg_engine.js). (2) PROGRESSIONE AL LIVELLO 14: "si blocca perché non ci sono talenti né nulla" non era un bug nella formula di assegnazione dei talenti (verificata algebricamente identica alla formula pulita per-milestone, nessun overshoot/exhaustion reale a quel livello), ma mancanza di contenuto nuovo attorno a quel livello; aggiunto un decimo tipo di dungeon sbloccato esattamente a livello 14 ("Rovine del Patto Infranto", RPG_DUNGEONS in rpg_data.js) e una nuova abilità di classe a livello 14 per tutte le sei classi (Fighter: Colpo di Parata con contro-debuff; Wizard: Cono di Gelo 6d8; Rogue: Dissolversi, +8 CA; Cleric: Cura di Massa 3d8+4; Ranger: Raffica con dadi bonus; Barbarian: Incontenibile, +4 attacco per 3 turni). Aggiunta anche, a prescindere, una rete di sicurezza in rpgViewLevelUp per l'ipotetico caso limite di talenti totalmente esauriti (mai raggiungibile nei test ma ora comunque gestito con un bottone esplicito di consolazione in oro invece di una schermata vuota o un render-in-render rischioso, scartato in fase di autoreview prima di qualunque test). (3) PIÙ TIPI DI DUNGEON: il roster passa da 5 a 10 voci (RPG_DUNGEONS), ciascuna con nome/descrizione/livello minimo/moltiplicatori XP-bottino/bias risorse/palette propri: Cripta(1), Boschi Corrotti(2), Miniere(3), Fogne di Hollowmark(5), Gelo(6), Fortezza Infestata(8), Vuoto(10), Rovine del Patto Infranto(14), Ceneri(15), Covo del Basilisco(17). (4) ABILITÀ ATTIVE CORRETTE: diversi effetti secondari delle abilità erano definiti nei dati ma mai realmente applicati in combattimento (rpgViewCombat/playerAction in rpg_ui.js, riscritto con due nuovi aiutanti tickStatusEffects/decayRoundCounters): i debuff al nemico (enemyAtk, es. Presenza Intimidatoria) ora riducono davvero il suo attacco per i turni indicati; il danno nel tempo (dot, es. Lama Avvelenata/Colpo Intrappolante/Spiriti Guardiani) infligge ora danno a ogni round finché non scade da solo; gli auto-debuff dell'eroe (selfDebuff, es. Attacco Avventato) riducono davvero la propria CA per la durata indicata; le abilità di tipo "debuff" puro (nessun attacco abbinato, es. Presenza Intimidatoria) non infliggono più per errore un attacco debole non voluto, applicano solo il loro effetto. (5) MOSTRI E SPAZIO PER REAGIRE: raggio di rilevamento dei mostri ridotto da 3 a 2 celle (RPG_MONSTER_DETECT_RADIUS in rpg_engine.js), così il giocatore nello spazio ristretto della griglia ha più margine per notarli e scegliere se evitarli prima che si attivino. (6) MISSIONI MULTIPLE IN GILDA: da uno-slot-alla-volta a un elenco di missioni attive, tetto massimo 3 contemporanee (RPG_MAX_ACTIVE_QUESTS, rpgHeroQuests in rpg_data.js: aiutante di auto-migrazione pigra che convalida/migra in automatico il vecchio salvataggio a missione singola in un array la prima volta che viene letto, senza bisogno di un passaggio di migrazione esplicito, cosi' nessun salvataggio precedente viene perso); rpgViewGuild riscritta per mostrare ogni missione attiva come scheda propria con riscossione indipendente, e un bottone "Accetta nuova missione" visibile solo sotto il tetto massimo. (7) TALENTI PASSIVI CORRETTI: tre erano completamente privi di effetto e uno solo parzialmente funzionante, mai collegati al calcolo reale nonostante fossero visibili e selezionabili (rpgFeatBonuses in rpg_data.js, già collegato a rpgDerivedHero/rpgHeroAttackRoll ma non ovunque serviva): "ironhide" ora alza davvero la CA permanente (+1, rpgDerivedHero); "regen" cura davvero +2 PF a fine di ogni turno di combattimento; "bulwark" alza davvero la CA (+3) quando l'eroe è sotto la metà dei PF massimi, condizione verificata turno per turno; "arcane" (già presente) ora si applica anche al danno delle abilità attive, non solo a quello delle magie dirette. Aggiunto anche un nuovo talento completamente nuovo e funzionante, "Lama Vampirica": recupera il 15% del danno infierito in mischia come PF. SEGNALAZIONE AGGIUNTIVA RICEVUTA A METÀ LAVORO - (8) ADATTAMENTO SCHERMO PC/MOBILE/ROTAZIONE: la griglia del dungeon (ora 11x9, vedi punto 1) usava solo un max-width fisso, che su mobile in orizzontale (dove l'altezza, non la larghezza, è la dimensione scarsa) poteva non adattarsi/centrarsi correttamente; nuova formula responsive in .rpg-dungeon-grid (rpg_styles.css) che combina un tetto fisso in pixel, un tetto percentuale rispetto al contenitore E un tetto derivato dall'altezza reale della finestra (100dvh meno un budget stimato per l'interfaccia circostante, convertito nel rapporto d'aspetto 11/9 della griglia) scegliendo sempre il più piccolo dei tre, così la griglia si restringe correttamente quando lo spazio verticale è quello scarso, anche ruotando il telefono; corretto anche un disallineamento testo-contenuto nella vista dungeon (titolo/stato erano allineati a sinistra mentre griglia/controlli sotto erano centrati, ora tutto centrato con text-align:center su .rpg-dungeonroom). (9) DESCRIZIONI DELLE ABILITÀ IN COMBATTIMENTO: i bottoni delle abilità mostravano solo nome e usi rimanenti, senza alcuna indicazione di cosa facessero davvero; ora ogni bottone abilità è reso su due righe (nuove classi .rpg-ability-btn/.rpg-ability-btn-name/.rpg-ability-btn-desc) con la descrizione testuale dell'abilità (già presente nei dati come campo "desc", ora finalmente mostrata) sotto il nome. Verificato: node --check pulito su tutti i blocchi script del file finale; bilanciamento graffe pulito su tutti i blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione (nessuna regressione sulle suite preesistenti: smoke test a 18 schermate, test navigazione, test oggetti dungeon, test del pulsante di uscita); suite dedicata ampliata a 32 asserzioni per ogni cambiamento di questa versione (missioni multiple con rimozione alla riscossione, migrazione automatica dal vecchio salvataggio singolo, tetto massimo missioni rispettato in UI, dieci tipi di dungeon con sblocco esatto a livello 14, griglia 11x9 più popolata, bonus dei talenti ironhide/vampiric/arcane/regen/bulwark esposti correttamente, nuova abilità di livello 14 presente per tutte le sei classi); più una seconda suite dedicata di 13 asserzioni sugli effetti di combattimento in azione (non solo esposti nei dati, ma realmente applicati turno per turno): abilità di tipo debuff puro senza danno indesiderato, debuff dell'attacco nemico applicato, danno nel tempo che continua e scade da solo, auto-debuff dell'eroe impostato, bonus-danno "arcane" incluso nel danno dell'abilità, cura "regen" applicata a fine turno, CA condizionale "bulwark" esposta, rete di sicurezza del level-up funzionante e che assegna l'oro di consolazione. sha256: 479141ff86a93dbce26de68e92d7b3fba9bf167a27186b6c681e1489865217c9.
 // var ROLLONE_CONTENT_VERSION = "1.97.6"; // v1.97.6 (22/10, FIX DEFINITIVO ALLA NAVIGAZIONE DEL "DUNGEON DELLA DISCESA" SU MOBILE, su nuova segnalazione di Carmine con screenshot dopo la v1.97.4: "nella schermata personaggio non c'è il ritorno alla città né l'inventario né nulla". Causa reale individuata leggendo il codice della shell principale (non ancora esaminato nelle versioni precedenti): tutte le correzioni di v1.97.4 su rpgBottomNav/rpgViewDungeonSelect erano logicamente corrette ma INVISIBILI su mobile, perché la barra di navigazione INTERNA del modulo RPG (.pixel-nav, Eroe/Zaino/Città/Gilda/Dungeon, definita in rpgBottomNav dentro rpg_ui.js) e la barra di navigazione PRINCIPALE dell'app (#tabs, Bestiario/Forgia/Dungeon della Discesa/Esplora..., definita nella shell di rollone.html) sono entrambe position:fixed;bottom:0 nello STESSO punto esatto dello schermo su mobile; #tabs ha z-index 400/401 contro il 40 di .pixel-nav, quindi la copre sempre e la rende intoccabile, pur essendo presente e perfettamente funzionante nel DOM - esattamente ciò che mostrava lo screenshot di Carmine (solo Bestiario/Forgia/Dungeon della Discesa/Esplora visibili in basso, nessuna Città/Zaino). Le voci "Città"/"Zaino" esistono SOLO nella barra interna, senza equivalente in #tabs, quindi restavano irraggiungibili su mobile indipendentemente da qualunque correzione fatta solo dentro rpg_ui.js. Fix in due parti: (1) nella shell principale di rollone.html, render() aggiunge ora la classe "rpg-active" a <body> quando STATE.view==="rpg", e una nuova regola CSS nel media query mobile (body.rpg-active #tabs{display:none}) nasconde #tabs in quel caso, lasciando emergere la barra interna del modulo RPG; (2) in rpg_ui.js/rpgTopBar(), aggiunto un pulsante "🏠" sempre visibile (ogni schermata del modulo, dungeon incluso) con onclick che richiama go("home") per uscire comunque al menu principale anche senza #tabs visibile, con e.stopPropagation() per non far scattare anche il click dell'intera barra HUD che apre normalmente la scheda personaggio; nuova classe .rpg-exit-btn in rpg_styles.css. Nessuna modifica a rpg_data.js/rpg_engine.js né alla logica introdotta in v1.97.4/v1.97.5 (rpgBottomNav, rpgViewDungeonSelect, rpgUsePotionOutOfCombat, rpgDungeonPatch, trappole/altari/casse/forzieri sospetti, ricompense missioni restano identici: erano già corretti, mancava solo la visibilità su mobile). Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione (stessa suite della v1.97.5, nessuna regressione); test dedicati su rpgTopBar: il nuovo pulsante "🏠" è presente nella HUD in ogni schermata, il click richiama go("home") cambiando STATE.view, e non si propaga al click dell'intera barra HUD (lo screen RPG interno resta quello che era, non si apre per errore rpgViewCharacter); verifica statica che la classe "rpg-active" venga impostata in render() e che la regola CSS corrispondente esista nel media query mobile, entrambe presenti una sola volta e nell'ordine corretto nel file pubblicato. sha256: 27470ca6597857463f1885bb954ba4a19b195361bf9bd33c4ce9e2c93abec279.
 // var ROLLONE_CONTENT_VERSION = "1.97.5"; // v1.97.5 (22/10, OGGETTI E MISSIONI STILE DARKEST DUNGEON, su richiesta esplicita di Carmine: "devi inserire trappole, altari, casse, scelte rischio/ricompensa, più missioni con ricompense varie anche in oggetti pozioni equipaggiamento ecc...", come estensione/completamento del punto 5 lasciato in sospeso in v1.97.4 ("oggetti stile Darkest Dungeon"). Aggiunto in rpg_engine.js/rpg_data.js/rpg_ui.js/rpg_styles.css. DUNGEON: tre nuovi tipi di cella, mutuamente esclusivi tra loro e con mostri/forzieri/scale, generati da rpgGenerateDungeonMap - TRAPPOLE (rpgTriggerTrap): invisibili finché non ci si cammina sopra (a differenza di altari/casse, che sono sempre visibili sulla griglia con icona dedicata), danno 1d6+profondità/3 con tiro salvezza su Destrezza che ne dimezza l'effetto, mai letali fuori combattimento (PF mai sotto 1). ALTARI (rpgRollAltarFaith/rpgAltarOffering/rpgApplyAltarOutcome): al massimo uno a piano (~55% di probabilità), propongono sempre una schermata di scelta esplicita (nuova vista rpgViewDungeonEvent) prima di qualunque effetto - "Prega con fede" (rischioso: bonus CA/attacco nel prossimo combattimento, cura, oro, ma anche possibile maledizione o danno) contro "Lascia un'offerta silenziosa" (sempre sicura, piccola cura garantita) contro "Ignora e prosegui" (l'altare resta lì per un'altra volta). CASSE DI SCORTE (crates): sempre sicure, si raccolgono da sole come i forzieri normali, danno sempre almeno una pozione (a differenza dei forzieri, che danno oro/erbe/minerale). FORZIERI SOSPETTI: ~35% dei forzieri esistenti ora nasconde un rischio, scoperto solo alla scelta di come apriarlo nella stessa nuova schermata di evento - "Forza la serratura" (bottino pieno, ~40% di probabilità di far scattare una trappola) contro "Apri con cautela" (metà oro, sempre sicuro). MISSIONI DELLA GILDA (rpgNewQuest): oltre a oro/PE fissi, ogni missione ha ora il 50% di probabilità di offrire anche pozioni (1-2) e il 35% di offrire un pezzo di equipaggiamento o un'arma (rpgRollQuestItem, riusa la stessa generazione di bottino di combattimenti/forzieri, a un tier coerente col livello dell'eroe); la ricompensa è decisa una sola volta alla generazione della missione e mostrata per intero nella schermata della Gilda PRIMA di completarla, non a sorpresa al momento della riscossione; riscuotere una missione mentre un'esplorazione è in corso non esce più dal dungeon (stesso principio del fix sul level up di v1.97.4). Nessuna meccanica preesistente toccata (combattimento/XP/oro dei forzieri normali identici). Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito sui 6 blocchi CSS; rendering diretto in Node.js con jsdom di tutte le 18 viste, nessuna eccezione; 18 asserzioni dedicate che riproducono ogni scenario (trappola che fa danno e scompare; altare che porta alla scelta senza applicare subito l'effetto, e che resta sulla mappa se ignorato; cassa di scorte raccolta automaticamente; forziere sospetto che blocca la raccolta automatica finché non si scelga "apri con cautela"/"forza la serratura"; icone "altar"/"crate" visibili sulla griglia, trappola correttamente invisibile; missioni che offrono pozioni/oggetti su un campione di 60 tiri; schermata Gilda che mostra la ricompensa in oggetti/pozioni prima di riscuotere e la applica correttamente all'inventario/scorte). sha256: f2b57a05a236d628e9a2abc31dfbf4c767505a65f7997c1bd508afef2713d222.
