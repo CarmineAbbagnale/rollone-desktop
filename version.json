@@ -1,15 +1,10 @@
 {
-  "version": "1.103.0",
+  "version": "1.105.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "e8d9c0030ef5a50e5f4899719d88748d767bcf575202c1a7283ccd119a389d71",
+  "sha256": "01243bcbed04a9106560a73971ad0dfdbb6a25d88795db550565e8e1cb28acdd",
   "apk": {
-    "minVersionName": "1.13.0",
+    "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Nuovo pacchetto Android (Mythrender-1.13.0.apk): finalmente nome \"Mythrender\" e icona corretta sulla schermata home, non più i vecchi \"Fumble RPG\". Stessa firma e stesso ID app di sempre: si aggiorna senza bisogno di disinstallare."
-  },
-  "desktop": {
-    "minVersionName": "1.8.0",
-    "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Nuovo installer desktop (Windows/macOS v1.8.0): finalmente nome \"Mythrender\" e icona corretta, non più i vecchi \"RollOne Setup\". Stesso contenuto auto-aggiornante di sempre: basta scaricare e installare una volta sola."
+    "notice": "Il sito ora si chiama mythrender-site (prima fumblerpg-site): solo l'indirizzo e' cambiato, nessun dato o account perso. Aggiornato anche il link di accesso per conferma email e recupero password."
   }
 }
