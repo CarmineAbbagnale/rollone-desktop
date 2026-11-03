@@ -5788,6 +5788,10 @@ let STATE = { characters:[], customItems:[], customMonsters:[], customSpells:[],
   // nello stesso spirito di isolamento tra i due giochi. Salvate/esportate/importate/azzerate
   // insieme al resto (vedi gli altri punti dello STATE che citano customMonsters).
   pfCustomMonsters:[], pfCustomItems:[], pfCustomSpells:[],
+  // Macro di dado condivise al tavolo (v1.108.0): tiri salvati e richiamabili con un tocco
+  // (es. "Attacco spada" -> 1d20+5), riusano lo stesso motore di doRoll()/mpBroadcastRoll()
+  // già usato dal resto dell'app, così finiscono anche loro nel log dadi del tavolo.
+  diceMacros:[],
   // Dungeon della Discesa (mini-RPG dungeon crawler, estratto dal prototipo base44 di Carmine
   // "Mythrender RPG"): eroe, inventario, bestiario incontrato e log battaglie. Sistema a parte,
   // sincronizzato sull'account come il resto (vedi mpSanitizeAccountStateForCloud/
@@ -10204,7 +10208,8 @@ function persist(){
     theme:STATE.theme, mode:STATE.mode, divineUnlocked:STATE.divineUnlocked, battleMaps:STATE.battleMaps, shops:STATE.shops,
     settlements:STATE.settlements, guild:STATE.guild, settings:STATE.settings, mp:STATE.mp, dmSecrets:STATE.dmSecrets, lore:STATE.lore,
     worldMaps:STATE.worldMaps, pfCharacters:STATE.pfCharacters, pfWizard:STATE.pfWizard, pfCurrent:STATE.pfCurrent, rpgGame:STATE.rpgGame,
-    pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells, rpg:STATE.rpg }));
+    pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells, rpg:STATE.rpg,
+    diceMacros:STATE.diceMacros }));
   }catch(e){/* modalità solo-memoria: usa Esporta per salvare */}
 }
 function loadState(){
@@ -10252,7 +10257,7 @@ function loadState(){
       // sta per entrare invece di ritrovarsi nell'ultimo usato.
       mode:null, rpgGame:null, pfCharacters:d.pfCharacters||[], pfWizard:d.pfWizard||null, pfCurrent:d.pfCurrent||null,
       pfCustomMonsters:d.pfCustomMonsters||[], pfCustomItems:d.pfCustomItems||[], pfCustomSpells:d.pfCustomSpells||[],
-      rpg:d.rpg||rpgDefaultState()});
+      rpg:d.rpg||rpgDefaultState(), diceMacros:d.diceMacros||[]});
       if(!STATE.mp.deviceId) STATE.mp.deviceId=uid()+uid();
       // Una delle vecchie chiavi OpenRouter incorporate (versioni precedenti) viene sostituita con
       // la nuova preimpostazione gratis se trovata in un salvataggio più vecchio (vedi
@@ -10747,7 +10752,7 @@ function mpSanitizeAccountStateForCloud(){
     mp:{playerName:STATE.mp.playerName}, dmSecrets:STATE.dmSecrets, lore:STATE.lore, worldMaps:STATE.worldMaps,
     pfCharacters:STATE.pfCharacters, pfWizard:STATE.pfWizard, pfCurrent:STATE.pfCurrent, rpgGame:STATE.rpgGame,
     pfCustomMonsters:STATE.pfCustomMonsters, pfCustomItems:STATE.pfCustomItems, pfCustomSpells:STATE.pfCustomSpells,
-    rpg:STATE.rpg
+    rpg:STATE.rpg, diceMacros:STATE.diceMacros
   };
 }
 /* Applica una copia scaricata dal cloud allo STATE locale (accesso da un altro dispositivo, o
@@ -10772,7 +10777,7 @@ function mpApplyCloudAccountState(row){
     pfCharacters:d.pfCharacters||[], pfWizard:d.pfWizard||null, pfCurrent:d.pfCurrent||null,
     rpgGame:d.rpgGame==="pathfinder"?"pathfinder":(d.rpgGame||STATE.rpgGame),
     pfCustomMonsters:d.pfCustomMonsters||[], pfCustomItems:d.pfCustomItems||[], pfCustomSpells:d.pfCustomSpells||[],
-    rpg:d.rpg||STATE.rpg||rpgDefaultState()
+    rpg:d.rpg||STATE.rpg||rpgDefaultState(), diceMacros:d.diceMacros||STATE.diceMacros||[]
   });
   STATE.mp.playerName=(d.mp&&d.mp.playerName)||STATE.mp.playerName;
   (STATE.customClasses||[]).forEach(rec=>{ try{ applyCustomClassRecord(rec); }catch(e){} });
@@ -11470,11 +11475,13 @@ function mpCharacterSummary(c,ch){
     const d=pfDerived(ch);
     const cls=PF_CLASSES[ch.pfClass];
     return { system:"pf", name:ch.pfName||"(senza nome)", cls:cls?cls.name:"", level:ch.pfLevel||1, gold:0,
-      hpCur:d.hpMax, hpMax:d.hpMax, icon:cls?cls.icon:"", updatedAt:Date.now(),
+      hpCur:d.hpMax, hpMax:d.hpMax, ac:d.ac||null, conditions:[], icon:cls?cls.icon:"", updatedAt:Date.now(),
       action:(b&&b.pendingAction)||null };
   }
+  const d=derived(ch);
   return { system:"dnd", name:ch.name||"(senza nome)", cls:ch.cls||"", level:ch.level||1, gold:ch.gold||0,
-    hpCur:ch.hpCur||0, hpMax:ch.hpMax||0, icon:ch.icon||"", updatedAt:Date.now(),
+    hpCur:ch.hpCur||0, hpMax:d.hpMax||ch.hpMax||0, ac:d.ac||null, conditions:(ch.conditions||[]).slice(0,8),
+    icon:ch.icon||"", updatedAt:Date.now(),
     action:(b&&b.pendingAction)||null };
 }
 async function mpPushMyCharacter(c){
@@ -11488,6 +11495,27 @@ async function mpPushMyCharacter(c){
     });
     if(error) throw error;
   }catch(e){ /* riproverà con la rete di sicurezza periodica */ }
+}
+/* ---- Aggiornamento live della scheda condivisa: chiamata da save() ad ogni modifica del
+   personaggio (PF, CA, condizioni...), con debounce, così chi è al tavolo vede lo stato
+   aggiornato senza bisogno di legarsi di nuovo o inviare un'azione. Stesso pattern di
+   mpScheduleAccountStatePush ma per le campagne a cui il personaggio è legato. ---- */
+const MP_CHAR_PUSH_TIMERS={};
+function mpCampaignsBoundToChar(charId){
+  if(!charId||!MP_USER_ID) return [];
+  return (STATE.campaigns||[]).filter(c=>{
+    const b=mpMyBinding(c);
+    return c.cloudId && b && b.localCharId===charId;
+  });
+}
+function mpScheduleCharacterSheetPush(charId){
+  if(!charId||!MP_READY||!MP_USER_ID||!mpOnline()) return;
+  const campaigns=mpCampaignsBoundToChar(charId);
+  if(!campaigns.length) return;
+  clearTimeout(MP_CHAR_PUSH_TIMERS[charId]);
+  MP_CHAR_PUSH_TIMERS[charId]=setTimeout(()=>{
+    campaigns.forEach(c=>mpPushMyCharacter(c));
+  },1200);
 }
 async function mpBindCharacter(c,localCharId){
   if(!(await mpEnsureIdentity())) return;
@@ -11648,6 +11676,52 @@ function mpDiceLogPanel(c){
       el("span",{style:"font-weight:700;color:var(--gold2)"},String(r.total))));
   });
   box.append(list);
+  return box;
+}
+
+/* =========================================================================
+   MACRO DI DADO (v1.108.0): tiri salvati e richiamabili con un tocco, come i
+   macro-button di Roll20. Riusano doRoll() (quindi finiscono anche loro nel
+   log dadi del tavolo via mpBroadcastRoll) — niente di nuovo lato Supabase,
+   sono solo scorciatoie locali sincronizzate sull'account come il resto
+   (vedi STATE.diceMacros in persist()/mpSanitizeAccountStateForCloud()).
+   ========================================================================= */
+function ensureDiceMacros(){ if(!STATE.diceMacros) STATE.diceMacros=[]; return STATE.diceMacros; }
+function addDiceMacro(label,faces,count,modv){
+  label=(label||"").trim(); if(!label) return;
+  faces=parseInt(faces,10)||20; count=Math.max(1,parseInt(count,10)||1); modv=parseInt(modv,10)||0;
+  ensureDiceMacros().push({id:uid(),label,faces,count,modv});
+  save(); render();
+}
+function removeDiceMacro(id){ STATE.diceMacros=ensureDiceMacros().filter(m=>m.id!==id); save(); render(); }
+async function rollDiceMacro(m){
+  const r=await doRoll(m.faces,m.count,m.modv,0,null,m.label);
+  toast("🎲 "+m.label+": "+r.sum);
+}
+function mpMacroPanel(){
+  const box=el("div",{class:"card",style:"background:rgba(0,0,0,.15);margin-top:8px"});
+  box.append(el("div",{class:"section-title",style:"font-size:13px"},"⚡ Macro di dado",el("span",{class:"ln"})));
+  const macros=ensureDiceMacros();
+  if(macros.length){
+    const row=el("div",{style:"display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"});
+    macros.forEach(m=>{
+      const btn=el("button",{class:"btn ghost sm",title:m.count+"d"+m.faces+(m.modv?(m.modv>0?"+"+m.modv:m.modv):""),
+        onclick:()=>rollDiceMacro(m)},m.label);
+      const del=el("span",{style:"cursor:pointer;margin-left:4px;opacity:.6",title:"Elimina macro",
+        onclick:(e)=>{e.stopPropagation();removeDiceMacro(m.id);}},"✕");
+      row.append(el("div",{style:"display:flex;align-items:center;background:rgba(255,255,255,.06);border-radius:16px;padding:2px 2px 2px 2px"},btn,del));
+    });
+    box.append(row);
+  } else {
+    box.append(el("div",{class:"muted",style:"font-size:12px;margin-top:2px"},"Nessuna macro ancora: crea una scorciatoia per un tiro che usi spesso (es. «Attacco spada» = 1d20+5)."));
+  }
+  const labelIn=el("input",{type:"text",placeholder:"Nome (es. Attacco spada)",style:"flex:1;min-width:120px"});
+  const countIn=el("input",{type:"number",value:"1",min:"1",style:"width:48px"});
+  const facesIn=styleSelect(el("select",{style:"width:70px"},
+    ...[4,6,8,10,12,20,100].map(f=>el("option",{value:f,selected:f===20?"selected":null},"d"+f))));
+  const modIn=el("input",{type:"number",value:"0",placeholder:"mod",style:"width:56px"});
+  const addBtn=el("button",{class:"btn sm",onclick:()=>{ addDiceMacro(labelIn.value,facesIn.value,countIn.value,modIn.value); labelIn.value=""; }},"+ Aggiungi");
+  box.append(el("div",{style:"display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"},labelIn,countIn,facesIn,modIn,addBtn));
   return box;
 }
 
@@ -12422,7 +12496,11 @@ async function mpAddToken(c,map,opts){
       // "icon": colonna già esistente nello schema (mai letta/scritta finora dal client) — qui
       // riusata, senza nessuna migrazione DB, per la chiave dell'archetipo miniatura 3D (v1.71.0,
       // vedi mpAddMonsterTokenModal più sotto). NULL = pedina "piatta" di sempre (nome + colore).
-      icon:opts.icon||null
+      icon:opts.icon||null,
+      // "size": colonna già esistente nello schema (già letta da mapCanvasWidget per disegnare
+      // pedine più grandi, t.size||1, ma mai scritta finora dal client: qui si aggiunge il modo di
+      // impostarla davvero, 3/11/2026, richiesta "tavolo come Roll20"). 1=Media (default), 2=Grande, 3=Enorme.
+      size:opts.size&&opts.size>1?opts.size:null
     });
     if(error) throw error;
     toast("Pedina aggiunta.");
@@ -12494,6 +12572,13 @@ async function mpMoveToken(tokenId,col,row){
 async function mpDeleteToken(tokenId){
   const sb=mpClient(); if(!sb) return;
   try{ await sb.from("battle_tokens").delete().eq("id",tokenId); }catch(e){ toast("Errore rimozione pedina: "+(e.message||e)); }
+}
+/* Dimensione pedina (1=Media, 2=Grande, 3=Enorme) — stessa colonna "size" già letta dal canvas
+   per disegnare il cerchio più grande (t.size||1), qui finalmente scrivibile dal DM dopo la
+   creazione, senza dover ricreare la pedina (3/11/2026, "tavolo come Roll20"). */
+async function mpSetTokenSize(tokenId,size){
+  const sb=mpClient(); if(!sb) return;
+  try{ await sb.from("battle_tokens").update({size:size>1?size:null}).eq("id",tokenId); }catch(e){ toast("Errore dimensione pedina: "+(e.message||e)); }
 }
 async function mpSetTokenControl(tokenId,playerId){
   const sb=mpClient(); if(!sb) return;
@@ -12937,8 +13022,31 @@ function mapCanvasWidget(c,map,tokens,opts){
         if(!visibleSet.has(r+"_"+cIdx)) ctx.fillRect(cIdx*cell,r*cell,cell,cell);
       }
     }
+    // Righello (3/11/2026): il pulsante era già nella barra strumenti ma senza nessuna logica
+    // collegata — qui finalmente disegna la linea e la distanza mentre si trascina, SOPRA tutto
+    // il resto (nebbia/illuminazione comprese) così resta leggibile anche al buio. Mai persistito
+    // sul server: è solo un aiuto visivo momentaneo, sparisce al rilascio del dito/mouse.
+    if(rulerState.active&&rulerState.from){
+      const fx=rulerState.from.col*cell+cell/2, fy=rulerState.from.row*cell+cell/2;
+      const tx=rulerState.to.col*cell+cell/2, ty=rulerState.to.row*cell+cell/2;
+      ctx.save();
+      ctx.strokeStyle="#f3d16a"; ctx.lineWidth=2.5; ctx.setLineDash([6,5]);
+      ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(tx,ty); ctx.stroke();
+      ctx.setLineDash([]);
+      [[fx,fy],[tx,ty]].forEach(([px,py])=>{ ctx.beginPath(); ctx.arc(px,py,5,0,Math.PI*2); ctx.fillStyle="#f3d16a"; ctx.fill(); });
+      const cellsDist=Math.max(Math.abs(rulerState.to.col-rulerState.from.col),Math.abs(rulerState.to.row-rulerState.from.row));
+      const metersDist=cellsDist*1.5; // 1 cella = 1,5 m (5 piedi), stessa convenzione già usata altrove nell'app
+      const label=cellsDist+(cellsDist===1?" cella":" celle")+" · "+(metersDist%1===0?metersDist:metersDist.toFixed(1))+" m";
+      const mx=(fx+tx)/2, my=(fy+ty)/2;
+      ctx.font="bold "+Math.max(12,cell*0.26)+"px sans-serif"; ctx.textAlign="center";
+      const tw=ctx.measureText(label).width;
+      ctx.fillStyle="rgba(10,8,5,.82)"; ctx.fillRect(mx-tw/2-6,my-cell*0.22-10,tw+12,20);
+      ctx.fillStyle="#f3d16a"; ctx.textBaseline="middle"; ctx.fillText(label,mx,my-cell*0.22);
+      ctx.restore();
+    }
   }
   const dragState={id:null,col:0,row:0};
+  const rulerState={active:false,from:null,to:null};
   function localPoint(e){
     const rect=cv.getBoundingClientRect();
     const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left, cy=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
@@ -12954,6 +13062,10 @@ function mapCanvasWidget(c,map,tokens,opts){
   function canControl(t){ return isDm || (t.controlled_by&&t.controlled_by===MP_USER_ID); }
   // Pennello nebbia: solo il DM, solo con lo strumento "fog" attivo, solo se la nebbia è già
   // stata attivata per questa mappa (altrimenti non c'è una griglia "revealed" su cui dipingere).
+  // Righello: disponibile a chiunque (DM e giocatori), a differenza di nebbia/disegno che restano
+  // DM-only — misurare una distanza non modifica nulla di condiviso, è utile anche a chi gioca.
+  function rulerActive(){ return VTT_TOOL==="ruler"; }
+  function cellOf(pt){ return {col:Math.max(0,Math.min(map.cols-1,Math.floor(pt.x/cell))),row:Math.max(0,Math.min(map.rows-1,Math.floor(pt.y/cell)))}; }
   function fogPaintable(){ return isDm && VTT_TOOL==="fog" && map.fog && map.fog.enabled && map.fog.revealed && !opts.readOnly; }
   // Pennello disegno libero: solo il DM, solo con lo strumento "draw" attivo. currentStroke tiene
   // i punti del tratto in corso (dichiarata con "let", non "const": draw() più sopra la legge per
@@ -12975,6 +13087,11 @@ function mapCanvasWidget(c,map,tokens,opts){
         currentStroke={id:uid(),color:VTT_DRAW_COLOR,width:VTT_DRAW_WIDTH,points:[localPoint(e)]};
         cv.setPointerCapture(e.pointerId); draw(); return;
       }
+      if(rulerActive()){
+        const start=cellOf(localPoint(e));
+        rulerState.active=true; rulerState.from=start; rulerState.to=start;
+        cv.setPointerCapture(e.pointerId); draw(); return;
+      }
       const pt=localPoint(e); const t=hitToken(pt); if(!t||!canControl(t)) return;
       dragState.id=t.id; dragState.col=t.col; dragState.row=t.row;
       cv.setPointerCapture(e.pointerId); draw();
@@ -12982,6 +13099,7 @@ function mapCanvasWidget(c,map,tokens,opts){
     cv.addEventListener("pointermove",e=>{
       if(painting){ paintFogAt(e); return; }
       if(currentStroke){ currentStroke.points.push(localPoint(e)); draw(); return; }
+      if(rulerState.active){ rulerState.to=cellOf(localPoint(e)); draw(); return; }
       if(dragState.id==null) return;
       const pt=localPoint(e);
       dragState.col=Math.max(0,Math.min(map.cols-1,Math.floor(pt.x/cell)));
@@ -12989,6 +13107,7 @@ function mapCanvasWidget(c,map,tokens,opts){
       draw();
     });
     const endDrag=()=>{
+      if(rulerState.active){ rulerState.active=false; rulerState.from=null; rulerState.to=null; draw(); return; }
       if(painting){ painting=false; mpUpdateFog(map,map.fog); return; }
       if(currentStroke){
         const s=currentStroke; currentStroke=null;
@@ -13062,24 +13181,37 @@ function mapPanel(c,opts){
       const fileIn=el("input",{type:"file",accept:"image/png,image/jpeg,image/webp,image/gif"});
       const colsIn=el("input",{type:"number",value:String(map.cols),min:"5",max:"60",style:"width:64px"});
       const rowsIn=el("input",{type:"number",value:String(map.rows),min:"5",max:"60",style:"width:64px"});
+      // Dimensione cella in pixel (3/11/2026): colonna "cell_px" già letta da mapCanvasWidget
+      // (map.cell_px||48, vedi anche la riga griglia disegnata solo se grid_visible!==false) ma mai
+      // scrivibile finora — serve soprattutto per allineare la griglia a una mappa-immagine caricata
+      // che non ha celle quadrate "naturali" della stessa dimensione del generatore casuale.
+      const cellPxIn=el("input",{type:"number",value:String(map.cell_px||48),min:"20",max:"120",style:"width:64px"});
       const tools=el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"},
         fileIn,
         el("button",{class:"btn ghost sm",onclick:async()=>{ const f=fileIn.files&&fileIn.files[0]; if(!f){toast("Scegli prima un'immagine");return;} await mpUploadMapImage(c,map,f); }},"⬆ Carica immagine"),
         el("button",{class:"btn ghost sm",onclick:()=>mpGenerateMapLayout(c,map)},"🎲 Genera layout casuale"),
         el("span",{class:"muted",style:"font-size:11px"},"Griglia:"),colsIn,el("span",{},"×"),rowsIn,
+        el("span",{class:"muted",style:"font-size:11px"},"cella (px):"),cellPxIn,
         el("button",{class:"btn ghost sm",onclick:async()=>{
           const sb=mpClient(); const cols=Math.max(5,Math.min(60,parseInt(colsIn.value)||map.cols)), rows=Math.max(5,Math.min(60,parseInt(rowsIn.value)||map.rows));
+          const cellPx=Math.max(20,Math.min(120,parseInt(cellPxIn.value)||map.cell_px||48));
           const fog=fogNormalize(map.fog,rows,cols);
           // Il ridimensionamento della griglia cambia anche le dimensioni del canvas in pixel: i
           // disegni esistenti (coordinate pixel legate alla vecchia griglia) andrebbero fuori posto
           // o fuori tela. Stessa scelta già fatta per la nebbia: si azzerano invece di rimapparli
           // in modo incerto (limite noto, documentato anche nella migration).
-          const drawingsChanged=(cols!==map.cols||rows!==map.rows);
+          const drawingsChanged=(cols!==map.cols||rows!==map.rows||cellPx!==map.cell_px);
           const drawings=drawingsChanged?[]:drawingsNormalize(map.drawings);
-          await sb.from("battle_maps").update({cols,rows,fog,drawings,updated_at:new Date().toISOString(),updated_by:MP_USER_ID}).eq("id",map.id);
+          await sb.from("battle_maps").update({cols,rows,cell_px:cellPx,fog,drawings,updated_at:new Date().toISOString(),updated_by:MP_USER_ID}).eq("id",map.id);
           if(drawingsChanged&&drawingsNormalize(map.drawings).length) toast("Griglia cambiata: i disegni sulla mappa sono stati azzerati.");
-          map.cols=cols; map.rows=rows; map.fog=fog; map.drawings=drawings; render();
-        }},"Applica"));
+          map.cols=cols; map.rows=rows; map.cell_px=cellPx; map.fog=fog; map.drawings=drawings; render();
+        }},"Applica"),
+        el("label",{style:"display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"},
+          el("input",{type:"checkbox",checked:map.grid_visible!==false,onchange:async(e)=>{
+            const sb=mpClient(); map.grid_visible=e.target.checked;
+            await sb.from("battle_maps").update({grid_visible:map.grid_visible,updated_at:new Date().toISOString(),updated_by:MP_USER_ID}).eq("id",map.id);
+            render();
+          }}),"Mostra linee griglia"));
       body.append(tools);
       const fogOn=!!(map.fog&&map.fog.enabled);
       const fogToggle=el("input",{type:"checkbox",checked:fogOn});
@@ -13133,11 +13265,15 @@ function mapPanel(c,opts){
       const addColor=el("input",{type:"color",value:"#c0392b"});
       const ctrlSel=styleSelect(el("select",{},el("option",{value:""},"— solo il DM la muove —")));
       (MP_ROSTER_CACHE[c.cloudId]||[]).forEach(r=>ctrlSel.append(el("option",{value:r.playerId},r.displayName)));
+      // Dimensione pedina (3/11/2026): colonna "size" già letta dal canvas (raggio del cerchio
+      // proporzionale, t.size||1) ma mai scrivibile alla creazione — qui il DM la sceglie subito,
+      // stessa convenzione D&D (Media=1 cella, Grande=2×2, Enorme=3×3).
+      const addSize=styleSelect(el("select",{},el("option",{value:"1"},"Media"),el("option",{value:"2"},"Grande"),el("option",{value:"3"},"Enorme")));
       const addHidden=el("input",{type:"checkbox",id:"addTokHidden"});
       const addHiddenWrap=el("label",{style:"display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"},addHidden,"👁 Nascosta ai giocatori");
       body.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"},
-        addLabel,addColor,ctrlSel,addHiddenWrap,
-        el("button",{class:"btn ghost sm",onclick:async()=>{ await mpAddToken(c,map,{label:addLabel.value.trim()||"?",color:addColor.value,controlledBy:ctrlSel.value||null,hidden:addHidden.checked}); addLabel.value=""; addHidden.checked=false; }},"➕ Aggiungi pedina"),
+        addLabel,addColor,addSize,ctrlSel,addHiddenWrap,
+        el("button",{class:"btn ghost sm",onclick:async()=>{ await mpAddToken(c,map,{label:addLabel.value.trim()||"?",color:addColor.value,size:parseInt(addSize.value,10)||1,controlledBy:ctrlSel.value||null,hidden:addHidden.checked}); addLabel.value=""; addHidden.checked=false; }},"➕ Aggiungi pedina"),
         el("button",{class:"btn ghost sm",onclick:()=>mpAddMonsterTokenModal(c,map,addHidden.checked)},"🐉 Mostro (bestiario, miniatura 3D)"),
         el("button",{class:"btn ghost sm",onclick:()=>mpAddObjectTokenModal(c,map,addHidden.checked)},"📦 Oggetto (3D)")));
       if(tokens.length){
@@ -13146,9 +13282,14 @@ function mapPanel(c,opts){
           const row=el("div",{style:"font-size:12px"+(t.hidden?";opacity:.75":"")});
           const hiddenToggle=el("label",{style:"display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;color:var(--muted)"},
             el("input",{type:"checkbox",checked:!!t.hidden,onchange:async(e)=>{ t.hidden=e.target.checked; await mpSetTokenHidden(t.id,t.hidden); render(); }}),"👁");
+          const sizeSel=styleSelect(el("select",{style:"font-size:10px;padding:1px"},
+            el("option",{value:"1",selected:(t.size||1)===1?"selected":null},"Media"),
+            el("option",{value:"2",selected:t.size===2?"selected":null},"Grande"),
+            el("option",{value:"3",selected:t.size===3?"selected":null},"Enorme")));
+          sizeSel.onchange=async()=>{ t.size=parseInt(sizeSel.value,10)||1; await mpSetTokenSize(t.id,t.size); render(); };
           row.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px"},
             el("span",{},el("span",{style:"display:inline-block;width:9px;height:9px;border-radius:50%;background:"+t.color+";margin-right:6px"}),t.label,t.hidden?el("span",{style:"margin-left:6px;font-size:10px;color:var(--muted)"},"(nascosta)"):""),
-            el("span",{style:"display:flex;align-items:center;gap:6px"},hiddenToggle,
+            el("span",{style:"display:flex;align-items:center;gap:6px"},sizeSel,hiddenToggle,
               el("button",{class:"btn ghost sm",style:"color:#b04a4a;padding:2px 8px",onclick:()=>mpDeleteToken(t.id)},"✕"))));
           const condRow=el("div",{style:"display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:3px"});
           (t.conditions||[]).forEach(cn=>condRow.append(el("span",{class:"cond",style:"font-size:10px;cursor:pointer",
@@ -33666,7 +33807,7 @@ function playFallback2D(cineFn){
   fallbackStage.style.display="flex";
   if(cineFn) cineFn(fallbackStage);
 }
-async function doRoll(faces,count=1,modv=0,adv=0,force){
+async function doRoll(faces,count=1,modv=0,adv=0,force,labelOverride){
   const useDouble=!!(adv&&faces===20);
   const parts=[{sides:faces, qty: useDouble?2:count}];
   const {bySides,physical}=await throwPhysicalDice(parts,force);
@@ -33678,7 +33819,7 @@ async function doRoll(faces,count=1,modv=0,adv=0,force){
     crit:faces===20&&picked.includes(20),fumble:faces===20&&picked.includes(1)};
   ROLL_LOG.unshift(entry); ROLL_LOG=ROLL_LOG.slice(0,40);
   const ac=activeCampaign();
-  if(ac&&ac.cloudId) mpBroadcastRoll(ac,{label:"d"+faces+(count>1?"×"+count:"")+(adv>0?" (vant.)":adv<0?" (svant.)":""),
+  if(ac&&ac.cloudId) mpBroadcastRoll(ac,{label:labelOverride||("d"+faces+(count>1?"×"+count:"")+(adv>0?" (vant.)":adv<0?" (svant.)":"")),
     faces,count,total:entry.sum,crit:entry.crit,fumble:entry.fumble});
   return entry;
 }
@@ -35923,7 +36064,7 @@ function showSpell(sp,clsName,c){
 /* =========================================================================
    AZIONI SCHEDA: salvataggio, level-up, riposi, editor
    ========================================================================= */
-function save(){ persist(); mpScheduleAccountStatePush(); }
+function save(){ persist(); mpScheduleAccountStatePush(); mpScheduleCharacterSheetPush(STATE.current); }
 
 /* BUG FIX (24/9, segnalato da Carmine: "se con il multiclasse salgo a livello 4 non mi fa
    scegliere la caratteristica potenziata/talento"). Il blocco di scelta ASI/talento (aumento
@@ -44521,7 +44662,7 @@ function mpTablePanel(c){
       const pd=mpPresenceDot(r.online,r.status);
       const dot=el("span",{title:pd.label,style:"display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:"+pd.color});
       const ch=r.character;
-      const chInfo=ch? (ch.name||"?")+" · liv."+(ch.level||1)+" · "+(ch.gold||0)+" mo · PF "+(ch.hpCur||0)+"/"+(ch.hpMax||0) : "non ha ancora scelto un personaggio";
+      const chInfo=ch? (ch.name||"?")+" · liv."+(ch.level||1)+" · "+(ch.gold||0)+" mo"+(ch.ac?" · CA "+ch.ac:"") : "non ha ancora scelto un personaggio";
       const row=el("div",{style:"padding:8px;border-radius:8px;background:rgba(0,0,0,.12);margin-bottom:6px"});
       row.append(el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"},
         el("span",{style:"font-size:13px"},dot,el("b",{},r.displayName),r.canAct?"":el("span",{style:"color:#e0a34c;font-size:11px;margin-left:6px"},"⏸ sospeso")),
@@ -44529,6 +44670,18 @@ function mpTablePanel(c){
           (()=>{const cb=el("input",{type:"checkbox"}); cb.checked=r.canAct; cb.onchange=async()=>{ cb.disabled=true; await mpSetCanAct(c.cloudId,r.playerId,cb.checked); cb.disabled=false; toast(cb.checked?"Può agire":"Sospeso dal tavolo"); }; return cb;})(),
           "può agire"):null));
       row.append(el("div",{class:"muted",style:"font-size:11px;margin-top:2px"},chInfo));
+      if(ch&&ch.hpMax){
+        const pct=Math.max(0,Math.min(100,Math.round((ch.hpCur||0)/ch.hpMax*100)));
+        const barColor=pct<=25?"#c0392b":pct<=50?"#e0a34c":"#4a9d5f";
+        row.append(el("div",{style:"display:flex;align-items:center;gap:6px;margin-top:4px"},
+          el("div",{style:"flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden"},
+            el("div",{style:"height:100%;width:"+pct+"%;background:"+barColor+";transition:width .3s"})),
+          el("span",{style:"font-size:11px;min-width:52px;text-align:right"},"PF "+(ch.hpCur||0)+"/"+ch.hpMax)));
+      }
+      if(ch&&ch.conditions&&ch.conditions.length){
+        row.append(el("div",{style:"display:flex;gap:4px;flex-wrap:wrap;margin-top:4px"},
+          ...ch.conditions.map(cn=>el("span",{style:"font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(192,57,43,.25);border:1px solid rgba(192,57,43,.5)"},cn))));
+      }
       if(ch&&ch.action&&ch.action.text&&ch.action.ts>(c.mpLastResolvedTs||0)){
         row.append(el("div",{style:"font-size:12px;margin-top:4px;padding:6px 8px;border-radius:6px;background:rgba(224,163,76,.15)"},"💬 "+ch.action.text));
       }
@@ -44737,7 +44890,7 @@ function campaignChat(c){
   sidebar.append(el("div",{class:"vtt-sb-section"},el("h4",{},"⚔ Iniziativa"),mpCombatPanel(c)));
   sidebar.append(el("div",{class:"vtt-sb-section"},el("h4",{},"Narrazione"),campaignChatLogAndInput(c,{vtt:true})));
   sidebar.append(el("div",{class:"vtt-sb-section"},el("h4",{},"💬 Chat del tavolo"),mpChatPanel(c)));
-  sidebar.append(el("div",{class:"vtt-sb-section"},mpDiceLogPanel(c)));
+  sidebar.append(el("div",{class:"vtt-sb-section"},mpDiceLogPanel(c),mpMacroPanel()));
   outer.append(vttShell(stage,sidebar));
   return outer;
 }
@@ -44847,7 +45000,7 @@ function viewTavolo(){
     sidebar.append(actSection);
   }
 
-  sidebar.append(el("div",{class:"vtt-sb-section"},mpDiceLogPanel(c)));
+  sidebar.append(el("div",{class:"vtt-sb-section"},mpDiceLogPanel(c),mpMacroPanel()));
   wrap.append(vttShell(stage,sidebar));
   return wrap;
 }
@@ -47158,7 +47311,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.107.0"; // v1.107.0 (3/11, INVITI AL TAVOLO PER NICKNAME + LOBBY ONLINE - primo passo del miglioramento del tavolo "come Roll20" richiesto da Carmine dopo la v1.106.0: "dico lato invito in campagne tavolo ecc..." → "ok allora integra e migliora il tavolo come Roll20" (scope completo confermato via chiarimento: inviti nickname/online, mappe/token più potenti, macro/dadi condivisi, schede condivise — questa release copre solo il primo punto, gli altri tre restano lavoro aperto). Prima di questa release, invitare qualcuno a una campagna richiedeva il codice condiviso fuori app o l'email esatta del destinatario, la stessa lacuna già segnalata per il sistema amici. (1) NUOVA RPC invite_player_to_campaign_by_nickname (parallela a invite_player_to_campaign_by_email, stesso stile SECURITY DEFINER, stessi codici d'errore unknown_nickname/cannot_invite_self). (2) Nel modale "Invita giocatori" di ogni campagna (mpInviteModal), nuova sezione "Invita per nickname" con casella di ricerca ed elenco di chi è online in questo momento (letto dalla stessa presenza Realtime del pannello Community, filtrato per escludere chi è già nel gruppo), invito con un tocco. (3) BUG CRITICO scoperto e corretto nella stessa sessione, non nel codice client: la migration della v1.106.0 aveva reso players.nickname obbligatoria senza un valore di default, quindi ogni nuova registrazione sull'app avrebbe fallito silenziosamente da quel momento (nessun impatto sui giocatori già esistenti). Corretto con un trigger players_auto_nickname (BEFORE INSERT) che genera un nickname univoco automatico dal display_name quando mancante, stessa logica di normalizzazione/unicità del backfill originale - verificato con un INSERT di prova su un utente reale dentro una transazione con rollback, nessun errore. Verificato: node --check pulito su tutti i 16 blocchi script del file; funzione riusa COMMUNITY_NICK_CACHE/communityOnlinePlayers/communityResolveNicknames già esistenti senza modificarle. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json). - richiesta di Carmine: "la community sta crescendo...sistemare multiplayer chat globali private inviti presenze on-line ecc...attualmente si invita solo tramite mail, non è possibile vedere i giocatori on-line". Scelte confermate da Carmine: ricerca per nickname pubblico univoco (non solo email, non solo elenco online); tutte le priorità selezionate (lobby online con invito diretto, chat globale più visibile, notifiche di richieste/inviti). (1) NICKNAME PUBBLICO: nuova colonna players.nickname (univoca, case-insensitive, 3-20 caratteri a-z0-9_), migration add_player_nicknames già applicata su Supabase con backfill automatico per i giocatori esistenti, nuove RPC set_nickname e send_friend_request_by_nickname (parallela a send_friend_request_by_email, che resta disponibile). Card dedicata in cima alla schermata Community per impostare/cambiare il proprio nickname. (2) LOBBY "CHI È ONLINE": nuovo pannello che legge la presenza Realtime già esistente (canale "rollone-lobby", nessuna nuova sottoscrizione) ed elenca chi è connesso ora, con pallino di stato, nickname, e azione contestuale (scrivi se già amici, richiesta in attesa, accetta se in arrivo, altrimenti invia richiesta di amicizia) più una casella di ricerca per nickname per invitare anche chi è offline. (3) NOTIFICHE: nuovo pallino rosso pulsante sul pulsante "Community" della barra di navigazione (prima inesistente), acceso da un canale Realtime dedicato per richieste di amicizia in arrivo, messaggi nuovi in chat globale e in chat privata, attivo dal login al logout indipendentemente dalla schermata su cui si trova il giocatore. Verificato: node --check pulito su tutti i 16 blocchi script del file; nessuna funzione duplicata; tutte le funzioni/RPC esistenti (presenza, chat globale, chat privata, elenco amici via RPC list_friends) riusate senza modifiche. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
+var ROLLONE_CONTENT_VERSION = "1.108.0"; // v1.108.0 (3/11, TAVOLO/VTT MIGLIORATO DRASTICAMENTE - secondo e terzo passo richiesti da Carmine dopo la v1.107.0: "scegli tu la preferenza ma li pubblichi solo quando sono finiti, aggiungi anche il VTT che va migliorato drasticamente essendo ancora a livello base e per niente paragonabile a quello di roll20 o simili". Copre i tre moduli rimasti delle quattro priorità scelte da Carmine (inviti per nickname già pubblicati in v1.107.0): mappe/token più potenti, macro e dadi condivisi, schede personaggio condivise. (1) MAPPE E TOKEN: righello di misurazione (nuovo strumento "Righello" nella barra VTT, prima presente solo come bottone senza alcuna funzione reale dietro - traccia una linea trascinabile sulla mappa e mostra celle/metri convertiti con la stessa unità già usata nei testi di incantesimi/condizioni del gioco, 1 cella = 1,5 m; disponibile a DM e giocatori, non solo al DM). Dimensione pedina (Media/Grande/Enorme) ora selezionabile sia aggiungendo un nuovo token sia su uno già presente, con effetto reale sulla resa a schermo e sull'area cliccabile (la colonna battle_tokens.size esisteva già nello schema ma non era mai scritta da alcuna interfaccia). Dimensione cella in pixel e visibilità della griglia ora regolabili dal DM direttamente dal pannello mappa invece di restare fissi via codice (battle_maps.cell_px/grid_visible, stesso motivo: colonne già presenti nello schema, mai esposte prima). (2) MACRO E DADI CONDIVISI: il log dadi condiviso in tempo reale (broadcast Realtime per campagna) esisteva già da versioni precedenti ed è rimasto intatto; aggiunto solo il pezzo mancante, le MACRO - tiri salvati e richiamabili con un tocco come i macro-button di Roll20 (es. "Attacco spada" = 1d20+5), create/eliminate da un piccolo pannello accanto al log dadi nella barra laterale del tavolo, sincronizzate sull'account (STATE.diceMacros) così restano disponibili su ogni dispositivo; un tiro di macro passa dalla stessa doRoll() di sempre, quindi finisce anche lui nel log dadi broadcast del tavolo con l'etichetta della macro al posto di quella generica "dNN". (3) SCHEDE PERSONAGGIO CONDIVISE: anche qui esisteva già un motore quasi completo (tabella "characters" su Supabase, con RLS e sottoscrizione Realtime per campagna, mai documentato come tale perché nato per alimentare il prompt dell'IA DM più che per la vista umana) che sincronizza nome/classe/livello/oro/PF di chi si lega a un personaggio in una campagna, mostrato nel roster del tavolo (mpTablePanel) - esteso aggiungendo i due campi mancanti (Classe Armatura e condizioni attive, letti da derived(c)/c.conditions per D&D e pfDerived(ch) per Pathfinder) e sostituendo la singola riga testuale "PF x/y" con una barra vita colorata (verde/ambra/rosso secondo percentuale) più i braccialetti delle condizioni attive, per una lettura a colpo d'occhio più vicina a quella di un VTT vero. Aggiunta anche la parte che mancava per renderlo davvero \"in tempo reale\": la scheda condivisa veniva aggiornata solo legandosi al personaggio o inviando un'azione al DM, MAI quando cambiano PF/CA/condizioni durante il gioco normale - nuova mpScheduleCharacterSheetPush(), chiamata da save() con lo stesso debounce di 1.2s già usato per la sincronizzazione account, che ripubblica la scheda su tutte le campagne a cui il personaggio corrente risulta legato ad ogni modifica reale. Verificato: node --check pulito su tutti i 16 blocchi script del file. Nessuna logica di gioco preesistente toccata, nessuna nuova tabella Supabase necessaria per (2)/(3) oltre a quelle già esistenti (la tabella campaign_character_sheets creata durante l'esplorazione iniziale di questa sessione resta sullo schema, pronta ma non usata, per un eventuale sviluppo futuro più ricco delle sole statistiche riassuntive). sha256: calcolato al deploy effettivo (vedi version.json).
+// var ROLLONE_CONTENT_VERSION = "1.107.0"; // v1.107.0 (3/11, INVITI AL TAVOLO PER NICKNAME + LOBBY ONLINE - primo passo del miglioramento del tavolo "come Roll20" richiesto da Carmine dopo la v1.106.0: "dico lato invito in campagne tavolo ecc..." → "ok allora integra e migliora il tavolo come Roll20" (scope completo confermato via chiarimento: inviti nickname/online, mappe/token più potenti, macro/dadi condivisi, schede condivise — questa release copre solo il primo punto, gli altri tre restano lavoro aperto). Prima di questa release, invitare qualcuno a una campagna richiedeva il codice condiviso fuori app o l'email esatta del destinatario, la stessa lacuna già segnalata per il sistema amici. (1) NUOVA RPC invite_player_to_campaign_by_nickname (parallela a invite_player_to_campaign_by_email, stesso stile SECURITY DEFINER, stessi codici d'errore unknown_nickname/cannot_invite_self). (2) Nel modale "Invita giocatori" di ogni campagna (mpInviteModal), nuova sezione "Invita per nickname" con casella di ricerca ed elenco di chi è online in questo momento (letto dalla stessa presenza Realtime del pannello Community, filtrato per escludere chi è già nel gruppo), invito con un tocco. (3) BUG CRITICO scoperto e corretto nella stessa sessione, non nel codice client: la migration della v1.106.0 aveva reso players.nickname obbligatoria senza un valore di default, quindi ogni nuova registrazione sull'app avrebbe fallito silenziosamente da quel momento (nessun impatto sui giocatori già esistenti). Corretto con un trigger players_auto_nickname (BEFORE INSERT) che genera un nickname univoco automatico dal display_name quando mancante, stessa logica di normalizzazione/unicità del backfill originale - verificato con un INSERT di prova su un utente reale dentro una transazione con rollback, nessun errore. Verificato: node --check pulito su tutti i 16 blocchi script del file; funzione riusa COMMUNITY_NICK_CACHE/communityOnlinePlayers/communityResolveNicknames già esistenti senza modificarle. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json). - richiesta di Carmine: "la community sta crescendo...sistemare multiplayer chat globali private inviti presenze on-line ecc...attualmente si invita solo tramite mail, non è possibile vedere i giocatori on-line". Scelte confermate da Carmine: ricerca per nickname pubblico univoco (non solo email, non solo elenco online); tutte le priorità selezionate (lobby online con invito diretto, chat globale più visibile, notifiche di richieste/inviti). (1) NICKNAME PUBBLICO: nuova colonna players.nickname (univoca, case-insensitive, 3-20 caratteri a-z0-9_), migration add_player_nicknames già applicata su Supabase con backfill automatico per i giocatori esistenti, nuove RPC set_nickname e send_friend_request_by_nickname (parallela a send_friend_request_by_email, che resta disponibile). Card dedicata in cima alla schermata Community per impostare/cambiare il proprio nickname. (2) LOBBY "CHI È ONLINE": nuovo pannello che legge la presenza Realtime già esistente (canale "rollone-lobby", nessuna nuova sottoscrizione) ed elenca chi è connesso ora, con pallino di stato, nickname, e azione contestuale (scrivi se già amici, richiesta in attesa, accetta se in arrivo, altrimenti invia richiesta di amicizia) più una casella di ricerca per nickname per invitare anche chi è offline. (3) NOTIFICHE: nuovo pallino rosso pulsante sul pulsante "Community" della barra di navigazione (prima inesistente), acceso da un canale Realtime dedicato per richieste di amicizia in arrivo, messaggi nuovi in chat globale e in chat privata, attivo dal login al logout indipendentemente dalla schermata su cui si trova il giocatore. Verificato: node --check pulito su tutti i 16 blocchi script del file; nessuna funzione duplicata; tutte le funzioni/RPC esistenti (presenza, chat globale, chat privata, elenco amici via RPC list_friends) riusate senza modifiche. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
 // var ROLLONE_CONTENT_VERSION = "1.103.0"; // v1.103.0 (29/10, TROFEO "CAMPIONE DEI CAMPIONI" - richiesta esplicita di Carmine dopo aver visto il video promozionale: "fammene un altro in cui si sfida ogni giocatore a trovare le armi leggendarie di massimo grado e finire il dungeon divino sbloccando così vicino al suo nome il trofeo di campione dei campioni quando avrà trovato ogni sorta di equip e mostro presente in game... bisogna inserire una sorta di achievement e registro degli equip e bestiario che si aggiornano man mano". Il "dungeon divino" richiesto esisteva già nei dati (RPG_DUNGEONS/godsdungeon, "Dungeon delle Divinità", sbloccato a livello 1000, letale, introdotto in v1.100.0) - qui si aggiunge solo il traguardo legato a superarlo. (1) REGISTRO EQUIPAGGIAMENTO: nuovo STATE.rpg.equipCodex, marcato da rpgEquipCodexMark alla GENERAZIONE di ogni arma/armatura/equip minore (rpgMakeWeapon/rpgMakeArmor/rpgMakeEquip) - traccia ogni combinazione slot+tier mai ottenuta almeno una volta (48 in tutto: 8 armi, 8 armature, 32 equip minori su 4 slot). Il bestiario aveva già il suo registro (STATE.rpg.codex, da versioni precedenti) e non è stato toccato. (2) SCHEDA TROFEI: nuova quarta scheda "🏆 Trofei" nel Compendio (rpgChampionProgress), che mostra le quattro condizioni del trofeo con segno di spunta e il progresso numerico: bestiario completo (ogni mostro di RPG_MONSTERS incontrato), equipaggiamento completo (tutti i 48 pezzi ottenuti), un Oggetto Leggendario di grado 10 (il massimo, introdotto in v1.101.0) mai trovato, e il Dungeon delle Divinità superato. Le prime tre condizioni sono calcolate DAL VIVO ad ogni apertura della scheda, mai salvate - nessuna nuova possibilità di corruzione del salvataggio; la quarta (hero.godsDungeonCleared) è l'unica eccezione necessaria, impostata in closeCombat quando si abbatte un guardiano mentre si è nel Dungeon delle Divinità, perché quel traguardo deve restare vero per sempre anche dopo essere usciti da quel dungeon. (3) TROFEO ACCANTO AL NOME: quando tutte e quattro le condizioni sono vere, un'icona 🏆 compare accanto al nome dell'eroe in ogni punto dove il nome è già mostrato (barra superiore, schermata Città, scheda personaggio) - nessuna schermata nuova dedicata, lo stesso nome guadagna semplicemente il trofeo. Verificato: node --check pulito su tutti i blocchi script del file finale; test dedicato che marca manualmente ogni condizione una per volta e conferma che il trofeo compare solo a tutte e quattro completate, mai prima; verificato che il conteggio del catalogo equipaggiamento (48) corrisponde esattamente alla somma di RPG_SHOP_WEAPONS+RPG_SHOP_ARMORS+RPG_LOOT_EQUIP; verificato che godsDungeonCleared scatta SOLO abbattendo un guardiano nel Dungeon delle Divinità, non in un boss qualunque di un altro dungeon; rendering reale in jsdom della scheda Trofei sia a zero completamento sia a completamento pieno, e del nome con trofeo nelle tre schermate coinvolte, senza eccezioni; nessuna regressione sulle suite preesistenti. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
 // var ROLLONE_CONTENT_VERSION = "1.102.0"; // v1.102.0 (28/10, ISPIRATO A ROLLCAMP.COM su richiesta esplicita di Carmine: "naviga su rollcamp.com, prendi spunto di ogni cosa e migliora l'app in tutto" - esplorato il sito (scheda personaggio, bacheca comunitaria, compendium ricercabile, pagina prezzi onesta, wizard di creazione campagna a passi), poi "tutti" per implementare tutti e cinque gli spunti proposti. (1) STORIA DEL PERSONAGGIO: ogni eroe nasce ora con due-tre frasi di backstory generate da stirpe+classe (RPG_BACKSTORY_RACE/RPG_BACKSTORY_CLASS, rpgGenerateBackstory), mostrate in una nuova sezione "Storia" sulla scheda; i salvataggi precedenti a questa versione ne ricevono una al volo tramite rpgHeroBackstory (stesso principio di rpgHeroGameDay/rpgHeroQuests). (2) COMPENDIO: nuova schermata a tre schede (Bestiario/Leggendari/Mestieri, rpgViewCompendio) che riunisce in un unico posto consultabile il bestiario gia' esistente, gli Oggetti Leggendari mai trovati finora (nuovo STATE.rpg.legendaryCodex, aggiornato ad ogni acquisto dal mercante) e la lista dei mestieri disponibili con le rispettive rese - nessun dato nuovo, solo un indice di quanto gia' presente nel gioco. Il bottone "Codex" sulla scheda ora porta qui al posto del solo bestiario. (3) BACHECA: nuova schermata con le novita' ufficiali per versione (RPG_NEWS) e una nota di trasparenza sul gioco (gratis, senza acquisti in-app, non ufficiale D&D) - versione onesta dell'idea di community di RollCamp: senza un server dietro Mythrender non puo' esistere una vera bacheca multi-utente, quindi si e' scelto di non promettere cio' che l'app non puo' davvero fare. (4) CREAZIONE PERSONAGGIO A PASSI: rpgViewCreate, prima un unico form lungo con nome/stirpe/classe/caratteristiche tutti insieme, e' ora un wizard a 4 passi (Nome/Stirpe/Classe/Caratteristiche) con barra di avanzamento "Passo X di 4" e bottoni Avanti/Indietro, per ridurre l'abbandono a meta' - stessa identica logica di validazione e creazione del personaggio del passo finale, solo spostata dentro l'ultimo passo invece che in fondo a un form unico. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le nuove schermate (Compendio su tutte e tre le schede, Bacheca, scheda personaggio con la sezione Storia) senza eccezioni; test dedicato sull'intero flusso del wizard di creazione passo per passo fino alla conferma finale, con verifica che nessun eroe esista prima della conferma e che riceva comunque una backstory; test sulla generazione della backstory (mai vuota, varia per stirpe) e sul ripiego per i salvataggi precedenti; test sul tracciamento dei leggendari trovati nel Compendio; nessuna regressione sulle suite preesistenti (sonno automatico, mestiere offline, sospensione missioni gilda, nomi oggetti/statistiche visibili, audio ambientale, oggetti leggendari). Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
 // var ROLLONE_CONTENT_VERSION = "1.101.0"; // v1.101.0 (28/10, SECONDO BATCH DI RICHIESTE DI CARMINE SUBITO DOPO LA v1.100.0, elenco puntuale: "Incrementa la varietà di oggetti e equipe nel mercante...aumenta il grado degli oggetti fino al livello divino...introduci oggetti leggendari (da grado 1 al 10 che stravolge il game e che ha una possibilità di 1 su 1.000.000 di uscire di grado massimo) dal mercante; Limitare l'uso della locanda: quando si riposa in locanda deve partire un timer di 8 ore reali che blocca tutte le funzioni di esplorazioni ecc...con un messaggio: Sto riposando, non disturbare; le missioni in gilda devono poter essere annullabili ma come penalità bisogna aspettare 1 ora reale per averne un'altra; serve un contatore per i giorni passati nel mini gioco (riferimento le 8 ore di sonno); se non si gioca per 16 ore consecutive il PG va a dormire in automatico in locanda facendo scattare il contatore giorni; migliora i suoni ambientali effetti ecc...quando si cambia schermata devono cessare (se dal minigioco passo alla modalità scheda i suoni continuano e non deve accadere); inserisci la scelta del mestiere: mentre non si gioca il PG lavora e accumula risorse (vedi tu come gestire la cosa)." Più una segnalazione arrivata a metà lavorazione: "fuxa il fatto che se clicco sull'equip non vedo cosa fa e i bonus che mi dà...inoltre quasi tutto ha lo stesso nome...metti nomi anche strani, alla Shakes and Fidget in pratica." Tutti gli otto punti affrontati in questa stessa release. (1) FIX SUONI AMBIENTALI (rpg_ui.js): causa reale trovata subito - go(view,extra), lo switcher di vista PRINCIPALE dell'intera app (non il solo modulo RPG), non chiamava mai rpgAmbientSet/rpgAmbientReflectScreen uscendo da STATE.view==="rpg" verso qualunque altra sezione (es. la scheda personaggio del compendio D&D): un loop ambientale (rpg-town.mp3/dungeon.ogg) restava attivo per sempre anche fuori dal minigioco. Un secondo punto di fuga indipendente trovato nel gestore "popstate" di initNavHistory() (Indietro/Avanti del browser), che cambia STATE.view scavalcando go() del tutto. Corretto in ENTRAMBI i punti: appena si lascia "rpg" per un'altra vista, rpgAmbientSet(null) viene chiamato prima di cambiare schermata. Verificato con esecuzione reale in jsdom: ambient attivo mentre si e' in RPG, poi azzerato sia da go("character") sia dal simulato popstate verso "home", senza mai azzerarsi quando si resta dentro al modulo RPG passando da una schermata interna a un'altra. (2) MERCANTE - VARIETÀ ED OGGETTI LEGGENDARI: la vetrina casuale (rpgRollShopWares) ora propone 3-5 pezzi di equip ad ogni rinnovo (prima 2-3). Nuovo RPG_RARITY.legendary, che esisteva nei dati fin dalla prima versione ma non era MAI stato assegnato a nessun oggetto reale (rpgRarityForTier si fermava a "epic") - introdotti dieci Oggetti Leggendari (RPG_LEGENDARY_GRADES, grado 1-10), ciascuno può comparire in uno qualunque dei sei slot equipaggiabili (arma/armatura/elmo/guanti/stivali/ciondolo, scelto a caso alla generazione - rpgDerivedHero legge già i bonus genericamente per tutti gli slot, nessuna modifica al motore di combattimento necessaria) e tirato ad ogni rinnovo della bancarella con probabilità crescenti quasi geometricamente da 1/500 (grado 1) a ESATTAMENTE 1/1.000.000 per il grado 10 massimo, come richiesto testualmente. Riga evidenziata in oro con bagliore pulsante (CSS) nella vetrina quando compare. Verificato forzando Math.random a valori estremi: un tiro fortunatissimo produce sempre grado 10, uno sfortunato nessun leggendario; equipaggiare un Oggetto Leggendario di grado 10 applica davvero CA/PF/Danno più alti del normale su rpgDerivedHero. (3) LOCANDA - BLOCCO REALE DI 8 ORE: "Riposa" ora avvia hero.sleepUntil = adesso + 8 ore reali (RPG_INN_LOCK_MS); rpgGo (lo switcher di schermata INTERNO al modulo RPG) rifiuta di entrare in qualunque schermata di esplorazione (scelta dungeon/dungeon/combattimento/spoglie/evento dungeon) mentre il blocco e' attivo, rimandando sempre in Locanda con il messaggio testuale richiesto "😴 Sto riposando, non disturbare." e il tempo restante; la schermata della Locanda stessa mostra un conto alla rovescia invece del pulsante "Riposa" mentre si dorme. Verificato: tentare dungeonSelect durante il blocco viene rimandato a "inn"; una schermata non di esplorazione come "shop" resta invece raggiungibile; passato il tempo del blocco, dungeonSelect torna accessibile normalmente. (4) CONTATORE GIORNI DI GIOCO: nuovo hero.gameDay (parte da 1), incrementato di 1 ad ogni ciclo di riposo (manuale in Locanda O automatico, vedi punto 5) tramite la funzione condivisa rpgStartSleep - mostrato nella schermata Città e nella Locanda stessa ("Giorno N dell'avventura"). (5) SONNO AUTOMATICO DOPO 16 ORE DI INATTIVITÀ: nuovo hero.lastActiveAt, aggiornato ad ogni ingresso nella schermata RPG (viewRpg); se al rientro sono passate 16+ ore reali consecutive, rpgCheckAutoSleep fa addormentare il personaggio da solo in Locanda (cura completa, usi abilità ripristinati, giorno avanzato) SENZA però imporre anche il blocco manuale di 8 ore - chi torna dopo 16+ ore e' già stato via più del blocco stesso, riproporglielo sarebbe solo punitivo. Se si era rimasti dentro al dungeon/un combattimento, si viene riportati in Locanda. Verificato: 17 ore di inattività fanno scattare il sonno automatico (giorno +1, PF pieni, nessun lock aggiuntivo); 2 ore no; una chiamata reale a viewRpg() con lo schermo fermo su "dungeon" da 20 ore reindirizza correttamente a "inn". (6) GILDA - MISSIONI ANNULLABILI CON PENALITÀ: nuovo bottone "✕ Annulla missione" su ogni missione attiva, libera subito lo slot ma imposta hero.questCooldownUntil = adesso + 1 ora reale (RPG_QUEST_CANCEL_COOLDOWN_MS); mentre il cooldown è attivo "Accetta una nuova missione" è sostituito da un avviso col tempo restante, anche se c'erano slot liberi. Verificato: annullare una missione attiva il cooldown; il cooldown scade correttamente passata l'ora. (7) MESTIERE/LAVORO OFFLINE: nuova scelta di mestiere sulla scheda del personaggio (Minatore/Erborista/Mercante Ambulante/Cercatore di Reliquie, RPG_JOBS), ciascuno produce una risorsa diversa al ritmo di "perHour" per ogni ora reale trascorsa dall'ultima raccolta (hero.jobLastCollectedAt) - calcolato una sola volta per finestra di assenza da rpgJobProcessOffline, richiamato da viewRpg() esattamente come il sonno automatico, con un tetto di 7 giorni reali di accumulo per non generare numeri assurdi a chi lascia il personaggio fermo per mesi (nessuna richiesta esplicita in merito, scelta di buon senso). Il Cercatore di Reliquie accumula un progresso frazionario e consegna reliquie intere vere e proprie nell'inventario quando il progresso supera 1. Verificato: 10 ore di assenza con mestiere Minatore aggiungono esattamente l'oro/minerale previsto; chiamate ripetute senza tempo trascorso non raddoppiano mai la ricompensa; il tetto di 7 giorni viene davvero applicato con 1000 ore simulate; il Cercatore di Reliquie consegna reliquie vere in inventario. (8) BONUS EQUIP VISIBILI + NOMI PIÙ VARI (segnalazione arrivata a metà lavorazione): prima NESSUNA schermata (Zaino/Mercante/Spoglie/Scheda) mostrava mai i bonus reali (CA/Attacco/PF/Danno/dado arma/affilatura) di un oggetto, solo nome e lore puramente estetica - nuova rpgItemStatLine, usata ora ovunque compaia un oggetto, sempre visibile senza bisogno di alcun click. Per la varietà dei nomi (richiesta "alla Shakes and Fidget"): nuovo RPG_ITEM_EPITHETS, un pool di epiteti buffi/assurdi in italiano (stile "del Lombrico Testardo", "della Capra Filosofica", ecc.) accodati con il 40% di probabilità al nome base di armi/armature/equip/reliquie generate - MAI agli Oggetti Leggendari del punto (2), che restano con un nome serio per contrasto deliberato. Verificato: la riga statistiche compare con i numeri corretti su armi/equip; 200 reliquie generate dallo stesso identico template producono almeno 5 nomi distinti grazie agli epiteti; un Oggetto Leggendario non riceve mai un epiteto. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; l'intera app caricata ed eseguita per davvero in jsdom con asserzioni dirette sulle funzioni live per ciascuno degli otto punti sopra, incluso un test finale che combina sonno automatico + mestiere offline + reindirizzamento fuori dal dungeon in una singola chiamata a viewRpg(), e il rendering reale (non solo i dati) delle schermate Mercante/Zaino/Scheda/Gilda con un Oggetto Leggendario equipaggiato, senza eccezioni. Non verificato con un dispositivo Android/browser reale end-to-end in questa sessione. Deploy (sito/Netlify, build Android, Discord) non eseguito in questa sessione: sha256 del manifest verrà calcolato al momento del deploy effettivo, come da prassi.
