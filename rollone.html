@@ -343,6 +343,13 @@ body.game-gate .app-shell{display:none}
 .nav-item.active::before{height:calc(100% - 6px);box-shadow:0 0 8px rgba(217,138,43,.5)}
 .nav-item.active::after{content:"";position:absolute;top:3px;right:3px;width:8px;height:8px;pointer-events:none;
   border-top:2px solid var(--amber-l);border-right:2px solid var(--amber-l);opacity:.85}
+/* Pallino di notifica Community (richieste amicizia / chat non letta) — niente di simile esisteva
+   prima nel nav, aggiunto il 3/11/2026 insieme al sistema nickname/presenze. */
+.community-notify-dot{position:absolute;top:6px;right:10px;width:9px;height:9px;border-radius:50%;
+  background:#e2473b;box-shadow:0 0 6px rgba(226,71,59,.8),0 0 0 2px var(--bg,#14100b);pointer-events:none;
+  animation:community-dot-pulse 1.8s ease-in-out infinite}
+@keyframes community-dot-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@media (max-width:760px){ .community-notify-dot{top:2px;right:8px} }
 .nav-chapter{padding:12px 18px 6px;font-family:"Cinzel",serif;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);opacity:.85}
 .nav-divider{height:1px;margin:6px 16px 2px;background:linear-gradient(90deg,transparent,var(--line2) 18%,var(--line2) 82%,transparent);position:relative}
 .nav-divider::after{content:"◆";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:8px;color:var(--amber-d);line-height:1}
@@ -10361,6 +10368,7 @@ async function mpEnsureIdentity(){
       MP_READY=true;
       mpTrackPresence();
       mpCheckInvites(true);
+      communityInitNotifications();
       mpSyncAccountOnLogin();
       return true;
     }catch(e){ toast("Errore multiplayer: "+(e.message||e)); return false; }
@@ -10481,6 +10489,7 @@ async function authGate(){
         AUTH_GATE_PASSED=true;
         try{ mpTrackPresence(); }catch(e2){}
         try{ mpCheckInvites(true); }catch(e2){}
+        try{ communityInitNotifications(); }catch(e2){}
         try{ mpSyncAccountOnLogin(); }catch(e2){}
         checkForUpdatesOnLogin();
       }
@@ -10516,14 +10525,16 @@ async function mpTryRestoreSession(){
     MP_READY=true;
     mpTrackPresence();
     mpCheckInvites(true);
+    communityInitNotifications();
     mpSyncAccountOnLogin();
     if(STATE.view==="settings"||STATE.view==="tavolo"||(STATE.mode==="dm"&&DM_TAB==="Campagna AI")) render();
   }catch(e){ /* nessuna sessione valida: si resta semplicemente disconnessi finché non si accede */ }
 }
 async function mpSignOut(){
   const sb=mpClient(); if(sb) try{ await sb.auth.signOut(); }catch(e){}
-  MP_READY=false; MP_USER_ID=null; MP_USER_EMAIL=null; STATE.mp.playerName=""; save();
+  MP_READY=false; MP_USER_ID=null; MP_USER_EMAIL=null; STATE.mp.playerName=""; STATE.mp.nickname=null; save();
   mpUntrackPresence();
+  communityTeardownNotifications();
   mpUnsubscribeCampaign();
   mpUnsubscribeAccountState();
   mpUnsubscribeAccountDevices();
@@ -11030,6 +11041,185 @@ function mpPresenceDot(online,status){
   if(!online) return {color:"#888",label:"Offline"};
   const def=MP_PRESENCE_STATUSES[status]||MP_PRESENCE_STATUSES.online;
   return {color:def.dot,label:def.label};
+}
+
+/* =========================================================================
+   NICKNAME PUBBLICO + LOBBY "CHI È ONLINE" + NOTIFICHE COMMUNITY (3/11/2026)
+   Richiesta esplicita di Carmine: "la community sta crescendo... sistemare
+   multiplayer chat globali private inviti presenze online... attualmente si
+   invita solo tramite mail, non è possibile vedere i giocatori online".
+   Aggiunge, senza toccare nulla di esistente: un nickname pubblico univoco
+   (migration add_player_nicknames, colonna players.nickname, RPC
+   set_nickname/send_friend_request_by_nickname — parallela e non
+   sostitutiva di send_friend_request_by_email, che resta disponibile),
+   un elenco di chi è online in questo momento (letto dallo stesso canale
+   Realtime di presenza già esistente, mpTrackPresence/MP_PRESENCE_CHANNEL,
+   nessuna nuova sottoscrizione), e un pallino di notifica sul pulsante di
+   navigazione "Community" per richieste di amicizia/messaggi nuovi, visibile
+   anche senza essere sulla schermata Community (prima l'unico modo per
+   scoprirli era aprirla "a caso").
+   ========================================================================= */
+async function communityLoadMyNickname(){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return null;
+  try{
+    const {data,error}=await sb.from("players").select("nickname").eq("id",MP_USER_ID).maybeSingle();
+    if(error) throw error;
+    STATE.mp.nickname=(data&&data.nickname)||null; save();
+    return STATE.mp.nickname;
+  }catch(e){ return STATE.mp.nickname||null; }
+}
+async function communitySetNickname(raw){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return false;
+  try{
+    const {data,error}=await sb.rpc("set_nickname",{p_nickname:raw});
+    if(error) throw error;
+    STATE.mp.nickname=data; save();
+    toast("Nickname impostato: @"+data);
+    return true;
+  }catch(e){
+    const msg=(e.message||"");
+    toast(msg.includes("nickname_taken") ? "Questo nickname è già in uso da qualcun altro."
+      : msg.includes("invalid_nickname_format") ? "Il nickname deve avere 3-20 caratteri: solo lettere minuscole, numeri e underscore."
+      : "Errore nickname: "+(msg||e));
+    return false;
+  }
+}
+async function communitySendFriendRequestByNickname(nickname){
+  const sb=mpClient(); if(!sb||!MP_USER_ID) return false;
+  nickname=(nickname||"").replace(/^@/,"").trim();
+  if(!nickname){ toast("Scrivi il nickname di chi vuoi aggiungere."); return false; }
+  try{
+    const {data,error}=await sb.rpc("send_friend_request_by_nickname",{p_nickname:nickname});
+    if(error) throw error;
+    const name=(data&&data[0]&&data[0].receiver_display_name)||"Giocatore";
+    toast("Richiesta inviata a "+name+".");
+    return true;
+  }catch(e){
+    const msg=(e.message||"");
+    const testo = msg.includes("unknown_nickname") ? "Nessun giocatore con questo nickname."
+      : msg.includes("cannot_invite_self") ? "Non puoi inviare una richiesta a te stesso."
+      : msg.includes("request_already_sent") ? "Hai già una richiesta in sospeso verso questa persona."
+      : msg.includes("already_friends") ? "Siete già amici."
+      : "Errore richiesta amicizia: "+(msg||e);
+    toast(testo);
+    return false;
+  }
+}
+const COMMUNITY_NICK_CACHE={}; // playerId -> nickname (o null se non ancora impostato)
+async function communityResolveNicknames(ids){
+  const sb=mpClient(); if(!sb) return;
+  const missing=[...new Set(ids)].filter(id=>id&&!(id in COMMUNITY_NICK_CACHE));
+  if(!missing.length) return;
+  try{
+    const {data,error}=await sb.from("players").select("id,nickname").in("id",missing);
+    if(error) throw error;
+    (data||[]).forEach(p=>{ COMMUNITY_NICK_CACHE[p.id]=p.nickname||null; });
+  }catch(e){}
+}
+/* Elenco di chi è online adesso (tutti i presenti sul canale "rollone-lobby", esclusi se stesso):
+   stessa fonte dati di mpIsOnline/mpPresenceStatus, qui solo enumerata invece che interrogata un
+   giocatore alla volta. */
+function communityOnlinePlayers(){
+  if(!MP_PRESENCE_CHANNEL) return [];
+  try{
+    const st=MP_PRESENCE_CHANNEL.presenceState();
+    return Object.keys(st).filter(id=>id!==MP_USER_ID&&st[id]&&st[id].length)
+      .map(id=>({id,status:(st[id][0]&&st[id][0].status)||"online"}));
+  }catch(e){ return []; }
+}
+function communityOnlinePanel(){
+  const wrap=el("div",{class:"card"});
+  wrap.append(el("div",{class:"section-title",style:"font-size:13px"},"🟢 Online adesso",el("span",{class:"ln"})));
+  const online=communityOnlinePlayers();
+  if(!COMMUNITY_FRIENDS_CACHE.loaded){ communityLoadFriendsIfNeeded().then(()=>{ if(STATE.view==="community") render(); }); }
+  const relByPlayer={}; (COMMUNITY_FRIENDS_CACHE.list||[]).forEach(r=>{ relByPlayer[r.player_id]=r; });
+  const list=el("div",{style:"display:flex;flex-direction:column;gap:6px;margin-top:6px"});
+  if(!online.length){
+    list.append(el("div",{class:"muted",style:"font-size:12px"},"Nessun altro giocatore online in questo momento."));
+  } else {
+    communityResolveNicknames(online.map(p=>p.id));
+    communityResolveNames(online.map(p=>p.id));
+    online.forEach(p=>{
+      const pd=mpPresenceDot(true,p.status);
+      const dot=el("span",{style:"display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:"+pd.color});
+      const nick=COMMUNITY_NICK_CACHE[p.id];
+      const label=nick?("@"+nick):communityName(p.id);
+      const rel=relByPlayer[p.id];
+      let action;
+      if(rel&&rel.relation==="friend") action=el("button",{class:"btn ghost sm",onclick:()=>{ COMMUNITY_ACTIVE_FRIEND=p.id; COMMUNITY_BADGE.friendChatUnread=false; communityUpdateNavBadge(); render(); }},"💬 Scrivi");
+      else if(rel&&rel.relation==="outgoing_request") action=el("span",{class:"muted",style:"font-size:12px"},"richiesta in attesa");
+      else if(rel&&rel.relation==="incoming_request") action=el("button",{class:"btn ghost sm",onclick:async()=>{ const ok=await communityRespondFriendRequest(rel.request_id,true); if(ok){ COMMUNITY_FRIENDS_CACHE.loaded=false; communityRefreshFriendRequestCount(); render(); } }},"✓ Accetta richiesta");
+      else action=el("button",{class:"btn ghost sm",onclick:async(e)=>{ e.target.disabled=true; e.target.textContent="…"; const ok=await communitySendFriendRequestByNickname(nick||label); if(ok){ COMMUNITY_FRIENDS_CACHE.loaded=false; render(); } else { e.target.disabled=false; e.target.textContent="➕ Richiedi amicizia"; } }},"➕ Richiedi amicizia");
+      list.append(el("div",{class:"list-line"},el("span",{title:pd.label},dot,label),action));
+    });
+  }
+  wrap.append(list);
+  const searchIn=el("input",{placeholder:"Cerca per @nickname (anche offline)…",style:"min-width:200px"});
+  const searchBtn=el("button",{class:"btn ghost sm",onclick:async(e)=>{
+    const btn=e.target; btn.disabled=true; const prev=btn.textContent; btn.textContent="…";
+    const ok=await communitySendFriendRequestByNickname(searchIn.value);
+    if(ok){ searchIn.value=""; COMMUNITY_FRIENDS_CACHE.loaded=false; render(); }
+    btn.disabled=false; btn.textContent=prev;
+  }},"➕ Invia richiesta");
+  wrap.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"},searchIn,searchBtn));
+  return wrap;
+}
+function communityNicknameCard(){
+  const wrap=el("div",{class:"card"});
+  wrap.append(el("div",{class:"section-title",style:"font-size:13px"},"🏷 Il tuo nickname pubblico",el("span",{class:"ln"})));
+  if(STATE.mp.nickname===undefined){ communityLoadMyNickname().then(()=>{ if(STATE.view==="community") render(); }); }
+  const current=STATE.mp.nickname;
+  wrap.append(el("p",{class:"muted",style:"font-size:12px"},current?("Altri giocatori ti trovano e ti invitano cercando «@"+current+"».") : "Carico…"));
+  const nickIn=el("input",{placeholder:"nuovo_nickname",value:current||""});
+  const btn=el("button",{class:"btn ghost sm",onclick:async(e)=>{ e.target.disabled=true; const ok=await communitySetNickname(nickIn.value); e.target.disabled=false; if(ok) render(); }},"Cambia");
+  wrap.append(el("div",{style:"display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"},nickIn,btn));
+  return wrap;
+}
+/* Notifiche: un solo canale Realtime, attivo per tutta la sessione collegata (da login a
+   logout), indipendente dal trovarsi sulla schermata Community — comunitySendFriendRequest*
+   e le chat restano quelle già esistenti, qui si aggiunge solo l'ascolto per il pallino. */
+const COMMUNITY_BADGE={friendRequests:0,globalUnread:false,friendChatUnread:false};
+let COMMUNITY_NOTIFY_CHANNEL=null;
+async function communityRefreshFriendRequestCount(){
+  const rows=await communityListFriends();
+  COMMUNITY_BADGE.friendRequests=rows.filter(r=>r.relation==="incoming_request").length;
+  communityUpdateNavBadge();
+}
+function communityInitNotifications(){
+  if(!MP_USER_ID) return;
+  communityLoadMyNickname();
+  communityRefreshFriendRequestCount();
+  const sb=mpClient(); if(!sb||COMMUNITY_NOTIFY_CHANNEL) return;
+  COMMUNITY_NOTIFY_CHANNEL=sb.channel("community-notify:"+MP_USER_ID)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"friend_requests",filter:"receiver_id=eq."+MP_USER_ID},()=>{
+      COMMUNITY_BADGE.friendRequests++; communityUpdateNavBadge();
+      if(STATE.view==="community"){ COMMUNITY_FRIENDS_CACHE.loaded=false; render(); }
+    })
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"global_chat_messages"},payload=>{
+      if(payload.new.sender_id===MP_USER_ID) return;
+      if(STATE.view==="community"&&!COMMUNITY_ACTIVE_FRIEND) return;
+      COMMUNITY_BADGE.globalUnread=true; communityUpdateNavBadge();
+    })
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"friend_chat_messages",filter:"receiver_id=eq."+MP_USER_ID},payload=>{
+      if(STATE.view==="community"&&COMMUNITY_ACTIVE_FRIEND===payload.new.sender_id) return;
+      COMMUNITY_BADGE.friendChatUnread=true; communityUpdateNavBadge();
+    })
+    .subscribe();
+}
+function communityTeardownNotifications(){
+  if(COMMUNITY_NOTIFY_CHANNEL){ try{ COMMUNITY_NOTIFY_CHANNEL.unsubscribe(); }catch(e){} COMMUNITY_NOTIFY_CHANNEL=null; }
+  COMMUNITY_BADGE.friendRequests=0; COMMUNITY_BADGE.globalUnread=false; COMMUNITY_BADGE.friendChatUnread=false;
+  communityUpdateNavBadge();
+}
+function communityUpdateNavBadge(){
+  try{
+    const btn=document.querySelector('.nav-item[data-view="community"]');
+    if(!btn) return;
+    let dot=btn.querySelector(".community-notify-dot");
+    const show=COMMUNITY_BADGE.friendRequests>0||COMMUNITY_BADGE.globalUnread||COMMUNITY_BADGE.friendChatUnread;
+    if(show&&!dot){ dot=document.createElement("span"); dot.className="community-notify-dot"; btn.appendChild(dot); }
+    else if(!show&&dot){ dot.remove(); }
+  }catch(e){}
 }
 
 /* ---- Amici: chiunque abbia già condiviso una campagna con te, così puoi invitarlo
@@ -11771,16 +11961,25 @@ function viewCommunity(){
     wrap.append(el("div",{class:"card"},el("p",{class:"muted"},"Accedi da Impostazioni per usare la lobby pubblica e il pannello amici.")));
     return wrap;
   }
-  wrap.append(communityLobbyPanel());
+  const nickCard=communityNicknameCard(); nickCard.style.marginTop="0px";
+  wrap.append(nickCard);
+  const onlineCard=communityOnlinePanel(); onlineCard.style.marginTop="14px";
+  wrap.append(onlineCard);
+  const lobby=communityLobbyPanel(); lobby.style.marginTop="14px";
+  wrap.append(lobby);
+  if(!COMMUNITY_ACTIVE_FRIEND&&COMMUNITY_BADGE.globalUnread){ COMMUNITY_BADGE.globalUnread=false; communityUpdateNavBadge(); }
+  if(COMMUNITY_BADGE.friendRequests>0){ /* il pallino resta finché la richiesta non viene vista nel pannello amici qui sotto */ }
   if(COMMUNITY_ACTIVE_FRIEND){
     const friendRow=(COMMUNITY_FRIENDS_CACHE.list||[]).find(r=>r.player_id===COMMUNITY_ACTIVE_FRIEND);
     const friendCard=el("div",{class:"card",style:"margin-top:14px"});
     friendCard.append(communityFriendChatPanel(COMMUNITY_ACTIVE_FRIEND, (friendRow&&friendRow.display_name)||communityName(COMMUNITY_ACTIVE_FRIEND)));
     wrap.append(friendCard);
+    if(COMMUNITY_BADGE.friendChatUnread){ COMMUNITY_BADGE.friendChatUnread=false; communityUpdateNavBadge(); }
   } else {
     const friendsCard=communityFriendsPanel();
     friendsCard.style.marginTop="14px";
     wrap.append(friendsCard);
+    if(COMMUNITY_BADGE.friendRequests>0){ communityRefreshFriendRequestCount(); }
   }
   return wrap;
 }
@@ -34065,6 +34264,7 @@ function renderAuthGate(){
       passGateAndEnter();
       try{ mpTrackPresence(); }catch(e2){}
       try{ mpCheckInvites(true); }catch(e2){}
+      try{ communityInitNotifications(); }catch(e2){}
       try{ mpSyncAccountOnLogin(); }catch(e2){}
       checkForUpdatesOnLogin();
     }catch(e){ msg.textContent="❌ "+(e.message||e); okB.disabled=false; okB.textContent="Continua"; }
@@ -46900,7 +47100,7 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.105.0"; // v1.105.0 (29/10, RITRATTI DEDICATI PER TUTTE LE COMBINAZIONI STIRPE×CLASSE, SELEZIONE DEL GENERE E FIX CRASH DUNGEON 3D - richiesta di Carmine di completare le splash art dedicate per il mini gioco prima di pubblicare, poi "ci vogliono anche i personaggi femminili...con le splash art ecc...mi raccomando il fan service nelle illustrazioni che è per gli otaku e i nerd" con conferma di copertura completa (tutte le 36 combinazioni, come i maschi) e stile "più audace nei limiti del possibile" - restando comunque sempre entro ritratti non espliciti, non osé, mai nudità, in linea con le linee guida di contenuto di questa sessione. (1) RITRATTI DEDICATI MASCHILI: tutte le 36 combinazioni stirpe×classe (Umano/Elfo/Nano/Halfling/Dragonide/Tiefling × Combattente/Mago/Ladro/Chierico/Ranger/Barbaro) hanno ora un ritratto dedicato invece del solo ritratto generico di stirpe, nuovo RPG_PORTRAIT_ART (chiave "Stirpe|Classe", JPEG 180x180 incorporato in base64). (2) RITRATTI DEDICATI FEMMINILI: aggiunte le stesse 36 combinazioni in versione femminile (chiave "Stirpe|Classe|F" nello stesso RPG_PORTRAIT_ART), stile coerente con l'estetica action/fantasy già usata per i maschi. (3) SELEZIONE DEL GENERE: il gioco non aveva alcun campo genere - nuovo hero.gender ("M"/"F", default "M" per piena compatibilità con tutti i salvataggi precedenti tramite il nuovo rpgHeroGender, stesso principio già usato per rpgHeroGameDay/rpgHeroLastActive), nuovo passo "Aspetto" nel wizard di creazione personaggio (ora 5 passi: Nome/Stirpe/Classe/Aspetto/Caratteristiche) con scelta Maschio/Femmina e anteprima del ritratto risultante. rpgPortraitSvg ora riceve anche il genere e sceglie: ritratto dedicato del genere scelto, poi ritratto dedicato dell'altro genere, poi ritratto generico di stirpe, infine la silhouette procedurale di riserva - nessuna combinazione resta mai senza immagine. (4) FIX CRASH/BLOCCO ESPLORANDO IL DUNGEON (segnalazione di Carmine: "mentre usavano il mini gioco ed esploravano il dungeon non hanno funzionato più come se il server non funzionasse o addirittura crashava tutto e scomparivano"): causa reale individuata in render3DRoom, che ad ogni cambio di stanza nella vista 3D creava un nuovo THREE.WebGLRenderer senza mai distruggere il precedente (stopDungeon3D/DUNGEON3D_STATE.stop era collegato solo al bottone esplicito "✕ Chiudi vista 3D") - i browser impongono un tetto di contesti WebGL attivi contemporaneamente (circa 16), superato il quale il browser blocca o fa cadere la pagina esattamente come descritto nella segnalazione dopo aver esplorato diverse stanze. Corretto chiamando stopDungeon3D() come prima istruzione di render3DRoom ad ogni cambio stanza; stessa correzione preventiva applicata a openTable3DView, che condivide la stessa variabile di stato DUNGEON3D_STATE ed era esposta allo stesso rischio. Verificato: node --check pulito su tutti i blocchi script del file finale; conteggio chiavi di RPG_PORTRAIT_ART (72 totali, 36 maschili + 36 femminili, zero duplicati); tutti i 6 punti di chiamata di rpgPortraitSvg aggiornati e passano il genere corretto (riga eroi, HUD, scheda Città, scheda personaggio, anteprima del wizard); catena di fallback verificata per ogni combinazione, incluse quelle prive di un ritratto dedicato per un genere. Nessuna logica di gioco preesistente toccata oltre ai punti indicati. sha256: calcolato al deploy effettivo (vedi version.json).
+var ROLLONE_CONTENT_VERSION = "1.106.0"; // v1.106.0 (3/11, NICKNAME PUBBLICO + LOBBY ONLINE + NOTIFICHE COMMUNITY - richiesta di Carmine: "la community sta crescendo...sistemare multiplayer chat globali private inviti presenze on-line ecc...attualmente si invita solo tramite mail, non è possibile vedere i giocatori on-line". Scelte confermate da Carmine: ricerca per nickname pubblico univoco (non solo email, non solo elenco online); tutte le priorità selezionate (lobby online con invito diretto, chat globale più visibile, notifiche di richieste/inviti). (1) NICKNAME PUBBLICO: nuova colonna players.nickname (univoca, case-insensitive, 3-20 caratteri a-z0-9_), migration add_player_nicknames già applicata su Supabase con backfill automatico per i giocatori esistenti, nuove RPC set_nickname e send_friend_request_by_nickname (parallela a send_friend_request_by_email, che resta disponibile). Card dedicata in cima alla schermata Community per impostare/cambiare il proprio nickname. (2) LOBBY "CHI È ONLINE": nuovo pannello che legge la presenza Realtime già esistente (canale "rollone-lobby", nessuna nuova sottoscrizione) ed elenca chi è connesso ora, con pallino di stato, nickname, e azione contestuale (scrivi se già amici, richiesta in attesa, accetta se in arrivo, altrimenti invia richiesta di amicizia) più una casella di ricerca per nickname per invitare anche chi è offline. (3) NOTIFICHE: nuovo pallino rosso pulsante sul pulsante "Community" della barra di navigazione (prima inesistente), acceso da un canale Realtime dedicato per richieste di amicizia in arrivo, messaggi nuovi in chat globale e in chat privata, attivo dal login al logout indipendentemente dalla schermata su cui si trova il giocatore. Verificato: node --check pulito su tutti i 16 blocchi script del file; nessuna funzione duplicata; tutte le funzioni/RPC esistenti (presenza, chat globale, chat privata, elenco amici via RPC list_friends) riusate senza modifiche. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
 // var ROLLONE_CONTENT_VERSION = "1.103.0"; // v1.103.0 (29/10, TROFEO "CAMPIONE DEI CAMPIONI" - richiesta esplicita di Carmine dopo aver visto il video promozionale: "fammene un altro in cui si sfida ogni giocatore a trovare le armi leggendarie di massimo grado e finire il dungeon divino sbloccando così vicino al suo nome il trofeo di campione dei campioni quando avrà trovato ogni sorta di equip e mostro presente in game... bisogna inserire una sorta di achievement e registro degli equip e bestiario che si aggiornano man mano". Il "dungeon divino" richiesto esisteva già nei dati (RPG_DUNGEONS/godsdungeon, "Dungeon delle Divinità", sbloccato a livello 1000, letale, introdotto in v1.100.0) - qui si aggiunge solo il traguardo legato a superarlo. (1) REGISTRO EQUIPAGGIAMENTO: nuovo STATE.rpg.equipCodex, marcato da rpgEquipCodexMark alla GENERAZIONE di ogni arma/armatura/equip minore (rpgMakeWeapon/rpgMakeArmor/rpgMakeEquip) - traccia ogni combinazione slot+tier mai ottenuta almeno una volta (48 in tutto: 8 armi, 8 armature, 32 equip minori su 4 slot). Il bestiario aveva già il suo registro (STATE.rpg.codex, da versioni precedenti) e non è stato toccato. (2) SCHEDA TROFEI: nuova quarta scheda "🏆 Trofei" nel Compendio (rpgChampionProgress), che mostra le quattro condizioni del trofeo con segno di spunta e il progresso numerico: bestiario completo (ogni mostro di RPG_MONSTERS incontrato), equipaggiamento completo (tutti i 48 pezzi ottenuti), un Oggetto Leggendario di grado 10 (il massimo, introdotto in v1.101.0) mai trovato, e il Dungeon delle Divinità superato. Le prime tre condizioni sono calcolate DAL VIVO ad ogni apertura della scheda, mai salvate - nessuna nuova possibilità di corruzione del salvataggio; la quarta (hero.godsDungeonCleared) è l'unica eccezione necessaria, impostata in closeCombat quando si abbatte un guardiano mentre si è nel Dungeon delle Divinità, perché quel traguardo deve restare vero per sempre anche dopo essere usciti da quel dungeon. (3) TROFEO ACCANTO AL NOME: quando tutte e quattro le condizioni sono vere, un'icona 🏆 compare accanto al nome dell'eroe in ogni punto dove il nome è già mostrato (barra superiore, schermata Città, scheda personaggio) - nessuna schermata nuova dedicata, lo stesso nome guadagna semplicemente il trofeo. Verificato: node --check pulito su tutti i blocchi script del file finale; test dedicato che marca manualmente ogni condizione una per volta e conferma che il trofeo compare solo a tutte e quattro completate, mai prima; verificato che il conteggio del catalogo equipaggiamento (48) corrisponde esattamente alla somma di RPG_SHOP_WEAPONS+RPG_SHOP_ARMORS+RPG_LOOT_EQUIP; verificato che godsDungeonCleared scatta SOLO abbattendo un guardiano nel Dungeon delle Divinità, non in un boss qualunque di un altro dungeon; rendering reale in jsdom della scheda Trofei sia a zero completamento sia a completamento pieno, e del nome con trofeo nelle tre schermate coinvolte, senza eccezioni; nessuna regressione sulle suite preesistenti. Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
 // var ROLLONE_CONTENT_VERSION = "1.102.0"; // v1.102.0 (28/10, ISPIRATO A ROLLCAMP.COM su richiesta esplicita di Carmine: "naviga su rollcamp.com, prendi spunto di ogni cosa e migliora l'app in tutto" - esplorato il sito (scheda personaggio, bacheca comunitaria, compendium ricercabile, pagina prezzi onesta, wizard di creazione campagna a passi), poi "tutti" per implementare tutti e cinque gli spunti proposti. (1) STORIA DEL PERSONAGGIO: ogni eroe nasce ora con due-tre frasi di backstory generate da stirpe+classe (RPG_BACKSTORY_RACE/RPG_BACKSTORY_CLASS, rpgGenerateBackstory), mostrate in una nuova sezione "Storia" sulla scheda; i salvataggi precedenti a questa versione ne ricevono una al volo tramite rpgHeroBackstory (stesso principio di rpgHeroGameDay/rpgHeroQuests). (2) COMPENDIO: nuova schermata a tre schede (Bestiario/Leggendari/Mestieri, rpgViewCompendio) che riunisce in un unico posto consultabile il bestiario gia' esistente, gli Oggetti Leggendari mai trovati finora (nuovo STATE.rpg.legendaryCodex, aggiornato ad ogni acquisto dal mercante) e la lista dei mestieri disponibili con le rispettive rese - nessun dato nuovo, solo un indice di quanto gia' presente nel gioco. Il bottone "Codex" sulla scheda ora porta qui al posto del solo bestiario. (3) BACHECA: nuova schermata con le novita' ufficiali per versione (RPG_NEWS) e una nota di trasparenza sul gioco (gratis, senza acquisti in-app, non ufficiale D&D) - versione onesta dell'idea di community di RollCamp: senza un server dietro Mythrender non puo' esistere una vera bacheca multi-utente, quindi si e' scelto di non promettere cio' che l'app non puo' davvero fare. (4) CREAZIONE PERSONAGGIO A PASSI: rpgViewCreate, prima un unico form lungo con nome/stirpe/classe/caratteristiche tutti insieme, e' ora un wizard a 4 passi (Nome/Stirpe/Classe/Caratteristiche) con barra di avanzamento "Passo X di 4" e bottoni Avanti/Indietro, per ridurre l'abbandono a meta' - stessa identica logica di validazione e creazione del personaggio del passo finale, solo spostata dentro l'ultimo passo invece che in fondo a un form unico. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; rendering diretto in Node.js con jsdom di tutte le nuove schermate (Compendio su tutte e tre le schede, Bacheca, scheda personaggio con la sezione Storia) senza eccezioni; test dedicato sull'intero flusso del wizard di creazione passo per passo fino alla conferma finale, con verifica che nessun eroe esista prima della conferma e che riceva comunque una backstory; test sulla generazione della backstory (mai vuota, varia per stirpe) e sul ripiego per i salvataggi precedenti; test sul tracciamento dei leggendari trovati nel Compendio; nessuna regressione sulle suite preesistenti (sonno automatico, mestiere offline, sospensione missioni gilda, nomi oggetti/statistiche visibili, audio ambientale, oggetti leggendari). Nessuna logica di gioco preesistente toccata. sha256: calcolato al deploy effettivo (vedi version.json).
 // var ROLLONE_CONTENT_VERSION = "1.101.0"; // v1.101.0 (28/10, SECONDO BATCH DI RICHIESTE DI CARMINE SUBITO DOPO LA v1.100.0, elenco puntuale: "Incrementa la varietà di oggetti e equipe nel mercante...aumenta il grado degli oggetti fino al livello divino...introduci oggetti leggendari (da grado 1 al 10 che stravolge il game e che ha una possibilità di 1 su 1.000.000 di uscire di grado massimo) dal mercante; Limitare l'uso della locanda: quando si riposa in locanda deve partire un timer di 8 ore reali che blocca tutte le funzioni di esplorazioni ecc...con un messaggio: Sto riposando, non disturbare; le missioni in gilda devono poter essere annullabili ma come penalità bisogna aspettare 1 ora reale per averne un'altra; serve un contatore per i giorni passati nel mini gioco (riferimento le 8 ore di sonno); se non si gioca per 16 ore consecutive il PG va a dormire in automatico in locanda facendo scattare il contatore giorni; migliora i suoni ambientali effetti ecc...quando si cambia schermata devono cessare (se dal minigioco passo alla modalità scheda i suoni continuano e non deve accadere); inserisci la scelta del mestiere: mentre non si gioca il PG lavora e accumula risorse (vedi tu come gestire la cosa)." Più una segnalazione arrivata a metà lavorazione: "fuxa il fatto che se clicco sull'equip non vedo cosa fa e i bonus che mi dà...inoltre quasi tutto ha lo stesso nome...metti nomi anche strani, alla Shakes and Fidget in pratica." Tutti gli otto punti affrontati in questa stessa release. (1) FIX SUONI AMBIENTALI (rpg_ui.js): causa reale trovata subito - go(view,extra), lo switcher di vista PRINCIPALE dell'intera app (non il solo modulo RPG), non chiamava mai rpgAmbientSet/rpgAmbientReflectScreen uscendo da STATE.view==="rpg" verso qualunque altra sezione (es. la scheda personaggio del compendio D&D): un loop ambientale (rpg-town.mp3/dungeon.ogg) restava attivo per sempre anche fuori dal minigioco. Un secondo punto di fuga indipendente trovato nel gestore "popstate" di initNavHistory() (Indietro/Avanti del browser), che cambia STATE.view scavalcando go() del tutto. Corretto in ENTRAMBI i punti: appena si lascia "rpg" per un'altra vista, rpgAmbientSet(null) viene chiamato prima di cambiare schermata. Verificato con esecuzione reale in jsdom: ambient attivo mentre si e' in RPG, poi azzerato sia da go("character") sia dal simulato popstate verso "home", senza mai azzerarsi quando si resta dentro al modulo RPG passando da una schermata interna a un'altra. (2) MERCANTE - VARIETÀ ED OGGETTI LEGGENDARI: la vetrina casuale (rpgRollShopWares) ora propone 3-5 pezzi di equip ad ogni rinnovo (prima 2-3). Nuovo RPG_RARITY.legendary, che esisteva nei dati fin dalla prima versione ma non era MAI stato assegnato a nessun oggetto reale (rpgRarityForTier si fermava a "epic") - introdotti dieci Oggetti Leggendari (RPG_LEGENDARY_GRADES, grado 1-10), ciascuno può comparire in uno qualunque dei sei slot equipaggiabili (arma/armatura/elmo/guanti/stivali/ciondolo, scelto a caso alla generazione - rpgDerivedHero legge già i bonus genericamente per tutti gli slot, nessuna modifica al motore di combattimento necessaria) e tirato ad ogni rinnovo della bancarella con probabilità crescenti quasi geometricamente da 1/500 (grado 1) a ESATTAMENTE 1/1.000.000 per il grado 10 massimo, come richiesto testualmente. Riga evidenziata in oro con bagliore pulsante (CSS) nella vetrina quando compare. Verificato forzando Math.random a valori estremi: un tiro fortunatissimo produce sempre grado 10, uno sfortunato nessun leggendario; equipaggiare un Oggetto Leggendario di grado 10 applica davvero CA/PF/Danno più alti del normale su rpgDerivedHero. (3) LOCANDA - BLOCCO REALE DI 8 ORE: "Riposa" ora avvia hero.sleepUntil = adesso + 8 ore reali (RPG_INN_LOCK_MS); rpgGo (lo switcher di schermata INTERNO al modulo RPG) rifiuta di entrare in qualunque schermata di esplorazione (scelta dungeon/dungeon/combattimento/spoglie/evento dungeon) mentre il blocco e' attivo, rimandando sempre in Locanda con il messaggio testuale richiesto "😴 Sto riposando, non disturbare." e il tempo restante; la schermata della Locanda stessa mostra un conto alla rovescia invece del pulsante "Riposa" mentre si dorme. Verificato: tentare dungeonSelect durante il blocco viene rimandato a "inn"; una schermata non di esplorazione come "shop" resta invece raggiungibile; passato il tempo del blocco, dungeonSelect torna accessibile normalmente. (4) CONTATORE GIORNI DI GIOCO: nuovo hero.gameDay (parte da 1), incrementato di 1 ad ogni ciclo di riposo (manuale in Locanda O automatico, vedi punto 5) tramite la funzione condivisa rpgStartSleep - mostrato nella schermata Città e nella Locanda stessa ("Giorno N dell'avventura"). (5) SONNO AUTOMATICO DOPO 16 ORE DI INATTIVITÀ: nuovo hero.lastActiveAt, aggiornato ad ogni ingresso nella schermata RPG (viewRpg); se al rientro sono passate 16+ ore reali consecutive, rpgCheckAutoSleep fa addormentare il personaggio da solo in Locanda (cura completa, usi abilità ripristinati, giorno avanzato) SENZA però imporre anche il blocco manuale di 8 ore - chi torna dopo 16+ ore e' già stato via più del blocco stesso, riproporglielo sarebbe solo punitivo. Se si era rimasti dentro al dungeon/un combattimento, si viene riportati in Locanda. Verificato: 17 ore di inattività fanno scattare il sonno automatico (giorno +1, PF pieni, nessun lock aggiuntivo); 2 ore no; una chiamata reale a viewRpg() con lo schermo fermo su "dungeon" da 20 ore reindirizza correttamente a "inn". (6) GILDA - MISSIONI ANNULLABILI CON PENALITÀ: nuovo bottone "✕ Annulla missione" su ogni missione attiva, libera subito lo slot ma imposta hero.questCooldownUntil = adesso + 1 ora reale (RPG_QUEST_CANCEL_COOLDOWN_MS); mentre il cooldown è attivo "Accetta una nuova missione" è sostituito da un avviso col tempo restante, anche se c'erano slot liberi. Verificato: annullare una missione attiva il cooldown; il cooldown scade correttamente passata l'ora. (7) MESTIERE/LAVORO OFFLINE: nuova scelta di mestiere sulla scheda del personaggio (Minatore/Erborista/Mercante Ambulante/Cercatore di Reliquie, RPG_JOBS), ciascuno produce una risorsa diversa al ritmo di "perHour" per ogni ora reale trascorsa dall'ultima raccolta (hero.jobLastCollectedAt) - calcolato una sola volta per finestra di assenza da rpgJobProcessOffline, richiamato da viewRpg() esattamente come il sonno automatico, con un tetto di 7 giorni reali di accumulo per non generare numeri assurdi a chi lascia il personaggio fermo per mesi (nessuna richiesta esplicita in merito, scelta di buon senso). Il Cercatore di Reliquie accumula un progresso frazionario e consegna reliquie intere vere e proprie nell'inventario quando il progresso supera 1. Verificato: 10 ore di assenza con mestiere Minatore aggiungono esattamente l'oro/minerale previsto; chiamate ripetute senza tempo trascorso non raddoppiano mai la ricompensa; il tetto di 7 giorni viene davvero applicato con 1000 ore simulate; il Cercatore di Reliquie consegna reliquie vere in inventario. (8) BONUS EQUIP VISIBILI + NOMI PIÙ VARI (segnalazione arrivata a metà lavorazione): prima NESSUNA schermata (Zaino/Mercante/Spoglie/Scheda) mostrava mai i bonus reali (CA/Attacco/PF/Danno/dado arma/affilatura) di un oggetto, solo nome e lore puramente estetica - nuova rpgItemStatLine, usata ora ovunque compaia un oggetto, sempre visibile senza bisogno di alcun click. Per la varietà dei nomi (richiesta "alla Shakes and Fidget"): nuovo RPG_ITEM_EPITHETS, un pool di epiteti buffi/assurdi in italiano (stile "del Lombrico Testardo", "della Capra Filosofica", ecc.) accodati con il 40% di probabilità al nome base di armi/armature/equip/reliquie generate - MAI agli Oggetti Leggendari del punto (2), che restano con un nome serio per contrasto deliberato. Verificato: la riga statistiche compare con i numeri corretti su armi/equip; 200 reliquie generate dallo stesso identico template producono almeno 5 nomi distinti grazie agli epiteti; un Oggetto Leggendario non riceve mai un epiteto. Verificato: node --check pulito su tutti i 16 blocchi script del file finale; bilanciamento graffe pulito su tutti i 6 blocchi CSS; l'intera app caricata ed eseguita per davvero in jsdom con asserzioni dirette sulle funzioni live per ciascuno degli otto punti sopra, incluso un test finale che combina sonno automatico + mestiere offline + reindirizzamento fuori dal dungeon in una singola chiamata a viewRpg(), e il rendering reale (non solo i dati) delle schermate Mercante/Zaino/Scheda/Gilda con un Oggetto Leggendario equipaggiato, senza eccezioni. Non verificato con un dispositivo Android/browser reale end-to-end in questa sessione. Deploy (sito/Netlify, build Android, Discord) non eseguito in questa sessione: sha256 del manifest verrà calcolato al momento del deploy effettivo, come da prassi.
