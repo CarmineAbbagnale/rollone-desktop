@@ -1,10 +1,10 @@
 {
-  "version": "1.106.0",
+  "version": "1.107.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "c892623e21b5ce329918c0db80b9f5dfd16498ae05ceb0206580f16f656b9075",
+  "sha256": "cfe788bdb83b429d8e2103b52f4023a1be7e637da06f9f2a56cd0546caa9dcd6",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Nuovo: nickname pubblico, lobby di chi e' online e notifiche per richieste di amicizia e messaggi, nella sezione Community."
+    "notice": "Nuovo: puoi invitare qualcuno al tavolo cercando il suo nickname, anche vedendo chi e' online in quel momento."
   }
 }
