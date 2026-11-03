@@ -1,10 +1,10 @@
 {
-  "version": "1.105.0",
+  "version": "1.106.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "01243bcbed04a9106560a73971ad0dfdbb6a25d88795db550565e8e1cb28acdd",
+  "sha256": "c892623e21b5ce329918c0db80b9f5dfd16498ae05ceb0206580f16f656b9075",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Il sito ora si chiama mythrender-site (prima fumblerpg-site): solo l'indirizzo e' cambiato, nessun dato o account perso. Aggiornato anche il link di accesso per conferma email e recupero password."
+    "notice": "Nuovo: nickname pubblico, lobby di chi e' online e notifiche per richieste di amicizia e messaggi, nella sezione Community."
   }
 }
