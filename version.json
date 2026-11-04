@@ -1,10 +1,10 @@
 {
-  "version": "1.109.0",
+  "version": "1.109.1",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "616da4a57c2887f6ec4af4ee1d754c2666a499896b3af52df2f84dff61ff19e8",
+  "sha256": "8fb58412b98a4766cac40d4e3063c17c9c0a527d35baf00717a43b8a8f25ac96",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Nuovo: infrastruttura per le illustrazioni dedicate dei mostri sul Tavolo e dei ritratti specie/classe nel wizard (72 gia' disponibili, altre in arrivo a piccoli lotti)."
+    "notice": "Nuovo: primi 6 mostri con illustrazione dedicata sul Tavolo (Aboleth, Balor, Behir, Deva, Diavolo della fossa, Diavolo del ghiaccio), altri in arrivo a piccoli lotti."
   }
 }
