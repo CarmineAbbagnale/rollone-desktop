@@ -1,10 +1,10 @@
 {
-  "version": "1.107.0",
+  "version": "1.109.0",
   "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "cfe788bdb83b429d8e2103b52f4023a1be7e637da06f9f2a56cd0546caa9dcd6",
+  "sha256": "616da4a57c2887f6ec4af4ee1d754c2666a499896b3af52df2f84dff61ff19e8",
   "apk": {
     "minVersionName": "1.12.3",
     "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Nuovo: puoi invitare qualcuno al tavolo cercando il suo nickname, anche vedendo chi e' online in quel momento."
+    "notice": "Nuovo: infrastruttura per le illustrazioni dedicate dei mostri sul Tavolo e dei ritratti specie/classe nel wizard (72 gia' disponibili, altre in arrivo a piccoli lotti)."
   }
 }
