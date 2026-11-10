@@ -1,10 +1,10 @@
 {
-  "version": "1.109.1",
-  "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-  "sha256": "8fb58412b98a4766cac40d4e3063c17c9c0a527d35baf00717a43b8a8f25ac96",
-  "apk": {
-    "minVersionName": "1.12.3",
-    "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-    "notice": "Nuovo: primi 6 mostri con illustrazione dedicata sul Tavolo (Aboleth, Balor, Behir, Deva, Diavolo della fossa, Diavolo del ghiaccio), altri in arrivo a piccoli lotti."
-  }
+    "version": "1.109.2",
+    "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
+    "sha256": "81e53d53edd0e4a7bb4bbb730d0a37a27d3251b85c99c9ef493164c5d4a08a1a",
+    "apk": {
+          "minVersionName": "1.12.3",
+          "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
+          "notice": "Nuovo: altri 94 mostri con illustrazione dedicata sul Tavolo (100 su 960 totali), altri in arrivo a piccoli lotti."
+    }
 }
