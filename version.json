@@ -1,10 +1,1 @@
-{
-    "version": "1.109.2",
-    "htmlUrl": "https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html",
-    "sha256": "81e53d53edd0e4a7bb4bbb730d0a37a27d3251b85c99c9ef493164c5d4a08a1a",
-    "apk": {
-          "minVersionName": "1.12.3",
-          "downloadUrl": "https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download",
-          "notice": "Nuovo: altri 94 mostri con illustrazione dedicata sul Tavolo (100 su 960 totali), altri in arrivo a piccoli lotti."
-    }
-}
+{"version":"1.109.3","htmlUrl":"https://raw.githubusercontent.com/CarmineAbbagnale/rollone-desktop/main/rollone.html","sha256":"fdb27b21e25411f48d7d975ee8be11e45108bfc10f788dd149b6bc7a302f22a4","apk":{"minVersionName":"1.12.3","downloadUrl":"https://carmineabbagnale.github.io/mythrender-site/la-mia-app/#download","notice":"Corretti 14 nomi di mostri che avevano la categoria incollata al nome (es. Mummia, Scheletro, Mago). I tuoi salvataggi restano compatibili."}}
