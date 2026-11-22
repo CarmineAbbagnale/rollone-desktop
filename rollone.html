@@ -32817,7 +32817,13 @@ const MONSTER_SPLASH_ART=new Set([
   // popolato mano a mano che le illustrazioni vengono generate e caricate in assets/monsters_splash/,
   "Assassino","Drago bianco cucciolo","Drago bianco giovane","Drago bianco antico","Drago blu cucciolo","Drago blu giovane","Drago blu adulto","Drago blu antico","Drago d'argento cucciolo","Drago d'argento giovane","Drago d'argento adulto","Drago d'argento antico","Drago di bronzo cucciolo","Drago di bronzo giovane","Drago di bronzo adulto","Drago di bronzo antico","Drago di rame cucciolo","Drago di rame giovane","Drago di rame adulto","Drago di rame antico","Drago d'oro cucciolo","Drago d'oro giovane","Drago d'oro adulto","Drago d'oro antico","Drago d'ottone cucciolo","Drago d'ottone giovane","Drago d'ottone adulto","Drago d'ottone antico","Drago nero cucciolo","Drago nero giovane","Drago nero antico",
   "Drago rosso cucciolo","Drago rosso giovane","Drago rosso antico","Drago verde cucciolo","Drago verde giovane","Drago verde adulto","Drago verde antico","Ghast","Golem di carne","Mezzodrago","Pseudodrago","Testuggine dragona","Arto di troll","Vrock","Wraith","Zombi ogre","Alce gigante","Avvoltoio gigante","Capra gigante","Cavalluccio marino gigante","Coccodrillo gigante","Faina gigante","Gorilla gigante","Gufo gigante","Iena gigante","Lucertola gigante",,"Millepiedi gigante",
-  "Piovra gigante","Ragno lupo gigante","Scarabeo di fuoco gigante","Serpente stritolatore gigante","Serpente velenoso gigante","Squalo gigante","Tasso gigante","Demilich","Orco Occhio di Gruumsh","Bracco delle rocce","Demone ombra","Zombi osservatore","Mosca gigante","Zombie putrescente","Drago d'ossa ancestrale","Spettro del rimorso","Idra minore delle paludi","Golem di sabbia infuocata","Spettro del Molo Sommerso","Drago Corrotto dalla Piaga","Uovo di Drago","Drago Giovane dei Picchi","Drago Adulto Selvaggio","Ignara, la Fiamma Incontrollata","Spettro Comune","Progenie Zombie","Avacyn, l'Angelo Custode","Servitore Zombie Grezzo","Angelo di Serra","Angelo di Emeria","Demone Vincolato al Patto","Lich Minore dei Ghiacci","Sovrano-Lich delle Tombe Eterne","Gigante delle Terre Selvagge","Gigante delle Tempeste di Kaldheim","Golem di Rame Vivente","Idra Giovane","Idra delle Paludi","Idra Primordiale","Kraken dell'Abisso Senza Fondo","Grifone da Guerra","Basilisco Pietrificante"
+  "Piovra gigante","Ragno lupo gigante","Scarabeo di fuoco gigante","Serpente stritolatore gigante","Serpente velenoso gigante","Squalo gigante","Tasso gigante","Demilich","Orco Occhio di Gruumsh","Bracco delle rocce","Demone ombra","Zombi osservatore","Mosca gigante","Zombie putrescente","Drago d'ossa ancestrale","Spettro del rimorso","Idra minore delle paludi","Golem di sabbia infuocata","Spettro del Molo Sommerso","Drago Corrotto dalla Piaga","Uovo di Drago","Drago Giovane dei Picchi","Drago Adulto Selvaggio","Ignara, la Fiamma Incontrollata","Spettro Comune","Progenie Zombie","Avacyn, l'Angelo Custode","Servitore Zombie Grezzo","Angelo di Serra","Angelo di Emeria","Demone Vincolato al Patto","Lich Minore dei Ghiacci","Sovrano-Lich delle Tombe Eterne","Gigante delle Terre Selvagge","Gigante delle Tempeste di Kaldheim","Golem di Rame Vivente","Idra Giovane","Idra delle Paludi","Idra Primordiale","Kraken dell'Abisso Senza Fondo","Grifone da Guerra","Basilisco Pietrificante",
+
+  // v1.109.7: +63 mostri
+  "Alce","Aquila","Avvoltoio","Babbuino","Bandito","Beccoaguzzo","Boleto stridente","Bullywug","Cammello","Cane intermittente","Capra","Cavallo da galoppo","Cavallo da tiro","Cavalluccio marino","Cespuglio risvegliato","Cinghiale","Coboldo","Coboldo alato","Coboldo guerriero","Corvo","Cultista","Daino","Dretch","Elefante","Faina","Falco","Falco di sangue","Flumph","Gatto","Goblin guerriero","Goblin tirapiedi","Granchio","Grimlock","Guardia","Guerriero di fanteria","Gufo","Iena","Kenku (mostro)","Kuo-toa","Lemure","Lucertola","Lupo","Marinide schermagliatore","Mastino","Mephit del vapore","Merfolk","Mulo","Mummia","Nobile","Omuncolo","Piovra","Pipistrello","Piranha","Pony","Popolano","Quipper","Ragno","Rana","Sciacallo","Scorpione","Tasso","Topo","Uccello stigeo",
+
+  // v1.109.7: +32 mostri
+  "Bruto","Cavallo da guerra","Coccatrice","Coccodrillo","Darkmantle","Doppelganger","Esploratore","Gnoll guerriero","Gnomo delle profondità","Gorilla","Magmin","Mantoscuro","Mephit del ghiaccio","Mephit del magma","Mephit della polvere","Ombra","Orso nero","Pantera","Piercer","Pteranodonte","Rugginofago","Sacerdote accolito","Sahuagin","Scheletro","Sciame di corvi","Sciame di pipistrelli","Serpente stritolatore","Spada volante animata","Spiritello","Squalo tropicale","Troglodita","Uomo lucertola (mostro)",
 ]);
 function monsterSplashSlug(name){
   return String(name||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
@@ -39263,7 +39269,15 @@ function showPfStatblock(m){
 }
 function showStatblock(m){
   const sb=el("div",{class:"statblock"});
-  sb.append(el("h3",{},m.n),
+  sb.append(el("h3",{},m.n));
+  // v1.109.7: illustrazione dedicata nella scheda del mostro (se presente), nascosta se non carica.
+  const _spUrl=monsterSplashUrl(m.n);
+  if(_spUrl){
+    const _im=el("img",{src:_spUrl,alt:m.n,loading:"lazy",style:"display:block;width:100%;max-width:320px;aspect-ratio:1/1;object-fit:cover;border-radius:10px;margin:8px auto;border:1px solid #7a5a1a"});
+    _im.onerror=()=>{ _im.style.display="none"; };
+    sb.append(_im);
+  }
+  sb.append(
     el("div",{style:"font-style:italic;color:#5a3a1a"},`${m.size} ${m.type}${m.align?", "+m.align:""}`),
     m._homebrew?el("div",{style:"font-size:12px;color:#7a5a1a;margin-top:2px"},"🌿 Creatura Homebrew (non ufficiale, originale di Mythrender)"):
       // BUG FIX (v1.56.0): qui sotto si chiama sb.append() nativo (Element.append), non il
@@ -39622,6 +39636,17 @@ function viewBestiary(){
       // non serve più sacrificare l'icona illustrativa per quell'informazione.
       if(isLegend){ avatar=el("div",{class:"avatar avatar-legend"}); avatar.innerHTML=LEGEND_AVATAR_SVG; }
       else{ avatar=el("div",{class:"avatar"}); avatar.innerHTML=monsterIconFor(m.type); }
+      // v1.109.7: illustrazione dedicata anche nel Bestiario (prima solo sul Tavolo): se il mostro
+      // ha la sua splash art la mostra al posto dell'icona per tipo; se l'immagine non si carica
+      // (offline, file mancante) torna all'icona precedente senza lasciare il riquadro vuoto.
+      const splashUrl=monsterSplashUrl(m.n);
+      if(splashUrl){
+        const fallbackHtml=avatar.innerHTML, fallbackCls=avatar.className;
+        const im=el("img",{src:splashUrl,alt:m.n,loading:"lazy",decoding:"async"});
+        im.onerror=()=>{ avatar.className=fallbackCls; avatar.innerHTML=fallbackHtml; };
+        avatar.className="avatar has-portrait"+(isLegend?" avatar-legend":"");
+        avatar.innerHTML=""; avatar.append(im);
+      }
       return el("div",{class:"card charcard"+(isLegend?" charcard-legend":""),onclick:()=>showStatblock(m)},
         el("div",{class:"cc-top"},el("div",{},el("h3",{style:"font-size:17px"},m.n),
           el("div",{class:"lvl"},`${m.size} ${m.type}`)),
@@ -47459,7 +47484,8 @@ function removeDarkGift(character, giftName) {
 (function(){
   if (!window.Capacitor) return;
  // v1.80.1 (20/10): (20/10): sostituita ovunque l'icona dell'app (favicon incorporato in rollone.html, favicon del sito, icone PWA, immagine di anteprima social) con il nuovo logo di Mythrender fornito da Carmine: drago e d20 su sfondo scuro. Solo l'immagine e' cambiata, nessun identificativo tecnico toccato. sha256: 979227c92a5ecaad4d8fdeca657e1179ee29fe89d26f032c92d4a1e19eb0809b.
-var ROLLONE_CONTENT_VERSION = "1.109.6"; // v1.109.6 (13/11): +42 mostri con splash art (200 su 960): Orco Occhio di Gruumsh, Demilich, draghi speciali, angeli, lich, idre, kraken, grifone da guerra, basilisco pietrificante e altri.
+var ROLLONE_CONTENT_VERSION = "1.109.7"; // v1.109.7 (22/11): BESTIARIO E SCHEDA MOSTRO mostrano ora l'illustrazione dedicata (prima solo sul Tavolo, gli utenti non la trovavano cercando le creature); piu nuovi mostri con splash art.
+// var ROLLONE_CONTENT_VERSION = "1.109.6"; // v1.109.6 (13/11): +42 mostri con splash art (200 su 960): Orco Occhio di Gruumsh, Demilich, draghi speciali, angeli, lich, idre, kraken, grifone da guerra, basilisco pietrificante e altri.
 // var ROLLONE_CONTENT_VERSION = "1.109.5"; // v1.109.5 (13/11): +27 mostri con illustrazione dedicata sul Tavolo (158 su 960): Drago rosso e Drago verde (tutte le età), Ghast, Golem di carne, Mezzodrago, Pseudodrago, Testuggine dragona, Arto di troll, Vrock, Wraith, Zombi ogre e 14 animali giganti (alce, avvoltoio, capra, cavalluccio marino, coccodrillo, faina, gorilla, gufo, iena, lucertola, millepiedi). Lotto rilasciato a quota giornaliera di generazione esaurita, su richiesta di Carmine.
 // var ROLLONE_CONTENT_VERSION = "1.109.4"; // v1.109.4 (11/11): +31 mostri con illustrazione dedicata sul Tavolo (131 su 960): Assassino e i draghi per colore ed età (bianco, blu, d'argento, di bronzo, di rame, d'oro, d'ottone: cucciolo/giovane/adulto/antico; nero: cucciolo/giovane/antico). Lotto rilasciato a quota giornaliera di generazione esaurita, su richiesta di Carmine.
 // // v1.109.3 (11/11): corretti 14 nomi di mostri SRD con categoria incollata al nome senza separatore (es. MummieMummia ora Mummia, ScheletriScheletro ora Scheletro, MaghiMago ora Mago); i salvataggi con i vecchi nomi continuano a funzionare tramite LEGACY_MONSTER_NAMES/monLegacyName.
